@@ -20,9 +20,11 @@ const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 export function getBoardGeometry(width: number, height: number) {
   const ratio = 23.77 / 10.97;
-  const courtHeight = Math.max(1, Math.min((height - 48) / 1.32, (width - 36) / 1.3 * ratio));
+  const topInset = 52, bottomInset = 42;
+  const availableHeight = Math.max(1, height - topInset - bottomInset);
+  const courtHeight = Math.max(1, Math.min(availableHeight, (width - 40) * ratio));
   const courtWidth = courtHeight / ratio;
-  const court = { x: (width - courtWidth) / 2, y: (height - 30 - courtHeight) / 2, width: courtWidth, height: courtHeight };
+  const court = { x: (width - courtWidth) / 2, y: topInset + (availableHeight - courtHeight) / 2, width: courtWidth, height: courtHeight };
   return {
     court,
     toCanvas: (point: Point): Point => [court.x + point[0] * court.width, court.y + point[1] * court.height],
@@ -211,27 +213,30 @@ function distanceToPath(point: Point, path: BoardPath, geometry: Geometry) {
 /** Selection handles take priority, then actors, then visible objects and routes. */
 export function hitTestBoard(pixel: Point, width: number, height: number, frame: BoardFrame, actors: BoardActor[], selection?: BoardSelection | null): BoardHit | null {
   const geometry = getBoardGeometry(width, height);
+  const minimumTouchRadius = 22;
   if (selection?.kind === "element") {
     const path = frame.paths.find(item => item.id === selection.id);
     if (path) {
       const handles = (["from", "to", "control"] as const).flatMap(handle => path[handle] ? [{ handle, distance: distance(pixel, geometry.toCanvas(path[handle]!)) }] : []).sort((a, b) => a.distance - b.distance);
-      if (handles[0] && handles[0].distance <= 20) return { kind: "handle", id: path.id, handle: handles[0].handle };
+      if (handles[0] && handles[0].distance <= 24) return { kind: "handle", id: path.id, handle: handles[0].handle };
     }
   }
-  const actorHit = actors.flatMap(actor => frame.poses[actor.id] ? [{ actor, distance: distance(pixel, geometry.toCanvas(frame.poses[actor.id])) }] : []).filter(item => item.distance <= 21).sort((a, b) => a.distance - b.distance)[0];
+  const actorHit = actors.flatMap(actor => frame.poses[actor.id] ? [{ actor, distance: distance(pixel, geometry.toCanvas(frame.poses[actor.id])) }] : [])
+    .filter(item => item.distance <= 24)
+    .sort((a, b) => Number(selection?.kind === "actor" && selection.id === b.actor.id) - Number(selection?.kind === "actor" && selection.id === a.actor.id) || a.distance - b.distance)[0];
   if (actorHit) return { kind: "actor", id: actorHit.actor.id };
   for (const mark of [...frame.marks].reverse()) {
     const { at, width: mw, height: mh } = markBounds(mark, geometry);
     let hit = false;
     if (mark.kind === "target") hit = Math.abs(pixel[0] - at[0]) <= mw / 2 + 8 && Math.abs(pixel[1] - at[1]) <= mh / 2 + 8;
-    else if (mark.kind === "text") hit = Math.abs(pixel[0] - at[0]) <= Math.max(22, (mark.text || "提示").length * 7) && Math.abs(pixel[1] - at[1]) <= 20;
+    else if (mark.kind === "text") hit = Math.abs(pixel[0] - at[0]) <= Math.max(minimumTouchRadius, (mark.text || "提示").length * 7) && Math.abs(pixel[1] - at[1]) <= minimumTouchRadius;
     else if (mark.kind === "freehand" && mark.points?.length) {
       const points = mark.points.map(geometry.toCanvas);
-      hit = points.length === 1 ? distance(pixel, points[0]) <= 16 : points.slice(1).some((point, index) => pointToSegment(pixel, points[index], point) <= 14);
+      hit = points.length === 1 ? distance(pixel, points[0]) <= minimumTouchRadius : points.slice(1).some((point, index) => pointToSegment(pixel, points[index], point) <= minimumTouchRadius);
     } else hit = distance(pixel, at) <= 22;
     if (hit) return { kind: "element", id: mark.id };
   }
-  const pathHit = frame.paths.map(path => ({ path, distance: distanceToPath(pixel, path, geometry) })).filter(item => item.distance <= 14).sort((a, b) => a.distance - b.distance)[0];
+  const pathHit = frame.paths.map(path => ({ path, distance: distanceToPath(pixel, path, geometry) })).filter(item => item.distance <= minimumTouchRadius).sort((a, b) => a.distance - b.distance)[0];
   return pathHit ? { kind: "element", id: pathHit.path.id } : null;
 }
 

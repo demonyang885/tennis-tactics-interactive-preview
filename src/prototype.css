@@ -248,3 +248,199 @@
 .about-demo .about-note { color:#71806b; font-size:12px; }
 .about-demo .about-source { color:#5f7062; font-size:12px; }
 @media(prefers-reduced-motion:reduce) { .tactic-card, .variant-trigger svg, .guide-section svg, .rally-progress i { transition:none; } }
+
+/* Court Canvas — Theme 1 / Coach Green */
+.tennis-app .catalogue-board-entry { display:flex; align-items:center; justify-content:space-between; flex:none; min-height:64px; margin:10px 16px 8px; padding:10px 13px; border:1px solid #cdddc6; border-radius:16px; background:linear-gradient(135deg,#eef5df,#e6efda); color:#244c34; text-align:left; box-shadow:0 7px 20px rgb(35 77 51 / 7%); }
+.catalogue-board-entry > span { display:grid; grid-template-columns:34px auto; grid-template-rows:auto auto; align-items:center; column-gap:9px; min-width:0; }
+.catalogue-board-entry > span > svg { grid-row:1/3; width:21px; height:21px; justify-self:center; }
+.catalogue-board-entry strong { font-size:14px; line-height:19px; }
+.catalogue-board-entry small { overflow:hidden; color:#5f745d; font-size:11px; line-height:16px; text-overflow:ellipsis; white-space:nowrap; }
+.catalogue-board-entry > svg { flex:none; width:17px; height:17px; }
+.tennis-app .board-from-tactic { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; margin:4px 0 7px; padding:0 11px; border:1px solid #d4e1cb; border-radius:12px; background:#eff5e7; color:#315c3c; font-size:12px; font-weight:700; }
+.board-from-tactic svg { flex:none; width:16px; height:16px; }
+.board-from-tactic span { flex:1; text-align:left; }
+.tennis-app .combination-board-entry { display:flex; align-items:center; gap:11px; width:100%; min-height:68px; margin-top:13px; padding:12px 14px; border:1px solid #cadaC2; border-radius:15px; background:#edf4e5; color:#31553a; text-align:left; }
+.combination-board-entry > svg:first-child { width:21px; height:21px; }
+.combination-board-entry > span { display:flex; flex:1; min-width:0; flex-direction:column; gap:2px; }
+.combination-board-entry strong { font-size:13px; line-height:19px; }
+.combination-board-entry small { color:#647662; font-size:11px; line-height:16px; }
+.combination-board-entry > svg:last-child { width:17px; height:17px; }
+
+.board-header { gap:1px; padding:0 8px; }
+.tennis-app .board-header-title { display:flex; align-items:center; justify-content:center; gap:3px; flex:1; min-width:0; height:44px; padding:0 4px; border:0; background:transparent; color:#183b29; }
+.board-header-title strong { overflow:hidden; max-width:100%; font-size:14px; line-height:20px; text-overflow:ellipsis; white-space:nowrap; }
+.board-header-title svg { flex:none; width:13px; height:13px; color:#6b7b6e; }
+.board-header-actions { display:flex; align-items:center; flex:none; }
+.tennis-app .board-header-actions > button { display:grid; place-items:center; width:44px; height:44px; padding:0; border:0; background:transparent; color:#315840; }
+.board-header-actions > button svg { width:18px; height:18px; }
+.tennis-app .board-header-actions .board-save-status { display:flex; width:57px; flex-direction:column; gap:1px; color:#244f38; }
+.board-save-status span { font-size:9px; line-height:11px; white-space:nowrap; }
+.board-save-status.is-saving { color:#6c7c6f; }
+.board-save-status.is-error { color:#a74c3e; }
+.board-save-status.is-dirty svg { opacity:.62; }
+
+.board-home-scroll { background:#f4f6f1; }
+.board-home { padding:15px 16px calc(var(--mobile-safe-area-height) + 24px); }
+.board-home-hero { overflow:hidden; padding:21px 18px 18px; border-radius:20px; background:#173f2e; color:#f3f6ec; box-shadow:0 10px 26px rgb(19 62 45 / 14%); }
+.board-kicker { display:flex; align-items:center; gap:6px; color:#d8ed9a; font-size:10px; line-height:14px; font-weight:750; letter-spacing:1.3px; }
+.board-kicker svg { width:15px; height:15px; }
+.board-home-hero h2 { margin:13px 0 7px; font-size:23px; line-height:30px; letter-spacing:-.4px; }
+.board-home-hero p { margin:0; max-width:310px; color:#c8d9ca; font-size:13px; line-height:20px; }
+.board-home-primary { display:grid; grid-template-columns:minmax(0,1fr) 48px; gap:8px; margin-top:17px; }
+.tennis-app .board-home-primary button { display:flex; align-items:center; justify-content:center; gap:7px; min-height:48px; padding:0 13px; border:0; border-radius:13px; background:#dced8d; color:#183d2b; font-size:13px; font-weight:750; }
+.tennis-app .board-home-primary button:last-child { padding:0; background:rgb(255 255 255 / 12%); color:#ecf5e3; box-shadow:inset 0 0 0 1px rgb(255 255 255 / 16%); }
+.board-home-primary svg { width:18px; height:18px; }
+.board-hidden-file { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none; }
+.board-error { margin:11px 1px 0; padding:10px 12px; border:1px solid #e6c6bc; border-radius:11px; background:#fff3ef; color:#8c483d; font-size:12px; line-height:18px; }
+.board-home-section { margin-top:23px; }
+.board-section-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin:0 2px 10px; }
+.board-section-heading span { display:block; color:#6d806e; font-size:10px; line-height:14px; font-weight:750; letter-spacing:.6px; }
+.board-section-heading h3 { margin:2px 0 0; color:#233e2e; font-size:16px; line-height:23px; }
+.board-section-heading small { color:#77867a; font-size:11px; }
+.board-draft-list,.drill-card-list { display:flex; flex-direction:column; gap:8px; }
+.board-draft-list article { display:grid; grid-template-columns:minmax(0,1fr) 48px; align-items:stretch; overflow:hidden; border:1px solid #e0e7dc; border-radius:15px; background:#fff; }
+.tennis-app .board-draft-open { display:grid; grid-template-columns:40px minmax(0,1fr) 18px; align-items:center; gap:10px; min-height:70px; padding:10px 6px 10px 11px; border:0; background:transparent; color:#294633; text-align:left; }
+.board-draft-icon { display:grid; place-items:center; width:40px; height:44px; border-radius:10px; background:#e9f1e1; color:#426648; }
+.board-draft-icon svg { width:19px; height:19px; }
+.board-draft-open > span:nth-child(2) { display:flex; min-width:0; flex-direction:column; gap:4px; }
+.board-draft-open strong { overflow:hidden; font-size:13px; line-height:18px; text-overflow:ellipsis; white-space:nowrap; }
+.board-draft-open small { color:#758177; font-size:11px; line-height:15px; }
+.board-draft-open > svg { width:16px; height:16px; color:#829286; }
+.tennis-app .board-draft-delete { display:grid; place-items:center; min-width:48px; border:0; border-left:1px solid #edf0ea; background:#fbfcfa; color:#a05d51; }
+.board-draft-delete svg { width:17px; height:17px; }
+.board-empty { display:flex; align-items:center; gap:11px; min-height:72px; padding:13px 15px; border:1px dashed #ced9c9; border-radius:14px; background:#f9faf7; color:#748176; }
+.board-empty svg { flex:none; width:22px; height:22px; }
+.board-empty p { margin:0; font-size:12px; line-height:18px; }
+.tennis-app .drill-card-list > button { display:grid; grid-template-columns:38px minmax(0,1fr) 18px; align-items:center; gap:10px; min-height:88px; padding:13px 12px; border:1px solid #dce5d7; border-radius:15px; background:#fff; color:#2d4936; text-align:left; }
+.drill-card-number { align-self:start; color:#82a06f; font-size:11px; line-height:18px; font-weight:750; letter-spacing:1px; }
+.drill-card-list button > span:nth-child(2) { display:flex; min-width:0; flex-direction:column; }
+.drill-card-list strong { font-size:13px; line-height:19px; }
+.drill-card-list small { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; margin-top:3px; color:#6d7a6c; font-size:11px; line-height:16px; }
+.drill-card-list b { margin-top:6px; color:#4e724e; font-size:10px; line-height:14px; }
+.drill-card-list svg { width:16px; height:16px; color:#829284; }
+.board-home-note { margin:20px 4px 0; color:#718075; font-size:11px; line-height:18px; }
+
+.board-editor { position:absolute; inset:0; display:flex; min-height:0; flex-direction:column; overflow:hidden; background:#f6f5f1; color:#173d2c; }
+.board-canvas-shell { position:relative; flex:1; min-height:220px; overflow:hidden; background:#153e2e; }
+.board-canvas { position:absolute; inset:0; touch-action:none; outline:none; }
+.device-screen :where(.board-header,.board-home,.board-editor,.board-sheet,.board-object-list,.drill-guide) :is(a,button,input,select,summary,textarea,[role="button"],[tabindex]):focus-visible { outline:3px solid #d8ef72 !important; outline-offset:-4px; box-shadow:inset 0 0 0 1px #173d2c !important; }
+.device-screen .board-editor .board-canvas:focus-visible { box-shadow:inset 0 0 0 1px #f7f8f4 !important; }
+.board-canvas canvas { position:absolute; inset:0; display:block; width:100%; height:100%; }
+.board-canvas-meta { position:absolute; z-index:2; top:10px; left:14px; right:14px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:7px; min-height:44px; padding:0 7px 0 10px; border:1px solid rgb(255 255 255 / 11%); border-radius:11px; background:rgb(8 39 28 / 72%); color:#dbe8da; pointer-events:none; backdrop-filter:blur(7px); }
+.board-canvas-meta > span { color:#bed1bf; font-size:9px; line-height:13px; font-weight:700; }
+.board-canvas-meta > strong { overflow:hidden; font-size:11px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
+.tennis-app .board-canvas-meta > button { display:flex; align-items:center; gap:4px; min-height:44px; padding:0 8px; border:0; border-radius:8px; background:#ddec95; color:#193e2b; font-size:10px; line-height:13px; font-weight:750; pointer-events:auto; }
+.board-canvas-meta button svg { width:14px; height:14px; }
+.tennis-app .board-toast { position:absolute; z-index:4; right:12px; bottom:9px; left:12px; display:flex; align-items:center; gap:8px; min-height:42px; padding:7px 9px 7px 12px; border:1px solid rgb(255 255 255 / 16%); border-radius:11px; background:rgb(11 39 29 / 90%); color:#f0f5ea; box-shadow:0 6px 18px rgb(0 0 0 / 18%); text-align:left; }
+.board-toast span { flex:1; font-size:11px; line-height:16px; }
+.board-toast svg { flex:none; width:15px; height:15px; }
+.board-frame-rail { display:grid; grid-template-columns:minmax(0,1fr) 44px 66px; align-items:center; gap:3px; flex:none; min-height:64px; padding:7px 8px; border-bottom:1px solid #e4e9df; background:#fff; }
+.board-frame-carousel { min-width:0; }
+.board-frame-track { align-items:center; gap:6px; padding:1px 3px; }
+.tennis-app .board-frame-track button { display:grid; grid-template-columns:21px minmax(0,1fr); align-items:center; gap:5px; flex:none; width:118px; height:48px; padding:4px 8px; border:1px solid #e0e6dc; border-radius:12px; background:#f7f8f4; color:#647166; text-align:left; }
+.board-frame-track button > span { display:grid; place-items:center; width:21px; height:21px; border-radius:50%; background:#e8ede4; color:#617063; font-size:10px; font-weight:750; }
+.board-frame-track button > strong { overflow:hidden; font-size:11px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
+.tennis-app .board-frame-track button.is-active { border-color:#8da985; background:#edf3df; color:#2e5537; box-shadow:inset 0 0 0 1px #c8d9b3; }
+.board-frame-track button.is-active > span { background:#315c3d; color:#fff; }
+.tennis-app .board-frame-menu,.tennis-app .board-add-frame { display:flex; align-items:center; justify-content:center; min-height:48px; padding:0; border:0; border-radius:11px; background:#f0f3ed; color:#506553; }
+.board-frame-menu svg { width:17px; height:17px; }
+.tennis-app .board-add-frame { flex-direction:column; gap:1px; background:#244f38; color:#fff; }
+.board-add-frame span { font-size:9px; line-height:12px; }
+.board-add-frame svg { width:16px; height:16px; }
+.board-context-rail { display:flex; align-items:center; gap:5px; flex:none; min-height:52px; max-width:100%; overflow-x:auto; padding:4px 9px; border-bottom:1px solid #e7ebe3; background:#f7f8f4; scrollbar-width:none; }
+.board-context-rail::-webkit-scrollbar { display:none; }
+.board-context-rail > span,.board-context-rail > small { flex:none; color:#718075; font-size:10px; line-height:14px; white-space:nowrap; }
+.board-context-rail > span { margin-right:2px; color:#536b57; font-weight:750; }
+.board-context-rail > small { margin:0 4px; }
+.board-selection-name { overflow:hidden; flex:none; max-width:92px; font-size:11px; line-height:16px; text-overflow:ellipsis; white-space:nowrap; }
+.tennis-app .board-context-rail > button { display:flex; align-items:center; justify-content:center; gap:4px; flex:none; min-height:44px; padding:0 10px; border:1px solid #dfe5db; border-radius:10px; background:#fff; color:#506554; font-size:10px; font-weight:650; }
+.tennis-app .board-context-rail > button.is-active { border-color:#9bb28e; background:#e9f1d5; color:#2d593a; }
+.tennis-app .board-context-rail > button.is-danger { min-width:44px; padding:0; color:#a25347; }
+.board-context-rail button svg { width:14px; height:14px; }
+.board-nudge { display:flex; flex:none; }
+.tennis-app .board-nudge button { display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid #dfe5db; border-right:0; background:#fff; color:#536956; }
+.board-nudge button:first-child { border-radius:9px 0 0 9px; }
+.board-nudge button:last-child { border-right:1px solid #dfe5db; border-radius:0 9px 9px 0; }
+.board-nudge button:nth-child(2) svg { transform:rotate(90deg); }
+.board-nudge button:nth-child(3) svg { transform:rotate(90deg); }
+.board-nudge svg { width:14px; height:14px; }
+.board-tool-rail { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); flex:none; min-height:64px; padding:4px 7px; background:#fff; }
+.tennis-app .board-tool-rail button { display:flex; align-items:center; justify-content:center; gap:3px; min-width:0; min-height:56px; padding:4px 1px; border:0; border-radius:11px; background:transparent; color:#657467; flex-direction:column; }
+.board-tool-rail button svg { width:21px; height:21px; }
+.board-tool-rail button span { font-size:10px; line-height:14px; }
+.tennis-app .board-tool-rail button.is-active { background:#eaf1d6; color:#274f35; font-weight:750; }
+.tennis-app .board-primary-play { display:grid; grid-template-columns:24px auto 1fr; align-items:center; justify-content:center; column-gap:7px; flex:none; min-height:54px; margin:0 14px calc(var(--mobile-safe-area-height) + 8px); padding:0 16px; border:0; border-radius:15px; background:#173d2c; color:#fff; box-shadow:0 7px 18px rgb(23 61 44 / 15%); }
+.board-primary-play > svg { width:20px; height:20px; }
+.board-primary-play > span { font-size:13px; font-weight:750; }
+.board-primary-play > small { justify-self:end; color:#c6d6ca; font-size:10px; }
+.mobile-app-viewport[data-platform="android"] .board-primary-play { margin-bottom:10px; }
+
+.board-playback-dock { display:flex; flex:none; flex-direction:column; gap:8px; padding:10px 16px calc(var(--mobile-safe-area-height) + 10px); border-radius:21px 21px 0 0; background:#fff; box-shadow:0 -8px 25px rgb(7 34 23 / 14%); }
+.mobile-app-viewport[data-platform="android"] .board-playback-dock { padding-bottom:14px; }
+.board-playback-progress { display:grid; grid-template-columns:32px minmax(0,1fr) 32px; align-items:center; gap:7px; color:#6c796e; font-size:10px; font-variant-numeric:tabular-nums; }
+.board-playback-progress input { width:100%; min-height:44px; margin:0; accent-color:#345f40; }
+.board-playback-progress span:last-child { text-align:right; }
+.board-playback-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+.tennis-app .board-playback-actions button { display:flex; align-items:center; justify-content:center; gap:4px; min-height:48px; padding:3px; border:1px solid #e1e7dd; border-radius:11px; background:#f7f8f4; color:#536855; flex-direction:column; font-size:9px; }
+.board-playback-actions button svg { width:18px; height:18px; }
+.tennis-app .board-playback-actions .board-play-toggle { border-color:#315c3d; background:#315c3d; color:#fff; }
+.tennis-app .board-return-edit { min-height:44px; padding:0 12px; border:0; border-radius:11px; background:#eaf1df; color:#31583a; font-size:12px; font-weight:750; }
+
+.board-sheet { padding-bottom:8px; }
+.board-field { display:flex; flex-direction:column; gap:6px; margin-bottom:11px; }
+.board-field > span { color:#526555; font-size:11px; line-height:16px; font-weight:700; }
+.board-field input { width:100%; height:46px; padding:0 12px; border:1px solid #d8e1d5; border-radius:11px; background:#f9faf7; color:#203d2b; font-size:14px; outline:none; }
+.board-field input:focus { border-color:#719277; box-shadow:0 0 0 3px rgb(78 128 86 / 12%); }
+.board-file-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:13px; }
+.tennis-app .board-file-actions button { display:flex; align-items:center; gap:9px; min-height:61px; padding:9px 10px; border:1px solid #e0e7dc; border-radius:12px; background:#f8faf6; color:#426049; text-align:left; }
+.board-file-actions button > svg { flex:none; width:18px; height:18px; }
+.board-file-actions button > span { display:flex; min-width:0; flex-direction:column; gap:2px; }
+.board-file-actions strong { font-size:11px; line-height:15px; }
+.board-file-actions small { color:#748076; font-size:9px; line-height:13px; }
+.board-export-warning { margin:11px 0 0; padding:9px 10px; border-radius:10px; background:#fff0ea; color:#925144; font-size:11px; line-height:17px; }
+.board-sheet-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.tennis-app .board-sheet-row button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:7px; border:1px solid #dbe4d7; border-radius:11px; background:#f7f9f4; color:#4c6550; font-size:11px; }
+.tennis-app .board-sheet-row button.is-danger { border-color:#ead8d2; color:#9f5146; }
+.board-sheet-row svg { width:15px; height:15px; }
+.board-object-list { display:flex; flex-direction:column; gap:7px; padding-bottom:10px; }
+.tennis-app .board-object-list button { display:grid; grid-template-columns:36px minmax(0,1fr) 18px; align-items:center; gap:9px; min-height:58px; padding:8px 9px; border:1px solid #e1e7de; border-radius:12px; background:#f9faf7; color:#405e47; text-align:left; }
+.board-object-list button > svg:first-child,.object-swatch { justify-self:center; width:17px; height:17px; }
+.object-swatch { display:block; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px #9aaa9d; }
+.board-object-list button > span:nth-child(2) { display:flex; min-width:0; flex-direction:column; }
+.board-object-list strong { overflow:hidden; font-size:12px; line-height:17px; text-overflow:ellipsis; white-space:nowrap; }
+.board-object-list small { color:#748075; font-size:10px; line-height:14px; }
+.board-object-list button > svg:last-child { width:15px; height:15px; }
+.object-nudge-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:12px; }
+.tennis-app .object-nudge-grid button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; border:1px solid #dce4d9; border-radius:11px; background:#f7f9f5; color:#49634e; font-size:11px; }
+.object-nudge-grid svg { width:15px; height:15px; }
+.tennis-app .board-delete-wide { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; min-height:44px; margin-top:11px; border:1px solid #ead4ce; border-radius:11px; background:#fff6f2; color:#a24f43; font-size:11px; }
+.board-delete-wide svg { width:16px; height:16px; }
+.tennis-app .sheet-done.is-secondary { margin-top:9px; background:#e9f0e3; color:#34583d; }
+
+.drill-guide { padding-bottom:8px; }
+.drill-setup { padding:13px; border-radius:13px; background:#edf3e6; }
+.drill-setup p { margin:0 0 8px; color:#506652; font-size:12px; line-height:19px; }
+.drill-setup p strong,.drill-stages p strong { margin-right:7px; color:#315a3a; }
+.drill-setup ol { margin:9px 0 0; padding-left:20px; color:#536755; font-size:11px; line-height:18px; }
+.drill-setup li+li { margin-top:5px; }
+.drill-stages { display:flex; flex-direction:column; gap:7px; margin-top:11px; }
+.drill-stages details { overflow:hidden; border:1px solid #dfe7da; border-radius:12px; background:#fff; }
+.drill-stages summary { display:flex; align-items:center; justify-content:space-between; min-height:48px; padding:8px 12px; color:#31533a; font-size:12px; line-height:17px; font-weight:750; cursor:pointer; list-style:none; }
+.drill-stages summary::-webkit-details-marker { display:none; }
+.drill-stages summary svg { flex:none; width:16px; height:16px; transition:transform .16s; }
+.drill-stages details[open] summary svg { transform:rotate(180deg); }
+.drill-stages details > div { padding:0 12px 12px; border-top:1px solid #edf0ea; }
+.drill-stages p { margin:9px 0 0; color:#586959; font-size:11px; line-height:18px; }
+.drill-stages blockquote { margin:10px 0 0; padding:9px 10px; border-left:3px solid #8da971; border-radius:0 9px 9px 0; background:#f1f5e9; color:#35563b; font-size:12px; line-height:18px; }
+.drill-stages small { display:block; margin-top:9px; color:#6c7a6d; font-size:10px; line-height:16px; }
+.drill-progression { margin:12px 2px; color:#718075; font-size:10px; line-height:17px; }
+
+@media (max-height:820px) {
+  .board-frame-rail { min-height:58px; padding-top:5px; padding-bottom:5px; }
+  .tennis-app .board-frame-track button,.tennis-app .board-frame-menu,.tennis-app .board-add-frame { height:46px; min-height:46px; }
+  .board-context-rail { min-height:50px; padding-top:3px; padding-bottom:3px; }
+  .board-tool-rail { min-height:58px; padding-top:2px; padding-bottom:2px; }
+  .tennis-app .board-tool-rail button { min-height:52px; }
+  .tennis-app .board-primary-play { min-height:50px; margin-bottom:calc(var(--mobile-safe-area-height) + 5px); }
+}
+@media(prefers-reduced-motion:reduce) { .drill-stages summary svg { transition:none; } }
