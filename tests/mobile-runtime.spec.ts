@@ -113,9 +113,21 @@ test("keyboard and its attached footer dismiss on the same transition", async ({
 
   await input.click();
   await expect(keyboard).toHaveAttribute("data-visible", "true");
-  // Start in the footer's left padding instead of over its input. Interactive
-  // controls intentionally do not begin keyboard-dismiss drags.
-  await drag(page, footer, 0, 120, 5, { x: 8, y: 42 });
+  await expect.poll(async () => {
+    const keyboardHeight = Number.parseFloat(await keyboard.evaluate((element) => element.style.height));
+    const footerBottom = Number.parseFloat(await footer.evaluate((element) => getComputedStyle(element).bottom));
+    return Math.abs(keyboardHeight - footerBottom);
+  }).toBeLessThan(1);
+  // Derive a point from the rendered input bounds so the drag starts in the
+  // footer's top padding on every OS/font layout. Interactive controls
+  // intentionally do not begin keyboard-dismiss drags.
+  const footerBox = await footer.boundingBox();
+  const inputBox = await input.boundingBox();
+  if (!footerBox || !inputBox) throw new Error("Keyboard footer has no bounding box");
+  await drag(page, footer, 0, 120, 5, {
+    x: footerBox.width / 2,
+    y: Math.max(1, (inputBox.y - footerBox.y) / 2),
+  });
   await expect(keyboard).toHaveAttribute("data-visible", "false");
 
   await page.waitForTimeout(100);
