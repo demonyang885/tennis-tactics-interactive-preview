@@ -287,6 +287,35 @@ test("authors a smart rally as shot, receiver movement, then the next shot", asy
   expect(me.id).not.toBe(opponent.id);
 });
 
+test("keeps the armed actor draggable when the ball and receiver share a point", async ({ page }) => {
+  await openBoard(page);
+  const board = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  const ball = initial.actors.find((actor) => actor.kind === "ball")!;
+  const opponent = initial.actors.find((actor) => actor.label === "对手")!;
+  const ballStart = initial.frames[0].poses[ball.id];
+  const receiverPoint = initial.frames[0].poses[opponent.id];
+
+  // A realistic serve often ends exactly on the receiver. The guided actor
+  // must win this ambiguous hit target on both the movement and return steps.
+  await dragBoardPoint(page, board, ballStart, receiverPoint);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+
+  await dragBoardPoint(page, board, receiverPoint, [.66, .34]);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
+  let saved = await saveAndRead(page);
+  expect(saved.frames[1].paths).toHaveLength(1);
+  expect(saved.frames[1].paths[0]).toMatchObject({ kind: "move", actorId: opponent.id });
+
+  await dragBoardPoint(page, board, receiverPoint, [.32, .75]);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动我方跑位/);
+  saved = await saveAndRead(page);
+  expect(saved.frames).toHaveLength(3);
+  expect(saved.frames[1].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[1].paths.find((path) => path.kind === "shot")?.actorId).toBe(ball.id);
+  expect(saved.frames[2].paths).toEqual([]);
+});
+
 test("keeps the last full beat's shot and movement clearly visible on a 390px court", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();

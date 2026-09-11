@@ -607,7 +607,11 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
     const frame=board.frames[frameIndex];if(!frame)return;
     const point=toBoardPoint(event),pixel=toCanvasPoint(event);
     try{
-      const hit=hitTestBoard(pixel,event.currentTarget.clientWidth,event.currentTarget.clientHeight,frame,board.actors,tool==="select"?selection:null);
+      // A shot can end on the receiver, so the ball and player may share the
+      // same frame-start point. Keep the actor armed by the guided flow (or by
+      // a manual path tool) as the preferred hit target in that overlap.
+      const preferredSelection=selection?.kind==="actor"?selection:tool==="select"?selection:null;
+      const hit=hitTestBoard(pixel,event.currentTarget.clientWidth,event.currentTarget.clientHeight,frame,board.actors,preferredSelection);
       if(hit?.kind==="handle"){
         const path=frame.paths.find(item=>item.id===hit.id),handlePoint=path?.[hit.handle];
         if(!handlePoint)return;

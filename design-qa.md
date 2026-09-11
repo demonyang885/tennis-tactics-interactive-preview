@@ -42,6 +42,8 @@ The source does not include a full screen, so full-screen pixel fidelity cannot 
   - Fix: the smart cursor travels with document history, while advanced historical edits retain their selected frame; playback returns to the armed smart stage when it started there.
 - Follow-up P1: completing a shot advanced to the receiver frame and made the authored route appear to disappear, even though it remained stored in the preceding frame. The first attempted fix used a 46% opacity ball-only trail; live review showed that it still read as missing and dropped the completed movement path.
   - Fix: the complete preceding beat now remains clearly visible throughout receiver movement and next-shot authoring. The ball route stays near normal strength and same-beat movement remains legible, without duplicating either into frame data, hit testing, object lists, exports, or playback.
+- Follow-up P1: when a serve ended exactly on the receiver, the ball and receiver shared the same hit target. Smart drawing modes discarded the guided actor selection, so the receiver-movement gesture could be stored as a shot and skip directly to the third frame, preventing the intended second-shot flow.
+  - Fix: hit testing now preserves the actor armed by the current guided stage when targets overlap. A browser regression reproduces the exact overlap, verifies receiver movement and the second shot in the same beat, and confirms the third frame is created only after that shot.
 
 ### Post-fix visual comparison
 
@@ -51,9 +53,10 @@ The source does not include a full screen, so full-screen pixel fidelity cannot 
 
 ## Verification
 
-- Primary interactions exercised: zero-click serve, automatic receiver selection, receiver movement, next shot, hitter alternation, direct skip, undo, redo, playback, history opening, manual blank-board fallback, and multi-ball fallback.
+- Primary interactions exercised: zero-click serve, automatic receiver selection, receiver movement, next shot, hitter alternation, overlapping ball/receiver targets, direct skip, short-drag cancellation, directional shots, undo, redo, save/reload continuation, playback, history opening, manual blank-board fallback, multi-ball fallback, and simulated touch input.
 - Browser console: the final reload and complete flow produced no current runtime errors. Earlier Vite hot-reload parse messages occurred during editing and were resolved before the final reload/build.
-- Automated gate: runtime/content checks, production build, 37 serial Playwright tests, 4 Sites package tests, 3 Pages package tests, and `git diff --check` passed.
+- Automated gate: runtime/content checks, production build, 38 serial Playwright tests, 4 Sites package tests, 3 Pages package tests, and `git diff --check` passed.
+- Independent browser QA: two testers reproduced the deployed defect first, then verified the fixed working tree at desktop, 390 × 844, and 360 × 732 simulated-touch sizes. The eight-case second-shot matrix passed with zero console errors or warnings.
 
 ## Findings
 

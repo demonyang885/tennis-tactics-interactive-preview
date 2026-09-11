@@ -115,6 +115,7 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 
 ## Interaction Rules
 
+- When a smart-rally shot ends on the receiver and the ball and player share a frame-start point, prefer the actor armed by the current guided stage during hit testing. Keep direct selection of a different actor available when the targets are spatially distinct.
 - Do not trigger buttons or inputs after a pointer has become a drag. Preserve the drag suppression behavior in `MobileScroll`.
 - Do not allow native browser image/file dragging inside the phone frame. Preserve the phone-level `dragstart` suppression and non-draggable image styles so scroll drags that begin on images still scroll the prototype.
 - Use `KeyboardInput`, `KeyboardTextarea`, or `MobileTextField` for text entry so the simulated keyboard and safe-area insets stay connected.
