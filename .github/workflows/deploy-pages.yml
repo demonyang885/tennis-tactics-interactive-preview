@@ -2,7 +2,9 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - preview/court-canvas-cad0d5f
   workflow_dispatch:
 
 permissions:
