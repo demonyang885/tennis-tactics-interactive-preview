@@ -84,13 +84,42 @@ test("opens straight into a safe starter board and restores the latest draft", a
   await openBoard(page);
   await expect(page.getByRole("button", { name: "打开我的战术板的文件选项" })).toBeVisible();
 
-  await press(page.getByRole("button", { name: "对象", exact: true }));
+  const tools = page.getByRole("toolbar", { name: "画板工具" });
+  await expect(tools.getByRole("button")).toHaveCount(5);
+  for (const label of ["选择", "球员", "球路", "跑位", "标记"]) {
+    const button = tools.getByRole("button", { name: label, exact: true });
+    await expect(button).toBeVisible();
+    expect(Math.round((await button.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+  }
+  const selectTool = tools.getByRole("button", { name: "选择", exact: true });
+  const actorTool = tools.getByRole("button", { name: "球员", exact: true });
+  const markTool = tools.getByRole("button", { name: "标记", exact: true });
+  await expect(selectTool).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "对象", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "添加", exact: true })).toHaveCount(0);
+
+  await press(selectTool);
   const objects = page.getByTestId("bottom-sheet");
   await expect(objects.getByRole("button", { name: /我方.*球员/ })).toBeVisible();
   await expect(objects.getByRole("button", { name: /对手.*球员/ })).toBeVisible();
   await expect(objects.getByRole("button", { name: /网球.*网球/ })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(objects).toBeHidden();
+  await expect(selectTool).toBeFocused();
+
+  await press(actorTool);
+  await expect(objects.getByRole("button", { name: /^我方球员/ })).toBeVisible();
+  await expect(objects.getByRole("button", { name: /^对手球员/ })).toBeVisible();
+  await expect(objects.getByRole("button", { name: /^网球/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(objects).toBeHidden();
+  await expect(actorTool).toBeFocused();
+  await press(markTool);
+  await expect(objects.getByRole("button", { name: /^目标区/ })).toBeVisible();
+  await expect(objects.getByRole("button", { name: /^喂球路线/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(objects).toBeHidden();
+  await expect(markTool).toBeFocused();
 
   let saved = await saveAndRead(page);
   expect(saved.actors).toHaveLength(3);
@@ -123,13 +152,17 @@ test("isolates inactive screens and keeps board sheets styled and keyboard-safe"
     .every((screen) => screen.hasAttribute("inert") && screen.getAttribute("aria-hidden") === "true"))).toBe(true);
   await expect(page.getByRole("button", { name: /^防守高深回中，9秒/ })).toHaveCount(0);
 
-  const play = page.getByRole("button", { name: /播放 1 拍/ });
+  const play = page.getByRole("button", { name: /^播放战术/ });
   await expect.poll(async () => play.evaluate((element) => {
     const style = getComputedStyle(element);
     return `${style.display}|${style.backgroundColor}`;
-  })).toBe("grid|rgb(23, 61, 44)");
+  })).toBe("flex|rgb(23, 61, 44)");
+  const playBounds = await play.boundingBox();
+  const screenBounds = await page.getByTestId("device-screen").boundingBox();
+  expect(playBounds!.width / screenBounds!.width).toBeGreaterThan(.9);
 
-  await press(page.getByRole("button", { name: /打开我的战术板的文件选项/ }));
+  const filesTrigger = page.getByRole("button", { name: /打开我的战术板的文件选项/ });
+  await press(filesTrigger);
   const sheet = page.getByTestId("bottom-sheet");
   const save = sheet.getByRole("button", { name: /立即保存/ });
   expect(Math.round((await save.boundingBox())!.height)).toBeGreaterThanOrEqual(61);
@@ -138,14 +171,18 @@ test("isolates inactive screens and keeps board sheets styled and keyboard-safe"
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
   await expect(page.getByTestId("keyboard-dock")).toHaveAttribute("data-visible", "false");
+  await expect(filesTrigger).toBeFocused();
 
   const board = page.getByTestId("board-canvas");
   await clickBoardPoint(page, board, [.34, .72]);
-  await expect(page.getByRole("toolbar", { name: "已选中网球" })).toBeVisible();
-  await press(page.getByRole("button", { name: "更多", exact: true }));
+  await expect(page.locator(".board-canvas-meta > strong")).toHaveText("网球");
+  const adjustBall = page.getByRole("button", { name: "调整网球", exact: true });
+  await press(adjustBall);
   const nudge = page.getByTestId("bottom-sheet").getByRole("button", { name: "向上" });
   expect(Math.round((await nudge.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
   await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(adjustBall).toBeFocused();
 });
 
 test("scaled dragging preserves grab offset, ignores jitter, and records one undo", async ({ page }) => {
@@ -163,7 +200,7 @@ test("scaled dragging preserves grab offset, ignores jitter, and records one und
   await page.mouse.move(center.x + 4, center.y);
   await page.mouse.up();
   await expect(undo).toBeDisabled();
-  await expect(page.getByRole("toolbar", { name: "已选中对手" })).toBeVisible();
+  await expect(page.locator(".board-canvas-meta > strong")).toHaveText("对手");
 
   await dragBoardPoint(page, board, actorStart, [.70, .30], [7, 4]);
   await expect(undo).toBeEnabled();
@@ -180,6 +217,7 @@ test("scaled dragging preserves grab offset, ignores jitter, and records one und
 });
 
 test("creates a blank board, adds objects, redoes, and cancels a drag cleanly", async ({ page }) => {
+  test.slow();
   await openBoard(page);
   await press(page.getByRole("button", { name: /打开我的战术板的文件选项/ }));
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
@@ -189,7 +227,8 @@ test("creates a blank board, adds objects, redoes, and cancels a drag cleanly", 
 
   const board = page.getByTestId("board-canvas");
   const addObject = async (name: string, point: Point) => {
-    await press(page.getByRole("button", { name: "添加", exact: true }));
+    const entry = ["目标区", "标志碟", "文字提示"].includes(name) ? "标记" : "球员";
+    await press(page.getByRole("toolbar", { name: "画板工具" }).getByRole("button", { name: entry, exact: true }));
     const sheet = page.getByTestId("bottom-sheet");
     await press(sheet.getByRole("button", { name: new RegExp(`^${name}`) }));
     await expect(sheet).toBeHidden();
@@ -197,11 +236,11 @@ test("creates a blank board, adds objects, redoes, and cancels a drag cleanly", 
   };
 
   await addObject("我方球员", [.62, .82]);
-  await expect(page.getByRole("toolbar", { name: "已选中我方" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "球员", exact: true })).toHaveAttribute("aria-pressed", "true");
   await addObject("网球", [.34, .72]);
-  await expect(page.getByRole("toolbar", { name: "已选中网球" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "球员", exact: true })).toHaveAttribute("aria-pressed", "true");
   await addObject("目标区", [.70, .25]);
-  await expect(page.getByRole("toolbar", { name: "已选中目标区" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "标记", exact: true })).toHaveAttribute("aria-pressed", "true");
 
   let saved = await saveAndRead(page);
   expect(saved.actors.map((actor) => actor.kind)).toEqual(["player", "ball"]);
@@ -211,6 +250,7 @@ test("creates a blank board, adds objects, redoes, and cancels a drag cleanly", 
   saved = await saveAndRead(page);
   expect(saved.frames[0].marks).toHaveLength(1);
 
+  await press(page.getByRole("button", { name: "选择", exact: true }));
   await clickBoardPoint(page, board, [.62, .82]);
   const start = await boardScreenPoint(board, [.62, .82]);
   const end = await boardScreenPoint(board, [.42, .64]);
@@ -227,62 +267,103 @@ test("creates a blank board, adds objects, redoes, and cancels a drag cleanly", 
   await press(page.getByRole("button", { name: "撤销" }));
   saved = await saveAndRead(page);
   expect(saved.frames[0].marks).toHaveLength(0);
+
+  await addObject("标志碟", [.26, .32]);
+  await addObject("标志碟", [.74, .32]);
+  await press(page.getByRole("button", { name: "选择", exact: true }));
+  await press(page.getByRole("button", { name: "选择", exact: true }));
+  const objects = page.getByTestId("bottom-sheet");
+  await expect(objects.getByRole("button", { name: "选择标志碟 1/2", exact: true })).toBeVisible();
+  await expect(objects.getByRole("button", { name: "选择标志碟 2/2", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "选择", exact: true })).toBeFocused();
+
+  await addObject("文字提示", [.50, .48]);
+  await press(page.getByRole("button", { name: "选择", exact: true }));
+  const adjustText = page.getByRole("button", { name: "调整文字提示", exact: true });
+  await press(adjustText);
+  const objectSheet = page.getByTestId("bottom-sheet");
+  await objectSheet.getByRole("textbox").fill("回中");
+  await press(objectSheet.getByRole("button", { name: "更新文字", exact: true }));
+  await expect(objectSheet).toBeHidden();
+  await expect(adjustText).toBeFocused();
+  await press(adjustText);
+  await press(objectSheet.getByRole("button", { name: "删除这个对象", exact: true }));
+  await expect(objectSheet).toBeHidden();
+  await expect(page.getByRole("button", { name: "选择", exact: true })).toBeFocused();
 });
 
-test("draws the selected opponent route, returns to selection, and edits its curve handle", async ({ page }) => {
+test("draws an opponent route from the direct tool rail and edits its curve handle", async ({ page }) => {
   await openBoard(page);
   const board = page.getByTestId("board-canvas");
   await clickBoardPoint(page, board, [.46, .18]);
-  await expect(page.getByRole("button", { name: "画跑位", exact: true })).toBeVisible();
-  await press(page.getByRole("button", { name: "画跑位", exact: true }));
+  await expect(page.locator(".board-canvas-meta > strong")).toHaveText("对手");
+  await press(page.getByRole("button", { name: "跑位", exact: true }));
   await dragBoardPoint(page, board, [.46, .18], [.74, .34]);
 
-  await expect(page.getByRole("toolbar", { name: "已选中跑位路线" })).toBeVisible();
-  await expect(page.getByText("拖白色控制点微调路线", { exact: true })).toBeVisible();
-  await press(page.getByRole("button", { name: "对象", exact: true }));
-  const objects = page.getByTestId("bottom-sheet");
-  await expect(objects.getByRole("button", { name: /跑位路线.*对手/ })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(objects).toBeHidden();
+  await expect(page.getByRole("button", { name: "跑位", exact: true })).toHaveAttribute("aria-pressed", "true");
+  const routeEnd: Point = [.64, .38];
+  await dragBoardPoint(page, board, [.46, .18], routeEnd);
+  let saved = await saveAndRead(page);
+  let route = saved.frames[0].paths.find((item) => item.kind === "move")!;
+  const opponent = saved.actors.find((actor) => actor.label === "对手")!;
+  expect(saved.frames[0].poses[opponent.id][0]).toBeCloseTo(.46, 2);
+  expect(saved.frames[0].poses[opponent.id][1]).toBeCloseTo(.18, 2);
+  expect(route.from[0]).toBeCloseTo(.46, 2);
+  expect(route.from[1]).toBeCloseTo(.18, 2);
+  expect(route.to[0]).toBeCloseTo(routeEnd[0], 1);
+  expect(route.to[1]).toBeCloseTo(routeEnd[1], 1);
 
-  const originalControl: Point = [(.46 + .74) / 2 + (.34 - .18) * .16, (.18 + .34) / 2 - (.74 - .46) * .12];
+  await press(page.getByRole("button", { name: "选择", exact: true }));
+  await expect(page.locator(".board-canvas-meta > strong")).toHaveText("跑位路线");
+  const adjustRoute = page.getByRole("button", { name: "调整跑位路线", exact: true });
+  await press(adjustRoute);
+  await expect(page.getByTestId("bottom-sheet").getByRole("button", { name: "改为直线", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("bottom-sheet")).toBeHidden();
+  await expect(adjustRoute).toBeFocused();
+  await press(page.getByRole("button", { name: "选择", exact: true }));
+  const objects = page.getByTestId("bottom-sheet");
+  const routeEntry = objects.getByRole("button", { name: /跑位路线.*对手/ });
+  await expect(routeEntry).toBeVisible();
+  await press(routeEntry);
+  await expect(objects).toBeHidden();
+  await expect(board).toBeFocused();
+
+  const originalControl: Point = [(.46 + routeEnd[0]) / 2 + (routeEnd[1] - .18) * .16, (.18 + routeEnd[1]) / 2 - (routeEnd[0] - .46) * .12];
   const nextControl: Point = [.40, .30];
   await dragBoardPoint(page, board, originalControl, nextControl);
-  let saved = await saveAndRead(page);
-  const route = saved.frames[0].paths.find((item) => item.kind === "move")!;
-  const opponent = saved.actors.find((actor) => actor.label === "对手")!;
+  saved = await saveAndRead(page);
+  route = saved.frames[0].paths.find((item) => item.kind === "move")!;
   expect(route.actorId).toBe(opponent.id);
   expect(route.control?.[0]).toBeCloseTo(nextControl[0], 1);
   expect(route.control?.[1]).toBeCloseTo(nextControl[1], 1);
 
   await press(page.getByRole("button", { name: "撤销" }));
   await expect(page.getByRole("button", { name: "重做" })).toBeEnabled();
-  await expect(page.locator(".board-save-status")).toHaveText("保存");
-  await expect(page.locator(".board-save-status")).toHaveText("已保存", { timeout: 2000 });
-  saved = await readLatest(page);
+  saved = await saveAndRead(page);
   expect(saved.frames[0].paths[0].control?.[0]).toBeCloseTo(originalControl[0], 1);
   expect(saved.frames[0].paths).toHaveLength(1);
   await press(page.getByRole("button", { name: "重做" }));
-  await expect(page.locator(".board-save-status")).toHaveText("已保存", { timeout: 2000 });
-  saved = await readLatest(page);
+  saved = await saveAndRead(page);
   expect(saved.frames[0].paths[0].control?.[0]).toBeCloseTo(nextControl[0], 1);
   await press(page.getByRole("button", { name: "撤销" }));
-  await expect(page.locator(".board-save-status")).toHaveText("已保存", { timeout: 2000 });
+  await saveAndRead(page);
   await press(page.getByRole("button", { name: "撤销" }));
-  await expect(page.locator(".board-save-status")).toHaveText("保存");
-  await expect(page.locator(".board-save-status")).toHaveText("已保存", { timeout: 2000 });
-  saved = await readLatest(page);
+  await saveAndRead(page);
+  await press(page.getByRole("button", { name: "撤销" }));
+  saved = await saveAndRead(page);
   expect(saved.frames[0].paths).toHaveLength(0);
 });
 
 test("pause, resume, scrub, step, replay, and explicit exit all stay in the preview state", async ({ page }) => {
   await openBoard(page);
   const board = page.getByTestId("board-canvas");
-  await clickBoardPoint(page, board, [.34, .72]);
-  await press(page.getByRole("button", { name: "画球路", exact: true }));
+  await press(page.getByRole("button", { name: "球路", exact: true }));
   await dragBoardPoint(page, board, [.34, .72], [.70, .25]);
 
-  await press(page.getByRole("button", { name: "编辑当前拍次" }));
+  const activeFrame = page.locator(".board-frame-track > button[aria-pressed='true']");
+  await press(activeFrame);
   const frameSheet = page.getByTestId("bottom-sheet");
   const duration = frameSheet.locator('.board-field input[inputmode="decimal"]');
   await duration.fill("");
@@ -291,8 +372,10 @@ test("pause, resume, scrub, step, replay, and explicit exit all stay in the prev
   await page.waitForTimeout(50);
   await frameSheet.getByRole("button", { name: "完成", exact: true }).click();
   await expect(frameSheet).toBeHidden();
+  await expect(activeFrame).toBeFocused();
 
-  await press(page.getByRole("button", { name: /播放 1 拍 · 8\.0 秒/ }));
+  await press(page.getByRole("button", { name: /播放战术，1 拍，共 8\.0 秒/ }));
+  await expect(page.getByRole("toolbar", { name: "画板工具" })).toHaveCount(0);
   await page.waitForTimeout(260);
   await press(page.getByRole("button", { name: "暂停", exact: true }));
   const progress = page.getByRole("slider", { name: "画板播放进度" });
@@ -325,18 +408,20 @@ test("pause, resume, scrub, step, replay, and explicit exit all stay in the prev
 
 test("adds a continuous frame, exposes secondary library actions, and keeps drill content", async ({ page }) => {
   await openBoard(page);
-  await press(page.getByRole("button", { name: "＋新增一拍" }));
+  await press(page.getByRole("button", { name: "新建下一拍" }));
   await expect(page.locator(".board-frame-track > button")).toHaveCount(2);
   const saved = await saveAndRead(page);
   expect(saved.frames[1].poses).toEqual(saved.frames[0].poses);
   expect(saved.frames[1].paths).toEqual([]);
 
-  await press(page.getByRole("button", { name: "编辑当前拍次" }));
+  const currentFrame = page.locator(".board-frame-track > button[aria-pressed='true']");
+  await press(currentFrame);
   const carryForward = page.getByTestId("bottom-sheet").getByRole("button", { name: "沿用布置到下一拍" });
   await expect(carryForward).toBeVisible();
   expect(Math.round((await carryForward.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("bottom-sheet")).toBeHidden();
+  await expect(currentFrame).toBeFocused();
   await press(page.getByRole("button", { name: /打开我的战术板的文件选项/ }));
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
   await waitForFlowSettled(page);
@@ -357,11 +442,15 @@ test("adds a continuous frame, exposes secondary library actions, and keeps dril
   await press(page.getByRole("button", { name: "在画板中调整" }));
   await waitForFlowSettled(page);
   await expect(page.locator(".board-frame-track > button")).toHaveCount(5);
-  await press(page.getByRole("button", { name: "练到场上" }));
+  const drillTrigger = page.getByRole("button", { name: "练到场上" });
+  await press(drillTrigger);
   const drill = page.getByTestId("bottom-sheet");
   await expect(drill.getByRole("heading", { name: "受压回深，回位再接一拍" })).toBeVisible();
   await expect(drill.locator(".drill-stages details")).toHaveCount(4);
   await expect(drill.getByText("04 条件对抗 · 脱困后继续争分", { exact: true })).toBeVisible();
+  await press(drill.getByRole("button", { name: "带着画板去练", exact: true }));
+  await expect(drill).toBeHidden();
+  await expect(drillTrigger).toBeFocused();
 });
 
 test("captures the simplified Theme 1 editor at an unscaled iPhone viewport", async ({ page }) => {
@@ -370,8 +459,7 @@ test("captures the simplified Theme 1 editor at an unscaled iPhone viewport", as
   page.on("pageerror", (error) => consoleErrors.push(error.message));
   await openBoard(page);
   const board = page.getByTestId("board-canvas");
-  await clickBoardPoint(page, board, [.34, .72]);
-  await press(page.getByRole("button", { name: "画球路", exact: true }));
+  await press(page.getByRole("button", { name: "球路", exact: true }));
   await dragBoardPoint(page, board, [.34, .72], [.72, .26]);
 
   const screen = page.getByTestId("device-screen");
