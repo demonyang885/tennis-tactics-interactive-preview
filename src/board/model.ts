@@ -274,6 +274,18 @@ export function createBlankBoard(title = DEFAULT_TITLE): BoardDocument {
   };
 }
 
+/** A ready-to-draw board for the primary entry flow. */
+export function createStarterBoard(title = "我的战术板"): BoardDocument {
+  let board = createBlankBoard(title);
+  const me: BoardActor = { id: newBoardId("player"), label: "我方", kind: "player", color: "#3e8ad6" };
+  const opponent: BoardActor = { id: newBoardId("player"), label: "对手", kind: "player", color: "#dc4151" };
+  const ball: BoardActor = { id: newBoardId("ball"), label: "网球", kind: "ball", color: "#d8ef72" };
+  board = addActor(board, me, [.62, .82]);
+  board = addActor(board, opponent, [.46, .18]);
+  board = addActor(board, ball, [.34, .72]);
+  return updateFrame(board, 0, { label: "第 1 拍 · 起始站位" });
+}
+
 export function cloneBoard(board: BoardDocument, title?: string): BoardDocument {
   const fallbackTitle = defaultCopyTitle(board.title);
   const normalizedTitle = title?.trim() || fallbackTitle;

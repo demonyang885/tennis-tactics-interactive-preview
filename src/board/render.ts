@@ -228,7 +228,7 @@ export function hitTestBoard(pixel: Point, width: number, height: number, frame:
   for (const mark of [...frame.marks].reverse()) {
     const { at, width: mw, height: mh } = markBounds(mark, geometry);
     let hit = false;
-    if (mark.kind === "target") hit = Math.abs(pixel[0] - at[0]) <= mw / 2 + 8 && Math.abs(pixel[1] - at[1]) <= mh / 2 + 8;
+    if (mark.kind === "target") hit = Math.abs(pixel[0] - at[0]) <= Math.max(minimumTouchRadius, mw / 2 + 8) && Math.abs(pixel[1] - at[1]) <= Math.max(minimumTouchRadius, mh / 2 + 8);
     else if (mark.kind === "text") hit = Math.abs(pixel[0] - at[0]) <= Math.max(minimumTouchRadius, (mark.text || "提示").length * 7) && Math.abs(pixel[1] - at[1]) <= minimumTouchRadius;
     else if (mark.kind === "freehand" && mark.points?.length) {
       const points = mark.points.map(geometry.toCanvas);

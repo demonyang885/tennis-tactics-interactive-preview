@@ -5,6 +5,7 @@ import {
   addMark,
   cloneBoard,
   createBlankBoard,
+  createStarterBoard,
   deleteActor,
   deleteFrame,
   deletePath,
@@ -60,6 +61,20 @@ function playableBoard() {
   });
   return addFrame(board, 0);
 }
+
+test("starter board opens ready to draw without hiding the ball under a player", () => {
+  const board = createStarterBoard("即用画板");
+  expect(board.title).toBe("即用画板");
+  expect(board.actors.filter((actor) => actor.kind === "player")).toHaveLength(2);
+  expect(board.actors.filter((actor) => actor.kind === "ball")).toHaveLength(1);
+  const ball = board.actors.find((actor) => actor.kind === "ball")!;
+  const ballPoint = board.frames[0].poses[ball.id];
+  for (const player of board.actors.filter((actor) => actor.kind === "player")) {
+    const playerPoint = board.frames[0].poses[player.id];
+    expect(Math.hypot(playerPoint[0] - ballPoint[0], playerPoint[1] - ballPoint[1])).toBeGreaterThan(.08);
+  }
+  expect(validateBoardDocument(board)).toEqual({ ok: true, value: board });
+});
 
 test("outgoing paths interpolate and appended frames begin at the prior end", () => {
   const board = playableBoard();

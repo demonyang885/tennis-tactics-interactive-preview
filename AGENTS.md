@@ -1,5 +1,16 @@
 # Mobile Prototype Agent Guide
 
+## Current Product Direction — 2026-09-11
+
+- Keep Theme 1 as the current Court Canvas direction. Preserve its dark-green court, blue/red player roles, bright ball path, dashed movement path, compact frame rail, and large green playback action. This iteration intentionally simplifies hierarchy rather than pixel-cloning every reference control.
+- The primary `战术画板` entry is immediate: reopen the newest valid local draft, or open a ready-to-draw starter board containing `我方`、`对手` and `网球`. Keep the draft/template library and a genuinely empty board as secondary choices inside `画板文件` → `草稿与模板`.
+- Use an object-first editor. Selecting the ball exposes `画球路`; selecting a player exposes `画跑位`. Keep only one contextual command slot plus the persistent `对象`、`添加` and `播放` actions. Put equipment, text, freehand, feed paths, and extra actors in the `添加` sheet.
+- Use the labels `＋新增一拍` for a new frame, `下一拍` for playback navigation, and `沿用布置到下一拍` for carrying the previous frame's end pose forward. Do not collapse these into one ambiguous “next” action.
+- Treat edit and preview as separate modes. Pausing, scrubbing, stepping, or reaching the end must retain the preview pose and dock; only `完成 · 回到编辑` returns to the editable frame. Playback state is transient and must never enter document history or saved JSON.
+- All pointer geometry must stay in one CSS-pixel space. Convert pointer coordinates with `(client - rect origin) * clientSize / rectSize`, and use the same client dimensions for rendering and hit testing. Preserve actor/mark/handle grab offsets, require 5 CSS px movement before committing, restore the previous selection on `pointercancel`, and record one complete gesture as exactly one undo step.
+- Continue publishing only to `origin` branch `preview/court-canvas-cad0d5f` in the independent test repository. Do not merge, force-push, or update `main`; the previous preview commit remains the rollback point. After each publish, dispatch the Pages workflow and verify the public URL plus `version.json`.
+- Before handoff, keep `design-qa.md` current and run `npm run build`, the complete Playwright suite serially, `npm run test:sites`, `npm run test:pages`, and `git diff --check`. Desktop emulation does not replace real iPhone/Android touch, storage, and file-share checks.
+
 ## Current Product Direction — 2026-09-10
 
 - Continue development on the user's Mac mini. `MACMINI_HANDOFF.md` records the transfer state and `docs/court-board/` contains the selected design, references, and implementation contract.
