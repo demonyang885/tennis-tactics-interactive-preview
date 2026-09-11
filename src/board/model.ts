@@ -34,6 +34,14 @@ export type BoardFrame = {
   marks: BoardMark[];
 };
 
+export type BoardSmartRally = {
+  version: 1;
+  frameId: string;
+  phase: "shot" | "move";
+  hitterId: string;
+  actorId: string;
+};
+
 export type BoardDocument = {
   version: 1;
   id: string;
@@ -43,6 +51,7 @@ export type BoardDocument = {
   actors: BoardActor[];
   frames: BoardFrame[];
   drillId?: string;
+  smartRally?: BoardSmartRally;
 };
 
 export type BoardPlaybackPose = {
@@ -194,6 +203,21 @@ function assertDuration(duration: number) {
   }
 }
 
+function assertSmartRally(board: BoardDocument, smartRally: BoardSmartRally) {
+  if (smartRally.version !== 1) throw new Error("不支援的智慧回合版本");
+  if (smartRally.phase !== "shot" && smartRally.phase !== "move") throw new Error("不支援的智慧回合階段");
+  assertIdValue(smartRally.frameId, "智慧回合拍次 ID");
+  assertIdValue(smartRally.hitterId, "智慧回合擊球者 ID");
+  assertIdValue(smartRally.actorId, "智慧回合操作對象 ID");
+  if (!board.frames.some((frame) => frame.id === smartRally.frameId)) throw new Error("智慧回合引用了不存在的拍次");
+  const players = board.actors.filter((actor) => actor.kind === "player");
+  const balls = board.actors.filter((actor) => actor.kind === "ball");
+  if (players.length !== 2 || balls.length !== 1) throw new Error("智慧回合需要兩位球員與一顆網球");
+  if (!players.some((actor) => actor.id === smartRally.hitterId)) throw new Error("智慧回合擊球者必須是球員");
+  if (smartRally.phase === "shot" && smartRally.actorId !== balls[0].id) throw new Error("球路階段必須操作網球");
+  if (smartRally.phase === "move" && smartRally.actorId !== smartRally.hitterId) throw new Error("跑位階段必須操作當前擊球者");
+}
+
 function canonicalizePathStarts(frame: BoardFrame): BoardFrame {
   let changed = false;
   const paths = frame.paths.map((path) => {
@@ -293,7 +317,20 @@ export function createStarterBoard(title = "我的战术板"): BoardDocument {
   board = addActor(board, me, [.62, .82]);
   board = addActor(board, opponent, [.46, .18]);
   board = addActor(board, ball, [.34, .72]);
-  return updateFrame(board, 0, { label: "第 1 拍 · 起始站位" });
+  board = updateFrame(board, 0, { label: "第 1 拍 · 起始站位" });
+  const ballPoint = board.frames[0].poses[ball.id];
+  const hitter = [me, opponent].reduce((nearest, player) => {
+    const distance = Math.hypot(board.frames[0].poses[player.id][0] - ballPoint[0], board.frames[0].poses[player.id][1] - ballPoint[1]);
+    const nearestDistance = Math.hypot(board.frames[0].poses[nearest.id][0] - ballPoint[0], board.frames[0].poses[nearest.id][1] - ballPoint[1]);
+    return distance < nearestDistance ? player : nearest;
+  });
+  return setSmartRally(board, {
+    version: 1,
+    frameId: board.frames[0].id,
+    phase: "shot",
+    hitterId: hitter.id,
+    actorId: ball.id,
+  });
 }
 
 export function cloneBoard(board: BoardDocument, title?: string): BoardDocument {
@@ -307,7 +344,19 @@ export function cloneBoard(board: BoardDocument, title?: string): BoardDocument 
     updatedAt: nowIso(),
     actors: board.actors.map((actor) => ({ ...actor })),
     frames: board.frames.map(copyFrame),
+    ...(board.smartRally ? { smartRally: { ...board.smartRally } } : {}),
   };
+}
+
+/** Set or clear the serialized smart-rally cursor after an atomic editor action. */
+export function setSmartRally(board: BoardDocument, smartRally?: BoardSmartRally): BoardDocument {
+  if (smartRally === undefined) {
+    if (!board.smartRally) return board;
+    const { smartRally: _smartRally, ...manualBoard } = board;
+    return { ...manualBoard, updatedAt: nowIso() };
+  }
+  assertSmartRally(board, smartRally);
+  return touch(board, { smartRally: { ...smartRally } });
 }
 
 export function getFrameEnd(frame: BoardFrame): Record<string, Point> {
@@ -478,9 +527,13 @@ export function addFrame(board: BoardDocument, afterIndex: number, duplicate = f
 export function deleteFrame(board: BoardDocument, frameIndex: number): BoardDocument {
   assertFrameIndex(board, frameIndex);
   if (board.frames.length === 1) return board;
+  const deletedFrameId = board.frames[frameIndex].id;
   const frames = board.frames.filter((_, index) => index !== frameIndex);
   const reflowFrom = frameIndex === 0 ? 0 : frameIndex - 1;
-  return touch(board, { frames: renumberDefaultFrameLabels(reflowFrames(frames, reflowFrom)) });
+  const next = touch(board, { frames: renumberDefaultFrameLabels(reflowFrames(frames, reflowFrom)) });
+  if (next.smartRally?.frameId !== deletedFrameId) return next;
+  const { smartRally: _smartRally, ...manualBoard } = next;
+  return manualBoard;
 }
 
 export function updateFrame(
@@ -607,7 +660,10 @@ export function addActor(board: BoardDocument, actor: BoardActor, point: Point):
     ...frame,
     poses: { ...frame.poses, [actor.id]: copyPoint(nextPoint) },
   }));
-  return touch(board, { actors: [...board.actors, { ...actor }], frames });
+  const next = touch(board, { actors: [...board.actors, { ...actor }], frames });
+  if (!next.smartRally) return next;
+  const { smartRally: _smartRally, ...manualBoard } = next;
+  return manualBoard;
 }
 
 export function deleteActor(board: BoardDocument, actorId: string): BoardDocument {
@@ -617,7 +673,10 @@ export function deleteActor(board: BoardDocument, actorId: string): BoardDocumen
     const poses = Object.fromEntries(Object.entries(frame.poses).filter(([id]) => id !== actorId));
     return { ...frame, poses, paths: frame.paths.filter((path) => path.actorId !== actorId) };
   });
-  return touch(board, { actors, frames });
+  const next = touch(board, { actors, frames });
+  if (!next.smartRally) return next;
+  const { smartRally: _smartRally, ...manualBoard } = next;
+  return manualBoard;
 }
 
 export function renameBoard(board: BoardDocument, title: string): BoardDocument {

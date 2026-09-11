@@ -290,6 +290,8 @@
 .tennis-app .board-home-primary button { display:flex; align-items:center; justify-content:center; gap:7px; min-height:48px; padding:0 13px; border:0; border-radius:13px; background:#dced8d; color:#183d2b; font-size:13px; font-weight:750; }
 .tennis-app .board-home-primary button:last-child { padding:0; background:rgb(255 255 255 / 12%); color:#ecf5e3; box-shadow:inset 0 0 0 1px rgb(255 255 255 / 16%); }
 .board-home-primary svg { width:18px; height:18px; }
+.tennis-app .board-home-blank { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; min-height:44px; margin-top:8px; padding:0 12px; border:1px solid rgb(255 255 255 / 18%); border-radius:12px; background:transparent; color:#dce9dc; font-size:11px; font-weight:700; }
+.board-home-blank svg { width:16px; height:16px; }
 .board-hidden-file { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none; }
 .board-error { margin:11px 1px 0; padding:10px 12px; border:1px solid #e6c6bc; border-radius:11px; background:#fff3ef; color:#8c483d; font-size:12px; line-height:18px; }
 .board-home-section { margin-top:23px; }
@@ -321,8 +323,11 @@
 .board-home-note { margin:20px 4px 0; color:#5f7062; font-size:11px; line-height:18px; }
 
 .board-editor { position:absolute; inset:0; display:flex; min-height:0; flex-direction:column; overflow:hidden; background:#f6f5f1; color:#173d2c; }
+.tennis-app .flow-screen.board-enter-immediate { transform:none !important; }
 .board-canvas-shell { position:relative; flex:1; min-height:220px; overflow:hidden; background:#153e2e; }
 .board-canvas { position:absolute; inset:0; touch-action:none; outline:none; }
+.tennis-app .board-history-chip { position:absolute; z-index:3; top:7px; right:11px; display:flex; align-items:center; justify-content:center; gap:5px; min-width:82px; min-height:44px; padding:0 10px; border:1px solid rgb(255 255 255 / 18%); border-radius:12px; background:rgb(8 39 28 / 76%); color:#eef5e8; box-shadow:0 5px 15px rgb(0 0 0 / 12%); backdrop-filter:blur(7px); font-size:10px; line-height:14px; font-weight:750; }
+.board-history-chip svg { width:15px; height:15px; color:#d8ef72; }
 .device-screen :where(.board-header,.board-home,.board-editor,.board-sheet,.board-object-list,.drill-guide) :is(a,button,input,select,summary,textarea,[role="button"],[tabindex]):focus-visible { outline:3px solid #d8ef72 !important; outline-offset:-4px; box-shadow:inset 0 0 0 1px #173d2c !important; }
 .device-screen .board-editor .board-canvas:focus-visible { box-shadow:inset 0 0 0 1px #f7f8f4 !important; }
 .board-canvas canvas { position:absolute; inset:0; display:block; width:100%; height:100%; }
@@ -352,7 +357,7 @@
 .board-guide-copy { display:flex; min-width:0; flex:1; flex-direction:column; gap:3px; }
 .board-guide-copy strong { overflow:hidden; font-size:13px; line-height:18px; text-overflow:ellipsis; white-space:nowrap; }
 .board-guide-copy small { overflow:hidden; color:#6a796b; font-size:10px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
-.board-canvas-context-actions { display:flex; align-items:center; gap:6px; flex:none; }
+.board-canvas-context-actions { display:flex; align-items:center; gap:6px; flex:none; pointer-events:auto; }
 .tennis-app .board-interaction-guide button { display:flex; align-items:center; justify-content:center; gap:4px; min-height:44px; padding:0 9px; border:1px solid #d8e2d3; border-radius:10px; background:#f3f6ee; color:#31583b; font-size:10px; line-height:13px; font-weight:750; }
 .tennis-app .board-interaction-guide .board-context-draw { border-color:#315b40; background:#315b40; color:#fff; }
 .board-interaction-guide button svg { width:15px; height:15px; }
@@ -405,6 +410,9 @@
 .board-object-list strong { overflow:hidden; font-size:12px; line-height:17px; text-overflow:ellipsis; white-space:nowrap; }
 .board-object-list small { color:#5f7062; font-size:10px; line-height:14px; }
 .board-object-list button > svg:last-child { width:15px; height:15px; }
+.board-history-list .board-history-number { display:grid; place-items:center; justify-self:center; width:28px; height:28px; border-radius:50%; background:#e7eee0; color:#31583b; font-size:11px; font-weight:800; }
+.device-screen .bottom-sheet .board-history-list button[aria-current="step"] { border-color:#a9bf98; background:#eff5e7; box-shadow:inset 0 0 0 1px #d8e5ca; }
+.device-screen .bottom-sheet .board-history-list button[aria-current="step"] .board-history-number { background:#315c3d; color:#fff; }
 .object-nudge-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:12px; }
 .device-screen .bottom-sheet .object-nudge-grid button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; border:1px solid #dce4d9; border-radius:11px; background:#f7f9f5; color:#49634e; font-size:11px; }
 .object-nudge-grid svg { width:15px; height:15px; }

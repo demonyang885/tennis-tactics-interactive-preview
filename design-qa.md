@@ -1,78 +1,66 @@
-# Court Canvas Theme 1 — Design QA
+# Court Canvas Smart Rally — Design QA
 
-## Comparison target
+## Evidence
 
-- Source visual truth: `docs/court-board/theme-1-coach.png`
-- Rendered implementation: `docs/court-board/implementation-theme-1-screen-1x.png`
-- Current full-view evidence: `docs/court-board/design-qa-comparison.png` (source left, implementation right)
-- Current focused controls evidence: `docs/court-board/design-qa-controls-comparison.png` (source left, implementation right)
-- Earlier baseline evidence: `docs/court-board/theme-1-comparison-1x.png`, `theme-1-court-comparison-1x.png`, and `theme-1-controls-comparison-1x.png`
-- Route and state: editable starter board, first frame active, `球路` tool active, curved shot route selected with endpoint and curve handles visible, Theme 1 coach-green treatment
+- Source visual truth: `/Users/clawbot/.codex/attachments/7403c781-828e-434b-bd95-97f5d4938215/codex-clipboard-b27c7413-2db7-4005-b9ec-c51eac9a8a76.png`
+- Browser-rendered implementation: `/Users/clawbot/Documents/Codex/2026-09-10/app/tennis-tactics/test-results/court-board-renders-the-pu-baaa8-th-without-simulator-chrome/court-board-public-mobile.png`
+- Focused comparison input: `/Users/clawbot/Documents/Codex/2026-09-10/app/tennis-tactics/docs/design-qa/controls-comparison.png`
+- Live implementation: `http://127.0.0.1:4173/`, inspected in the Codex in-app browser.
+- Source pixels: 908 × 454. The source is a partial, framed, likely high-density device crop; its exact CSS density is not encoded in the file.
+- Implementation pixels/CSS size: 390 × 844 at device scale factor 1; the captured screen measures 390 CSS px wide with no simulator chrome.
+- Focus normalization: implementation rows `y=594…844` were cropped and resampled to 454 px high only for side-by-side control comparison. Layout conclusions use proportions and hierarchy, not resampled pixel distances.
+- State: source shows an active two-beat board. The persisted implementation screenshot shows the initial zero-beat state; the matching active `2 拍 · 3.0 秒` state was separately exercised and visually inspected in the in-app browser after `发球 → 对手跑位 → 回球`.
 
-## Capture and normalization
+## Full-view comparison evidence
 
-- Source pixels: 853 × 1844.
-- Implementation CSS viewport: 393 × 852 on the protected iPhone runtime.
-- Implementation screenshot pixels: 394 × 852 at `deviceScaleFactor: 1`; the one-pixel horizontal difference is the captured rounded screen edge, while the measured CSS content width is 393px.
-- Density normalization: the source was downsampled to 394 × 852 before comparison. Both sides of the current comparison evidence are therefore 394 × 852 pixels.
-- The implementation is an element capture of `data-testid="device-screen"`, not a browser-window screenshot. Protected live status-bar and home-indicator chrome remain visible by runtime contract.
+The source does not include a full screen, so full-screen pixel fidelity cannot be asserted. The 390 × 844 implementation capture was instead checked for product integrity: the court remains the dominant region; the header, compact `第 N 拍` history chip, instruction row, and persistent bottom dock fit without overlap, clipping, browser chrome, or horizontal overflow. The desktop in-app preview also retained the calibrated device frame without duplicated phone chrome.
 
-## Findings
+## Focused region comparison evidence
 
-- P0: none.
-- P1: none.
-- P2: none remaining.
-- Theme 1's dark-green court, blue/red role coding, yellow-green shot path, dashed movement legend, compact frame rail, and dominant green playback action are preserved.
-- The reference's frame rail, five persistent tools, active-tool treatment, and full-width playback action are now reproduced as the editor's primary control hierarchy.
-- Court markings, net, actor labels, route direction, selected control handles, frame context, and primary controls remain legible without clipping or overlap at the target viewport.
-- Icons come from the existing Radix icon library. No placeholder asset, emoji control, handcrafted SVG, or simulated raster asset was introduced.
+`docs/design-qa/controls-comparison.png` places the source and implementation in one image. Both use the same lower-control hierarchy: two secondary square controls (`对象`, `添加`) followed by a substantially larger dark-green `播放` action with the beat count and duration aligned at the far edge. The implementation intentionally removes the source's always-visible frame rail, per the approved smart-rally direction, and replaces it with one compact `第 N 拍` history entry on the court.
 
 ## Required fidelity surfaces
 
-- Typography: the product's existing system PingFang fallbacks preserve the compact coach-tool character. Title, phase label, frame label, five tool labels, and playback hierarchy remain distinct; long labels truncate rather than colliding.
-- Spacing and layout: canvas remains the dominant region. The compact frame rail, five persistent tools, full-width play action, and dismissible error toast meet a 44px minimum target; the play action is the only dark filled control in the dock.
-- Color and semantics: coach green (`#153e2e` / `#28684b`), lime shot, pale-blue dashed movement, off-white surfaces, soft green selection, red opponent, and blue player match the source intent and remain identifiable without relying on color alone.
-- Image quality: court, routes, actors, marks, and selection handles render sharply at DPR 1. The physical court ratio remains correct rather than stretching to the stylized source court.
-- Copy: concise Simplified Chinese follows the existing product localization. The visible add-frame label matches the reference's `下一拍`, while its semantic name is `新建下一拍`; playback navigation remains scoped to the preview dock.
-- States and accessibility: active tools expose `aria-pressed`; selected, disabled, saving, saved, preview, paused, finished, and replay states are visible. The `选择` tool always exposes the semantic object list while the canvas meta strip keeps selected-object adjustment reachable, alongside focus rings, arrow-key nudging, Delete-key removal, and keyboard-aware fields.
-- Portal sheets retain the same Theme 1 button treatment and minimum targets outside the `.tennis-app` subtree. `球员` preserves my-player, opponent, and ball creation; `标记` preserves targets, equipment, text, freehand, and feed paths. Closing a board sheet restores focus to its opener or the nearest surviving primary control, choosing a placement/object item sends focus to the canvas, duplicate marks have localized numbered names, and parked FlowStack pages are removed from the accessibility tree with `inert` and `aria-hidden`.
-
-## Expected deviations from the source
-
-- The source uses Traditional Chinese and omits operating-system chrome. The existing app uses Simplified Chinese, a live status bar, and a protected home-indicator area; those established runtime and localization choices are preserved.
-- The source groups the example into three coarse coaching stages. The implementation uses document frames and starts with a safe first-frame starter board; numeric badges therefore do not need to match the concept image.
-- Undo, redo, truthful save status, file actions, and drill access add compact capabilities not shown in the concept. They use the same visual language and do not reduce the court below the accepted viewport.
-- Court Canvas does not show the option sheets in this source state. The implementation opens compact secondary sheets from `球员` and `标记`, and uses the already-present canvas meta strip for a selected object's `调整` action, avoiding another permanent control row.
+- Fonts and typography: the existing app/system Chinese sans stack preserves the source's compact, high-weight instruction heading and smaller muted helper line. Labels do not wrap or truncate at 390 px.
+- Spacing and layout rhythm: all persistent controls are at least 44 px high; the guide and dock preserve clear separation, even at 390 × 844. Court space increases after removing the frame rail.
+- Colors and visual tokens: coach green, warm off-white surfaces, pale green borders, bright yellow ball route, and dashed blue movement route match the supplied direction. Disabled playback is visibly distinct; the exercised active state restores the dark-green primary action.
+- Image quality and asset fidelity: there are no missing product images in the supplied control reference. Runtime device assets remain protected and sharp; app icons use one Radix icon family. Court graphics remain crisp at device scale factor 1.
+- Copy and content: `拖出发球线路`, `现在拖动对手跑位`, and `从网球拖出下一拍` state the exact next gesture. Automatic transitions are also announced through a polite live region.
+- Accessibility and interaction: the selected actor has a visible white ring in addition to role color; targets meet the 44 px minimum; undo/redo restores the serialized smart stage; direct ball selection can skip movement; manual and imported boards are not opted into the guided flow by shape alone.
 
 ## Comparison history
 
-1. The first valid Theme 1 pass increased the court's usable height, matched the outgoing curved-shot state, and retained the physically correct court ratio.
-2. A focused baseline pass raised header, contextual, nudge, canvas path/freehand/text, and other compact controls to 44px and restored scoped keyboard focus visibility.
-3. An intermediate workflow review replaced the reference's five tools with one contextual row plus `对象`、`添加` and `播放`; this reduced control count but introduced an extra object-first mental model.
-4. Interaction review found scaled-device pointer math mixing bounding-rect and client dimensions, actor snapping, tap jitter entering history, and ambiguous overlapping hit targets. Coordinate normalization, grab offsets, 5 CSS px slop, and control-handle priority fixed those issues.
-5. Playback review found that pause, scrub, step, and natural completion left preview. The final state machine separates preview from active animation and preserves the paused or final pose.
-6. A final portal/accessibility pass found unscoped sheet styles, a specificity conflict that made the primary play action look disabled, a lingering sheet keyboard, parked pages in the accessibility tree, and undersized target-mark hit regions. Device-screen scoping, a stronger play selector, synchronized keyboard dismissal, inactive-page isolation, and 44px target hit bounds resolved them.
-7. The portal/accessibility fixes were retained while the later visual direction changed; no protected runtime, pointer geometry, history, or playback behavior was removed.
-8. The latest user review asked to simplify by following Court Canvas directly. The contextual row and `对象` / `添加` pair were replaced with `选择`、`球员`、`球路`、`跑位`、`标记`, a reference-shaped `下一拍` control, and a full-width `播放战术` action. The revised full-screen and focused-controls comparisons were inspected together; no actionable P0/P1/P2 finding remained.
-9. A final interaction audit found that persistent drawing tools could hit a selected route handle, duplicate marks were indistinguishable to screen readers, and dismissed sheets lost keyboard focus. Drawing modes now ignore selection handles, object entries are localized and numbered, and all board-owned sheets restore focus deterministically; focused regression coverage was added for Escape and direct-action closes.
+### Pre-QA product review
 
-## Interactions and runtime checks
+- Earlier P1: the visible frame rail and repeated object/tool selection made users manage editor modes instead of constructing a rally.
+  - Fix: removed the persistent rail and explicit normal-flow `新增一拍`; starter boards now open armed for the serve and advance `shot → receiver move → next shot` automatically.
+- Earlier P1: inferring smart mode from “two players plus one ball” could take over tactic, legacy, or imported boards.
+  - Fix: added explicit, validated, serialized `smartRally` metadata; only starter boards opt in.
+- Earlier P1: generic tail trimming could hide a legitimate final manual/tactic frame.
+  - Fix: playback trims only an explicitly generated, empty smart continuation frame.
+- Earlier P2: undo/redo or mid-playback exit could lose or jump away from the active authoring stage.
+  - Fix: the smart cursor travels with document history, while advanced historical edits retain their selected frame; playback returns to the armed smart stage when it started there.
+- Follow-up P1: completing a shot advanced to the receiver frame and made the authored route appear to disappear, even though it remained stored in the preceding frame. The first attempted fix used a 46% opacity ball-only trail; live review showed that it still read as missing and dropped the completed movement path.
+  - Fix: the complete preceding beat now remains clearly visible throughout receiver movement and next-shot authoring. The ball route stays near normal strength and same-beat movement remains legible, without duplicating either into frame data, hit testing, object lists, exports, or playback.
 
-- Direct starter-board entry and latest-draft reopen
-- Actor selection, scaled drag, grab-offset preservation, tap slop, one-step undo
-- Direct five-tool selection, persistent active-tool state, repeated route replacement from the same actor, ball shot, and opponent movement route ownership
-- Curved path endpoint/control-handle editing, including overlap priority
-- Add frame and carry-forward continuity
-- Preview, pause, resume, scrub, previous/next frame, finish, replay, and explicit return to edit
-- Object list through `选择`, localized duplicate-mark labels, selected-object adjustment/deletion, sheet focus restoration, role and mark option sheets, secondary draft/template library, save behavior, and drill entry
-- Pure blank-board object creation, undo/redo restoration, pointer-cancel rollback, portal-sheet targets, keyboard dismissal, and inactive-screen accessibility isolation
-- Automated result: `npx playwright test --workers=1` passed 29 / 29; `npm run build`, `npm run test:sites`, and `npm run test:pages` passed.
-- Manual in-app-browser result: iPhone and Pixel 10 editor layouts remained visible above their safe areas; role picker, mark/more picker, full-width playback transition, and explicit return to edit worked. Browser console and page errors: none observed.
+### Post-fix visual comparison
 
-## Known validation boundary
+- Evidence: `docs/design-qa/controls-comparison.png` plus the 390 × 844 implementation capture.
+- Result: no actionable P0, P1, or P2 visual, interaction, responsive, or accessibility findings remain.
+- No focused sub-crop beyond the complete lower control region was needed because all relevant labels, icon alignment, spacing, border treatments, and playback states are legible in the combined comparison.
 
-Real iPhone/Android touch feel, browser storage limits, file download/share permissions, and cross-device JSON transfer remain physical-device checks; desktop emulation is not presented as equivalent proof.
+## Verification
 
-## Final result
+- Primary interactions exercised: zero-click serve, automatic receiver selection, receiver movement, next shot, hitter alternation, direct skip, undo, redo, playback, history opening, manual blank-board fallback, and multi-ball fallback.
+- Browser console: the final reload and complete flow produced no current runtime errors. Earlier Vite hot-reload parse messages occurred during editing and were resolved before the final reload/build.
+- Automated gate: runtime/content checks, production build, 37 serial Playwright tests, 4 Sites package tests, 3 Pages package tests, and `git diff --check` passed.
+
+## Findings
+
+- No actionable P0/P1/P2 findings.
+
+## Follow-up polish
+
+- P3: confirm the 8 ms haptic cue and perceived entry latency on a physical iPhone and Android device before a production release; desktop and 390 px browser checks cannot validate hardware vibration.
 
 final result: passed

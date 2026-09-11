@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ArchiveIcon,
   ArrowTopRightIcon,
@@ -59,6 +59,7 @@ import {
   newBoardId,
   renameBoard,
   setPath,
+  setSmartRally,
   updateFrame,
   updateMark,
   updatePath,
@@ -490,7 +491,7 @@ function BoardHome({ openBoard }:{openBoard:(board:BoardDocument)=>void}) {
     openBoard({...parsed.value,id:newBoardId(),title:withBoundedSuffix(parsed.value.title,"（导入）",120,"导入画板"),updatedAt:new Date().toISOString()});
   };
   return <MobileScroll className="board-home-scroll"><main className="board-home">
-    <section className="board-home-hero"><span className="board-kicker"><DrawingPinIcon/> COURT CANVAS</span><h2>把想法画成下一拍</h2><p>拖动球员，画出球路和跑位，再按拍次连续播放。</p><div className="board-home-primary"><button onClick={()=>openBoard(createBlankBoard("我的空白战术"))}><PlusIcon/>新建纯空白画板</button><button aria-label="导入画板 JSON" onClick={()=>importRef.current?.click()}><UploadIcon/></button></div><input ref={importRef} className="board-hidden-file" hidden tabIndex={-1} aria-hidden="true" type="file" accept="application/json,.json" onChange={event=>{void importBoard(event.currentTarget.files?.[0]);event.currentTarget.value="";}}/></section>
+    <section className="board-home-hero"><span className="board-kicker"><DrawingPinIcon/> COURT CANVAS</span><h2>把想法画成下一拍</h2><p>两位球员和网球已经就位，直接拖出第一条球路。</p><div className="board-home-primary"><button onClick={()=>openBoard(createStarterBoard("我的新战术"))}><PlusIcon/>新建战术画板</button><button aria-label="导入画板 JSON" onClick={()=>importRef.current?.click()}><UploadIcon/></button></div><button className="board-home-blank" onClick={()=>openBoard(createBlankBoard("我的空白战术"))}><FilePlusIcon/>新建纯空白画板</button><input ref={importRef} className="board-hidden-file" hidden tabIndex={-1} aria-hidden="true" type="file" accept="application/json,.json" onChange={event=>{void importBoard(event.currentTarget.files?.[0]);event.currentTarget.value="";}}/></section>
     {storageError&&<p className="board-error" role="alert">{storageError}</p>}
     <section className="board-home-section"><div className="board-section-heading"><div><span>本机草稿</span><h3>继续上次的画板</h3></div><small>{drafts.length} 份</small></div>
       {drafts.length?<div className="board-draft-list">{drafts.map(board=><article key={board.id}><button className="board-draft-open" onClick={()=>openBoard(board)}><span className="board-draft-icon"><LayersIcon/></span><span><strong>{board.title}</strong><small>{board.frames.length} 拍 · {new Date(board.updatedAt).toLocaleDateString("zh-CN",{month:"numeric",day:"numeric"})}</small></span><ChevronRightIcon/></button><button className="board-draft-delete" aria-label={`删除${board.title}`} onClick={()=>removeDraft(board.id)}><TrashIcon/></button></article>)}</div>:<div className="board-empty"><FilePlusIcon/><p>还没有本机草稿。新建后会自动保存在这台设备。</p></div>}
@@ -503,6 +504,12 @@ function BoardHome({ openBoard }:{openBoard:(board:BoardDocument)=>void}) {
 type BoardTool = "select" | "actor" | "shot" | "move" | "mark";
 type ActorPreset = "me" | "opponent" | "ball";
 type MarkPreset = BoardMark["kind"];
+type SmartBoardContinuation = {
+  frameIndex:number;
+  phase:"shot"|"move";
+  hitterId:string;
+  actorId:string;
+};
 type BoardDrag = {
   pointerId:number;
   base:BoardDocument;
@@ -517,7 +524,32 @@ type BoardDrag = {
   path?:{kind:"shot"|"feed"|"move";actorId:string;from:BoardPoint};
 };
 
-function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,pathKind,markPreset,curved,previewing,elapsed,preview,commit,finishPreview,onComplete,onNudge,onDelete,onError}:{
+/**
+ * Smart continuation is explicit document state. Shape alone never opts an
+ * imported or tactic-derived board into guided authoring.
+ */
+function getSmartBoardContinuation(board:BoardDocument):SmartBoardContinuation|null {
+  const smart=board.smartRally;if(!smart)return null;
+  const frameIndex=board.frames.findIndex(frame=>frame.id===smart.frameId);
+  if(frameIndex<0||frameIndex!==board.frames.length-1)return null;
+  const players=board.actors.filter(actor=>actor.kind==="player"),balls=board.actors.filter(actor=>actor.kind==="ball");
+  if(players.length!==2||balls.length!==1||!players.some(player=>player.id===smart.hitterId))return null;
+  const frame=board.frames[frameIndex],actor=board.actors.find(item=>item.id===smart.actorId);
+  if(!actor||!frame.poses[actor.id]||frame.paths.some(path=>path.actorId===balls[0].id))return null;
+  if(smart.phase==="shot"&&actor.kind!=="ball")return null;
+  if(smart.phase==="move"&&(actor.kind!=="player"||actor.id!==smart.hitterId||frame.paths.some(path=>path.kind==="move"&&path.actorId===actor.id)))return null;
+  return {frameIndex,phase:smart.phase,hitterId:smart.hitterId,actorId:smart.actorId};
+}
+
+type BoardCanvasCompletion = {
+  selection:BoardSelection;
+  created:boolean;
+  gesture:BoardDrag["kind"];
+  base:BoardDocument;
+  path?:BoardDrag["path"];
+};
+
+function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,pathKind,markPreset,curved,smartEnabled,contextPaths,previewing,elapsed,preview,commit,finishPreview,onComplete,onOverride,onCancel,onNudge,onDelete,onError}:{
   board:BoardDocument;
   frameIndex:number;
   selection:BoardSelection|null;
@@ -527,19 +559,23 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
   pathKind:"shot"|"feed";
   markPreset:MarkPreset;
   curved:boolean;
+  smartEnabled:boolean;
+  contextPaths:BoardPath[];
   previewing:boolean;
   elapsed:number;
   preview:(next:BoardDocument)=>void;
   commit:(next:BoardDocument)=>void;
   finishPreview:(base:BoardDocument,cancel?:boolean)=>void;
-  onComplete:(selection:BoardSelection,created:boolean)=>void;
+  onComplete:(completion:BoardCanvasCompletion)=>void;
+  onOverride:(actor:BoardActor)=>void;
+  onCancel:(base:BoardDocument,selectionBefore:BoardSelection|null)=>void;
   onNudge:(dx:number,dy:number)=>void;
   onDelete:()=>void;
   onError:(message:string)=>void;
 }) {
   const holderRef=useRef<HTMLDivElement>(null),canvasRef=useRef<HTMLCanvasElement>(null),drawRef=useRef<()=>void>(()=>{}),dragRef=useRef<BoardDrag|null>(null);
-  const latest=useRef({board,frameIndex,selection,previewing,elapsed});latest.current={board,frameIndex,selection,previewing,elapsed};
-  useEffect(()=>{
+  const latest=useRef({board,frameIndex,selection,contextPaths,previewing,elapsed});latest.current={board,frameIndex,selection,contextPaths,previewing,elapsed};
+  useLayoutEffect(()=>{
     const canvas=canvasRef.current,holder=holderRef.current;if(!canvas||!holder)return;
     const draw=()=>{
       const current=latest.current,width=holder.clientWidth,height=holder.clientHeight,dpr=Math.min(window.devicePixelRatio||1,3);
@@ -547,11 +583,11 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
       const ctx=canvas.getContext("2d");if(!ctx)return;ctx.setTransform(dpr,0,0,dpr,0,0);
       const pose=current.previewing?getBoardPose(current.board,current.elapsed):null;
       const targetIndex=pose?.frameIndex??current.frameIndex,frame=current.board.frames[targetIndex];if(!frame)return;
-      renderBoard(ctx,width,height,frame,current.board.actors,{progress:pose?.progress??0,playing:current.previewing,selection:current.selection,showLegend:true});
+      renderBoard(ctx,width,height,frame,current.board.actors,{progress:pose?.progress??0,playing:current.previewing,selection:current.selection,showLegend:true,contextPaths:current.contextPaths});
     };
     drawRef.current=draw;const resize=new ResizeObserver(draw);resize.observe(holder);draw();return()=>resize.disconnect();
   },[]);
-  useEffect(()=>drawRef.current(),[board,frameIndex,selection,previewing,elapsed]);
+  useEffect(()=>drawRef.current(),[board,contextPaths,frameIndex,selection,previewing,elapsed]);
 
   const toCanvasPoint=(event:ReactPointerEvent<HTMLDivElement>)=>{
     const target=event.currentTarget,bounds=target.getBoundingClientRect();
@@ -560,13 +596,6 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
   const toBoardPoint=(event:ReactPointerEvent<HTMLDivElement>)=>{
     const target=event.currentTarget,geometry=getBoardGeometry(target.clientWidth,target.clientHeight);
     return geometry.clampPoint(geometry.fromCanvas(toCanvasPoint(event)));
-  };
-  const chooseActor=(kind:"shot"|"feed"|"move",hit:BoardHit|null)=>{
-    const needsBall=kind!=="move";
-    const selected=selection?.kind==="actor"?board.actors.find(actor=>actor.id===selection.id):undefined;
-    if(!selected||(needsBall?selected.kind!=="ball":selected.kind!=="player"))return undefined;
-    if(hit?.kind==="actor"&&hit.id===selected.id)return selected;
-    return undefined;
   };
   const actorFromPreset=(preset:ActorPreset):BoardActor=>preset==="ball"
     ?{id:newBoardId("ball"),label:"网球",kind:"ball",color:"#d8ef72"}
@@ -586,15 +615,26 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
         setSelection({kind:"element",id:hit.id});event.currentTarget.setPointerCapture(event.pointerId);return;
       }
       if(tool==="actor"){
-        const actor=actorFromPreset(actorPreset),next=addActor(board,actor,point),nextSelection={kind:"actor",id:actor.id} as const;commit(next);onComplete(nextSelection,true);return;
+        const actor=actorFromPreset(actorPreset),next=addActor(board,actor,point),nextSelection={kind:"actor",id:actor.id} as const;commit(next);onComplete({selection:nextSelection,created:true,gesture:"actor",base:board});return;
       }
       if(tool==="mark"){
         const mark=markFromPreset(markPreset,point);
-        if(markPreset!=="freehand"){const nextSelection={kind:"element",id:mark.id} as const;commit(addMark(board,frameIndex,mark));onComplete(nextSelection,true);return;}
+        if(markPreset!=="freehand"){const nextSelection={kind:"element",id:mark.id} as const;commit(addMark(board,frameIndex,mark));onComplete({selection:nextSelection,created:true,gesture:"mark",base:board});return;}
         dragRef.current={pointerId:event.pointerId,base:board,kind:"freehand",id:mark.id,points:[point],startClient:[event.clientX,event.clientY],moved:false,selectionBefore:selection};event.currentTarget.setPointerCapture(event.pointerId);return;
       }
       if(tool==="shot"||tool==="move"){
-        const kind=tool==="move"?"move":pathKind,actor=chooseActor(kind,hit);if(!actor){onError(kind==="move"?"请从已选中的球员开始拖动":"请从已选中的网球开始拖动");return;}
+        let actor:BoardActor|undefined,kind:"shot"|"feed"|"move";
+        if(smartEnabled){
+          if(hit?.kind!=="actor"){if(hit)setSelection(hit);onError("请从球员或网球按住并拖动");return;}
+          actor=board.actors.find(item=>item.id===hit.id);if(!actor)return;
+          kind=actor.kind==="ball"?(tool==="shot"?pathKind:"shot"):"move";
+          onOverride(actor);
+        }else{
+          const selected=selection?.kind==="actor"?board.actors.find(item=>item.id===selection.id):undefined;
+          const expectsBall=tool==="shot";
+          if(!selected||(expectsBall?selected.kind!=="ball":selected.kind!=="player")||hit?.kind!=="actor"||hit.id!==selected.id){onError(expectsBall?"请从已选中的网球开始拖动":"请从已选中的球员开始拖动");return;}
+          actor=selected;kind=tool==="move"?"move":pathKind;
+        }
         const from=frame.poses[actor.id];if(!from){onError("这个角色在当前拍次没有站位");return;}
         const id=newBoardId("path");
         dragRef.current={pointerId:event.pointerId,base:board,kind:"path",id,startClient:[event.clientX,event.clientY],moved:false,selectionBefore:selection,path:{kind,actorId:actor.id,from}};event.currentTarget.setPointerCapture(event.pointerId);return;
@@ -631,10 +671,10 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
   const endPointer=(event:ReactPointerEvent<HTMLDivElement>,cancel=false)=>{
     const drag=dragRef.current;if(!drag||drag.pointerId!==event.pointerId)return;dragRef.current=null;
     try{event.currentTarget.releasePointerCapture(event.pointerId);}catch{/* pointer may already be released */}
-    if(cancel){finishPreview(drag.base,true);setSelection(drag.selectionBefore);return;}
+    if(cancel){finishPreview(drag.base,true);onCancel(drag.base,drag.selectionBefore);return;}
     if(!drag.moved)return;
     finishPreview(drag.base);
-    onComplete({kind:drag.kind==="actor"?"actor":"element",id:drag.id},drag.kind==="path"||drag.kind==="freehand");
+    onComplete({selection:{kind:drag.kind==="actor"?"actor":"element",id:drag.id},created:drag.kind==="path"||drag.kind==="freehand",gesture:drag.kind,base:drag.base,path:drag.path});
   };
   const onKeyDown=(event:React.KeyboardEvent<HTMLDivElement>)=>{
     if(previewing||!selection)return;
@@ -643,20 +683,29 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
     if(delta[event.key]){event.preventDefault();onNudge(...delta[event.key]!);}
     else if(event.key==="Delete"||event.key==="Backspace"){event.preventDefault();onDelete();}
   };
-  return <div ref={holderRef} className="board-canvas" data-testid="board-canvas" data-scroll-drag="ignore" tabIndex={0} role="application" aria-label="可编辑网球战术画板。直接点选并拖动场上对象；使用下方对象按钮精确选择，或使用添加按钮放置对象和绘制路线。选中对象后可用方向键微调，Delete 键删除。" onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={event=>endPointer(event)} onPointerCancel={event=>endPointer(event,true)}><canvas ref={canvasRef}/></div>;
+  return <div ref={holderRef} className="board-canvas" data-testid="board-canvas" data-scroll-drag="ignore" tabIndex={0} role="application" aria-label="可编辑网球战术画板。标准双人画板可直接从网球拖出球路，放开后会自动接续对手跑位与下一拍；点选任一球员或网球可随时改写当前操作。方向键可微调，Delete 键删除。" onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={event=>endPointer(event)} onPointerCancel={event=>endPointer(event,true)}><canvas ref={canvasRef}/></div>;
 }
 
 function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocument;back:()=>void;openLibrary:()=>void}) {
   const keyboard=useKeyboard();
-  const [board,setBoardState]=useState(initialBoard),[frameIndex,setFrameIndex]=useState(0),[selection,setSelection]=useState<BoardSelection|null>(null),[committedRevision,setCommittedRevision]=useState(0);
+  const initialSmart=getSmartBoardContinuation(initialBoard);
+  const [board,setBoardState]=useState(initialBoard),[frameIndex,setFrameIndex]=useState(initialSmart?.frameIndex??0),[selection,setSelection]=useState<BoardSelection|null>(initialSmart?{kind:"actor",id:initialSmart.actorId}:null),[committedRevision,setCommittedRevision]=useState(0);
   const [past,setPast]=useState<BoardDocument[]>([]),[future,setFuture]=useState<BoardDocument[]>([]),[saveState,setSaveState]=useState<BoardSaveState>("dirty"),[error,setError]=useState(""),[notice,setNotice]=useState("");
-  const [tool,setTool]=useState<BoardTool>("select"),[actorPreset,setActorPreset]=useState<ActorPreset>("me"),[pathKind,setPathKind]=useState<"shot"|"feed">("shot"),[markPreset,setMarkPreset]=useState<MarkPreset>("target"),[curved,setCurved]=useState(true);
+  const [tool,setTool]=useState<BoardTool>(initialSmart?.phase??"select"),[actorPreset,setActorPreset]=useState<ActorPreset>("me"),[pathKind,setPathKind]=useState<"shot"|"feed">("shot"),[markPreset,setMarkPreset]=useState<MarkPreset>("target"),[curved,setCurved]=useState(true);
   const [viewMode,setViewMode]=useState<"edit"|"preview">("edit"),[isPlaying,setIsPlaying]=useState(false),[elapsed,setElapsed]=useState(0),[speed,setSpeed]=useState(1);
-  const [filesOpen,setFilesOpen]=useState(false),[frameOpen,setFrameOpen]=useState(false),[objectsOpen,setObjectsOpen]=useState(false),[drillOpen,setDrillOpen]=useState(false),[objectOpen,setObjectOpen]=useState(false),[toolPalette,setToolPalette]=useState<"add"|"marks"|null>(null);
+  const [filesOpen,setFilesOpen]=useState(false),[historyOpen,setHistoryOpen]=useState(false),[frameOpen,setFrameOpen]=useState(false),[objectsOpen,setObjectsOpen]=useState(false),[drillOpen,setDrillOpen]=useState(false),[objectOpen,setObjectOpen]=useState(false),[toolPalette,setToolPalette]=useState<"add"|"marks"|null>(null);
   const [titleDraft,setTitleDraft]=useState(board.title),[frameLabel,setFrameLabel]=useState(board.frames[0]?.label??""),[frameDuration,setFrameDuration]=useState(String(board.frames[0]?.duration??1.5)),[textDraft,setTextDraft]=useState("");
-  const editorRef=useRef<HTMLDivElement>(null),selectToolRef=useRef<HTMLButtonElement>(null),playbackToggleRef=useRef<HTMLButtonElement>(null),sheetOpenerRef=useRef<HTMLElement|null>(null),sheetFocusTimerRef=useRef<number|null>(null),importRef=useRef<HTMLInputElement>(null),boardRef=useRef(board),committedBoardRef=useRef(board),needsSaveRef=useRef(true),focusPlaybackEntryRef=useRef(false),focusPlaybackExitRef=useRef(false);boardRef.current=board;
-  const totalDuration=getBoardDuration(board),frame=board.frames[frameIndex]??board.frames[0];
-  const hasPlayablePath=board.frames.some(item=>item.paths.length>0);
+  const editorRef=useRef<HTMLDivElement>(null),selectToolRef=useRef<HTMLButtonElement>(null),playbackToggleRef=useRef<HTMLButtonElement>(null),sheetOpenerRef=useRef<HTMLElement|null>(null),sheetFocusTimerRef=useRef<number|null>(null),importRef=useRef<HTMLInputElement>(null),boardRef=useRef(board),committedBoardRef=useRef(board),needsSaveRef=useRef(true),focusPlaybackEntryRef=useRef(false),focusPlaybackExitRef=useRef(false),playbackReturnFrameIdRef=useRef<string|null>(null),playbackResumeSmartRef=useRef(false);boardRef.current=board;
+  const smartContinuation=getSmartBoardContinuation(board);
+  const playbackBoard=useMemo(()=>{
+    const smart=getSmartBoardContinuation(board),last=board.frames[board.frames.length-1];
+    const trimsGeneratedTail=!!smart&&smart.phase==="move"&&smart.frameIndex===board.frames.length-1&&last.paths.length===0;
+    const frames=trimsGeneratedTail?board.frames.slice(0,-1):board.frames;
+    return frames.some(item=>item.paths.length)?{...board,frames}:{...board,frames:frames.slice(0,1).map(item=>({...item,duration:0}))};
+  },[board]);
+  const hasPlayablePath=playbackBoard.frames.some(item=>item.paths.length>0);
+  const playbackFrameCount=hasPlayablePath?playbackBoard.frames.length:0;
+  const totalDuration=getBoardDuration(playbackBoard),frame=board.frames[frameIndex]??board.frames[0];
   const selectedActor=selection?.kind==="actor"?board.actors.find(actor=>actor.id===selection.id):undefined;
   const selectedPath=selection?.kind==="element"?frame?.paths.find(path=>path.id===selection.id):undefined;
   const selectedMark=selection?.kind==="element"?frame?.marks.find(mark=>mark.id===selection.id):undefined;
@@ -667,15 +716,16 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
 
   const setBoard=useCallback((next:BoardDocument)=>{boardRef.current=next;setBoardState(next);},[]);
   const markCommitted=useCallback((next:BoardDocument)=>{committedBoardRef.current=next;needsSaveRef.current=true;setBoard(next);setCommittedRevision(value=>value+1);},[setBoard]);
-  const resetTransientEditorState=useCallback((next:BoardDocument)=>{setFrameIndex(index=>Math.max(0,Math.min(index,next.frames.length-1)));setSelection(null);setViewMode("edit");setIsPlaying(false);setElapsed(0);setObjectOpen(false);},[]);
+  const resetTransientEditorState=useCallback((next:BoardDocument,followSmart:boolean,preferredFrameId?:string)=>{const smart=getSmartBoardContinuation(next),preferredIndex=preferredFrameId?next.frames.findIndex(item=>item.id===preferredFrameId):-1,targetIndex=followSmart&&smart?smart.frameIndex:preferredIndex>=0?preferredIndex:smart?.frameIndex??0,resumeSmart=!!smart&&followSmart&&targetIndex===smart.frameIndex;setFrameIndex(Math.max(0,Math.min(targetIndex,next.frames.length-1)));setSelection(resumeSmart?{kind:"actor",id:smart.actorId}:null);setTool(resumeSmart?smart.phase:"select");setViewMode("edit");setIsPlaying(false);setElapsed(0);setObjectOpen(false);},[]);
   const commit=useCallback((next:BoardDocument)=>{const current=committedBoardRef.current;if(next===current)return;setPast(items=>[...items,current].slice(-50));setFuture([]);markCommitted(next);setSaveState("dirty");setError("");},[markCommitted]);
   const preview=useCallback((next:BoardDocument)=>setBoard(next),[setBoard]);
   const finishPreview=useCallback((base:BoardDocument,cancel=false)=>{if(cancel){setBoard(committedBoardRef.current);return;}const current=boardRef.current;if(current===base)return;const previous=committedBoardRef.current;setPast(items=>[...items,previous].slice(-50));setFuture([]);markCommitted(current);setSaveState("dirty");setError("");},[markCommitted,setBoard]);
-  const undo=useCallback(()=>{const previous=past[past.length-1];if(!previous)return;const current=committedBoardRef.current;setPast(past.slice(0,-1));setFuture(items=>[current,...items].slice(0,50));markCommitted(previous);resetTransientEditorState(previous);setSaveState("dirty");},[markCommitted,past,resetTransientEditorState]);
-  const redo=useCallback(()=>{const next=future[0];if(!next)return;const current=committedBoardRef.current;setFuture(future.slice(1));setPast(items=>[...items,current].slice(-50));markCommitted(next);resetTransientEditorState(next);setSaveState("dirty");},[future,markCommitted,resetTransientEditorState]);
+  const undo=useCallback(()=>{const previous=past[past.length-1];if(!previous)return;const current=committedBoardRef.current,currentSmart=getSmartBoardContinuation(current),currentFrameId=current.frames[frameIndex]?.id,followSmart=!!currentSmart&&currentSmart.frameIndex===frameIndex&&tool===currentSmart.phase&&selection?.kind==="actor"&&selection.id===currentSmart.actorId;setPast(past.slice(0,-1));setFuture(items=>[current,...items].slice(0,50));markCommitted(previous);resetTransientEditorState(previous,followSmart,currentFrameId);setSaveState("dirty");},[frameIndex,markCommitted,past,resetTransientEditorState,selection,tool]);
+  const redo=useCallback(()=>{const next=future[0];if(!next)return;const current=committedBoardRef.current,currentSmart=getSmartBoardContinuation(current),currentFrameId=current.frames[frameIndex]?.id,followSmart=!!currentSmart&&currentSmart.frameIndex===frameIndex&&tool===currentSmart.phase&&selection?.kind==="actor"&&selection.id===currentSmart.actorId;setFuture(future.slice(1));setPast(items=>[...items,current].slice(-50));markCommitted(next);resetTransientEditorState(next,followSmart,currentFrameId);setSaveState("dirty");},[frameIndex,future,markCommitted,resetTransientEditorState,selection,tool]);
   const saveNow=useCallback(()=>{setSaveState("saving");const candidate=committedBoardRef.current,result=saveBoard(candidate);if(result.ok){const showingCommitted=boardRef.current===candidate;committedBoardRef.current=result.value;needsSaveRef.current=false;if(showingCommitted)setBoard(result.value);setSaveState("saved");setError("");window.dispatchEvent(new Event(BOARD_DRAFTS_EVENT));}else{setSaveState("error");setError(result.error);}return result;},[setBoard]);
 
   useEffect(()=>{if(saveState!=="dirty")return;const timer=window.setTimeout(saveNow,700);return()=>window.clearTimeout(timer);},[committedRevision,saveNow,saveState]);
+  useLayoutEffect(()=>{const screen=editorRef.current?.closest<HTMLElement>(".flow-screen");if(!screen)return;screen.classList.add("board-enter-immediate");const timer=window.setTimeout(()=>screen.classList.remove("board-enter-immediate"),600);return()=>{window.clearTimeout(timer);screen.classList.remove("board-enter-immediate");};},[]);
   useEffect(()=>()=>{if(sheetFocusTimerRef.current!==null)window.clearTimeout(sheetFocusTimerRef.current);},[]);
   useEffect(()=>{const flush=()=>{if(!needsSaveRef.current)return;const result=saveBoard(committedBoardRef.current);if(result.ok){committedBoardRef.current=result.value;needsSaveRef.current=false;window.dispatchEvent(new Event(BOARD_DRAFTS_EVENT));}};window.addEventListener("pagehide",flush);return()=>{window.removeEventListener("pagehide",flush);flush();};},[]);
   useEffect(()=>emitBoardHeaderState({boardId:initialBoard.id,title:board.title,saveState,canUndo:past.length>0,canRedo:future.length>0}),[board.title,future.length,initialBoard.id,past.length,saveState]);
@@ -685,7 +735,7 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
   },[back,initialBoard.id,redo,rememberSheetOpener,saveNow,undo]);
   useEffect(()=>{if(!isPlaying)return;let request=0,last=performance.now();const tick=(now:number)=>{const delta=Math.min((now-last)/1000,.1)*speed;last=now;setElapsed(value=>Math.min(totalDuration,value+delta));request=requestAnimationFrame(tick);};request=requestAnimationFrame(tick);return()=>cancelAnimationFrame(request);},[isPlaying,speed,totalDuration]);
   useEffect(()=>{if(isPlaying&&elapsed>=totalDuration){setIsPlaying(false);setNotice("战术播放完成。可重播，或回到编辑继续调整。");}},[elapsed,isPlaying,totalDuration]);
-  useEffect(()=>{setSelection(null);setFrameLabel(frame?.label??"");setFrameDuration(String(frame?.duration??0));},[frame?.id]);
+  useEffect(()=>{const smart=getSmartBoardContinuation(board);if(smart?.frameIndex===frameIndex){setSelection({kind:"actor",id:smart.actorId});setTool(smart.phase);}else setSelection(null);setFrameLabel(frame?.label??"");setFrameDuration(String(frame?.duration??0));},[frame?.id,frameIndex]);
   useEffect(()=>{if(error)setNotice("");},[error]);
   useEffect(()=>{if(!notice)return;const timer=window.setTimeout(()=>setNotice(""),3200);return()=>window.clearTimeout(timer);},[notice]);
   useEffect(()=>{
@@ -694,9 +744,7 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
         if(focusPlaybackEntryRef.current){playbackToggleRef.current?.focus();focusPlaybackEntryRef.current=false;}
         return;
       }
-      const activeFrame=editorRef.current?.querySelector<HTMLButtonElement>(`[data-frame-index="${frameIndex}"]`);
-      activeFrame?.scrollIntoView?.({block:"nearest",inline:"center"});
-      if(focusPlaybackExitRef.current){activeFrame?.focus();focusPlaybackExitRef.current=false;}
+      if(focusPlaybackExitRef.current){editorRef.current?.querySelector<HTMLElement>('[data-testid="board-canvas"]')?.focus();focusPlaybackExitRef.current=false;}
     });
     return()=>window.cancelAnimationFrame(request);
   },[frameIndex,viewMode,board.frames.length]);
@@ -715,20 +763,21 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
     else if(selectedMark)commit(updateMark(board,frameIndex,selectedMark.id,{position:clamp(selectedMark.position)}));
     else if(selectedPath)commit(updatePath(board,frameIndex,selectedPath.id,{to:clamp(selectedPath.to)}));
   };
-  const addNextFrame=(duplicate=false)=>{try{const nextIndex=frameIndex+1,next=addFrame(board,frameIndex,duplicate);commit(next);setFrameIndex(nextIndex);setSelection(null);setTool("select");setViewMode("edit");setIsPlaying(false);setError("");setNotice(`已新增第 ${nextIndex+1} 拍，从上一拍结束位置开始。`);}catch(reason){setError(reason instanceof Error?reason.message:"无法添加拍次");}};
+  const addNextFrame=(duplicate=false)=>{try{const nextIndex=frameIndex+1,generated=addFrame(board,frameIndex,duplicate),next=generated.smartRally?setSmartRally(generated):generated;commit(next);setFrameIndex(nextIndex);setSelection(null);setTool("select");setViewMode("edit");setIsPlaying(false);setError("");setNotice(`已新增第 ${nextIndex+1} 拍，从上一拍结束位置开始。`);}catch(reason){setError(reason instanceof Error?reason.message:"无法添加拍次");}};
   const applyFrame=()=>{const duration=Number(frameDuration);try{commit(updateFrame(board,frameIndex,{label:frameLabel,duration}));setFrameOpen(false);keyboard.hide();restoreSheetFocus("opener");}catch(reason){setError(reason instanceof Error?reason.message:"无法更新拍次");}};
   const deleteCurrentFrame=()=>{const next=deleteFrame(board,frameIndex);commit(next);setFrameIndex(Math.max(0,Math.min(frameIndex,next.frames.length-1)));setFrameOpen(false);keyboard.hide();restoreSheetFocus("opener");};
   const openFrameSheet=()=>{setFrameLabel(frame.label);setFrameDuration(String(frame.duration));setFrameOpen(true);};
+  const openFrameFromHistory=(index:number)=>{const nextFrame=board.frames[index];if(!nextFrame)return;setFrameIndex(index);setFrameLabel(nextFrame.label);setFrameDuration(String(nextFrame.duration));setHistoryOpen(false);setFrameOpen(true);};
   const frameStart=(index:number)=>board.frames.slice(0,index).reduce((sum,item)=>sum+item.duration,0);
-  const nextPlaybackFrame=()=>{const pose=getBoardPose(board,elapsed);if(pose.frameIndex>=board.frames.length-1)return;const next=pose.frameIndex+1;setElapsed(frameStart(next));setIsPlaying(false);setNotice(`已跳到第 ${next+1} 拍。`);};
-  const previousPlaybackFrame=()=>{if(elapsed<=0)return;const pose=getBoardPose(board,elapsed),terminal=pose.frameIndex===board.frames.length-1&&board.frames[pose.frameIndex]?.duration===0&&elapsed>=totalDuration;const previous=terminal||pose.progress<.08?Math.max(0,pose.frameIndex-1):pose.frameIndex;setElapsed(frameStart(previous));setIsPlaying(false);setNotice(`已跳到第 ${previous+1} 拍。`);};
-  const startPlayback=()=>{if(!hasPlayablePath){setError("请先画一条球路或跑位路线，再播放战术。");return;}focusPlaybackEntryRef.current=true;setTool("select");setSelection(null);setElapsed(0);setViewMode("preview");setIsPlaying(true);setError("");setNotice(`开始播放战术，共 ${board.frames.length} 拍、${totalDuration.toFixed(1)} 秒。`);};
-  const returnToEditing=()=>{setIsPlaying(false);const pose=getBoardPose(board,elapsed);setFrameIndex(pose.frameIndex);setViewMode("edit");setElapsed(0);setTool("select");setSelection(null);focusPlaybackExitRef.current=true;setNotice(`已回到第 ${pose.frameIndex+1} 拍编辑。`);};
+  const nextPlaybackFrame=()=>{const pose=getBoardPose(playbackBoard,elapsed);if(pose.frameIndex>=playbackBoard.frames.length-1)return;const next=pose.frameIndex+1;setElapsed(frameStart(next));setIsPlaying(false);setNotice(`已跳到第 ${next+1} 拍。`);};
+  const previousPlaybackFrame=()=>{if(elapsed<=0)return;const pose=getBoardPose(playbackBoard,elapsed),terminal=pose.frameIndex===playbackBoard.frames.length-1&&playbackBoard.frames[pose.frameIndex]?.duration===0&&elapsed>=totalDuration;const previous=terminal||pose.progress<.08?Math.max(0,pose.frameIndex-1):pose.frameIndex;setElapsed(frameStart(previous));setIsPlaying(false);setNotice(`已跳到第 ${previous+1} 拍。`);};
+  const startPlayback=()=>{if(!hasPlayablePath){setError("请先画一条球路或跑位路线，再播放战术。");return;}focusPlaybackEntryRef.current=true;playbackReturnFrameIdRef.current=frame.id;playbackResumeSmartRef.current=smartContinuation?.frameIndex===frameIndex&&tool===smartContinuation.phase;setTool("select");setSelection(null);setElapsed(0);setViewMode("preview");setIsPlaying(true);setError("");setNotice(`开始播放战术，共 ${playbackFrameCount} 拍、${totalDuration.toFixed(1)} 秒。`);};
+  const returnToEditing=()=>{setIsPlaying(false);const pose=getBoardPose(playbackBoard,elapsed),smart=getSmartBoardContinuation(board),resumeSmart=playbackResumeSmartRef.current&&!!smart;setViewMode("edit");setElapsed(0);if(resumeSmart&&smart){setFrameIndex(smart.frameIndex);setSelection({kind:"actor",id:smart.actorId});setTool(smart.phase);setNotice(`已回到第 ${smart.frameIndex+1} 拍继续编辑。`);}else{const returnIndex=board.frames.findIndex(item=>item.id===playbackReturnFrameIdRef.current),targetIndex=returnIndex>=0?returnIndex:pose.frameIndex;setFrameIndex(targetIndex);setTool("select");setSelection(null);setNotice(`已回到第 ${targetIndex+1} 拍编辑。`);}playbackReturnFrameIdRef.current=null;playbackResumeSmartRef.current=false;focusPlaybackExitRef.current=true;};
   const applyRename=()=>{try{commit(renameBoard(board,titleDraft));keyboard.hide();}catch(reason){setError(reason instanceof Error?reason.message:"无法重命名");}};
   const duplicateDraft=()=>{const copy=cloneBoard(board);const result=saveBoard(copy);if(result.ok){setError("");setNotice(`已保存副本「${result.value.title}」。`);window.dispatchEvent(new Event(BOARD_DRAFTS_EVENT));}else setError(result.error);};
   const exportJson=()=>saveDownload(new Blob([JSON.stringify(board,null,2)],{type:"application/json"}),safeFilename(board.title,"json"));
   const exportPng=async()=>{try{saveDownload(await exportBoardPng(board,frameIndex),safeFilename(`${board.title}-第${frameIndex+1}拍`,"png"));}catch(reason){setError(reason instanceof Error?reason.message:"无法导出图片");}};
-  const importJson=async(file:File|undefined)=>{if(!file)return;const parsed=parseBoardJSON(await file.text());if(!parsed.ok){setError(parsed.error);return;}const imported={...parsed.value,id:initialBoard.id,updatedAt:new Date().toISOString()};commit(imported);setTitleDraft(imported.title);setFrameIndex(0);setFrameLabel(imported.frames[0]?.label??"");setFrameDuration(String(imported.frames[0]?.duration??0));setSelection(null);setViewMode("edit");setIsPlaying(false);setElapsed(0);setTool("select");setFilesOpen(false);keyboard.hide();restoreSheetFocus("canvas");};
+  const importJson=async(file:File|undefined)=>{if(!file)return;const parsed=parseBoardJSON(await file.text());if(!parsed.ok){setError(parsed.error);return;}const imported={...parsed.value,id:initialBoard.id,updatedAt:new Date().toISOString()};commit(imported);setTitleDraft(imported.title);resetTransientEditorState(imported,true,imported.frames[0]?.id);setFrameLabel(imported.frames[0]?.label??"");setFrameDuration(String(imported.frames[0]?.duration??0));setFilesOpen(false);keyboard.hide();restoreSheetFocus("canvas");};
   const chooseTool=(next:BoardTool)=>{
     setTool(next);setViewMode("edit");setIsPlaying(false);
     const selected=selection?.kind==="actor"?board.actors.find(actor=>actor.id===selection.id):undefined;
@@ -739,23 +788,65 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
   const toggleCurve=()=>{if(selectedPath){const midpoint=(selectedPath.from[0]+selectedPath.to[0])/2;const control=selectedPath.control?undefined:[Math.max(-.15,Math.min(1.15,midpoint+.16)),(selectedPath.from[1]+selectedPath.to[1])/2] as BoardPoint;commit(updatePath(board,frameIndex,selectedPath.id,{control}));}else setCurved(value=>!value);};
   const resizeTarget=(scale:number)=>{if(selectedMark?.kind!=="target")return;const size=selectedMark.size??[.28,.12];commit(updateMark(board,frameIndex,selectedMark.id,{size:[Math.max(.08,Math.min(.8,size[0]*scale)),Math.max(.04,Math.min(.5,size[1]*scale))]}));};
   const applyObjectText=()=>{if(selectedMark&&(selectedMark.kind==="text"||selectedMark.kind==="target")){commit(updateMark(board,frameIndex,selectedMark.id,{text:textDraft.trim()||undefined}));setObjectOpen(false);keyboard.hide();restoreSheetFocus("opener");}};
-  const completeCanvasAction=(nextSelection:BoardSelection,created:boolean)=>{setSelection(nextSelection);if(created){setTool("select");setNotice("已添加并选中，可直接拖动调整位置。");}};
+  const applySmartContinuation=(next:BoardDocument)=>{const smart=getSmartBoardContinuation(next);if(!smart)return false;setFrameIndex(smart.frameIndex);setSelection({kind:"actor",id:smart.actorId});setTool(smart.phase);setPathKind("shot");return true;};
+  const completeCanvasAction=(completion:BoardCanvasCompletion)=>{
+    const smartBefore=getSmartBoardContinuation(completion.base);
+    if(completion.gesture==="path"&&completion.path&&smartBefore?.frameIndex===frameIndex){
+      const current=committedBoardRef.current,players=current.actors.filter(actor=>actor.kind==="player"),ball=current.actors.find(actor=>actor.kind==="ball");
+      const completesShot=!!ball&&completion.path.kind==="shot"&&completion.path.actorId===ball.id&&(smartBefore.phase==="shot"||smartBefore.phase==="move");
+      const completesExpectedMove=completion.path.kind==="move"&&smartBefore.phase==="move"&&completion.path.actorId===smartBefore.actorId;
+      if(completesShot&&ball){
+        try{
+          const nextHitter=players.find(player=>player.id!==smartBefore.hitterId);if(!nextHitter)throw new Error("找不到下一位击球者");
+          let next=addFrame(current,frameIndex,false),nextFrame=next.frames[frameIndex+1];
+          next=setSmartRally(next,{version:1,frameId:nextFrame.id,phase:"move",hitterId:nextHitter.id,actorId:nextHitter.id});
+          markCommitted(next);
+          if(applySmartContinuation(next)){navigator.vibrate?.(8);setNotice(`第 ${frameIndex+1} 拍已完成。现在拖动接球方跑位。`);return;}
+        }catch(reason){setError(reason instanceof Error?reason.message:"无法自动接续下一拍");}
+      }else if(completesExpectedMove&&ball){
+        try{
+          const next=setSmartRally(current,{version:1,frameId:current.frames[frameIndex].id,phase:"shot",hitterId:smartBefore.hitterId,actorId:ball.id});
+          markCommitted(next);
+          if(applySmartContinuation(next)){navigator.vibrate?.(8);setNotice("跑位已记录。现在从网球拖出下一拍。");return;}
+        }catch(reason){setError(reason instanceof Error?reason.message:"无法接续下一拍");}
+      }else if(completion.path.kind==="move"&&applySmartContinuation(current)){
+        setNotice("额外跑位已记录；智慧流程仍等待指定球员。");return;
+      }else{
+        const manual=setSmartRally(current);markCommitted(manual);setSelection(completion.selection);setTool("select");setNotice("这项操作已保留，并切换为手动编辑。");return;
+      }
+    }
+    if(smartBefore&&completion.gesture==="mark"&&applySmartContinuation(committedBoardRef.current)){setNotice("标记已添加，继续当前回合。");return;}
+    setSelection(completion.selection);
+    if(completion.created){setTool("select");setNotice("已添加并选中，可直接拖动调整位置。");}
+  };
+  const overrideSmartActor=(actor:BoardActor)=>{setSelection({kind:"actor",id:actor.id});if(actor.kind==="ball"){if(tool==="move")setPathKind("shot");setTool("shot");setNotice("已改为网球。按住并拖到下一落点。");}else{setTool("move");setNotice(`已改为${numberedActorLabel(board.actors,actor)}。按住并拖动跑位。`);}setError("");};
+  const cancelCanvasAction=(base:BoardDocument,selectionBefore:BoardSelection|null)=>{const smart=getSmartBoardContinuation(base);if(smart){setFrameIndex(smart.frameIndex);setSelection({kind:"actor",id:smart.actorId});setTool(smart.phase);}else{setSelection(selectionBefore);setTool("select");}};
   const chooseAdd=(next:BoardTool,preset?:ActorPreset|MarkPreset)=>{if(next==="actor"&&preset)setActorPreset(preset as ActorPreset);if(next==="mark"&&preset)setMarkPreset(preset as MarkPreset);chooseTool(next);setToolPalette(null);restoreSheetFocus("canvas");};
   const beginSelectedPath=(kind:"shot"|"feed"|"move")=>{const actor=selectedActor;if(!actor||(kind==="move"?actor.kind!=="player":actor.kind!=="ball")){setError(kind==="move"?"请先选择一名球员。":"请先选择网球。");return;}setPathKind(kind==="feed"?"feed":"shot");chooseTool(kind==="move"?"move":"shot");setObjectOpen(false);setToolPalette(null);keyboard.hide();restoreSheetFocus("canvas");};
   const openObjects=(opener:HTMLElement)=>{rememberSheetOpener(opener);chooseTool("select");setObjectsOpen(true);};
 
-  const previewing=viewMode==="preview",activePose=previewing?getBoardPose(board,elapsed):null,currentPlaybackFrame=activePose?.frameIndex??frameIndex;
+  const previewing=viewMode==="preview",activePose=previewing?getBoardPose(playbackBoard,elapsed):null,currentPlaybackFrame=activePose?.frameIndex??frameIndex;
   const selectedActorLabel=selectedActor?numberedActorLabel(board.actors,selectedActor):"";
   const selectedLabel=selectedActorLabel||(selectedPath?selectedPath.kind==="move"?"跑位路线":selectedPath.kind==="feed"?"喂球路线":"击球路线":selectedMark?BOARD_MARK_NAMES[selectedMark.kind]:"");
-  const toolStatus=tool==="actor"?`点球场一次，放置${actorPreset==="me"?"我方球员":actorPreset==="opponent"?"对手球员":"网球"}`:tool==="shot"?`按住网球拖到落点 · ${pathKind==="feed"?"喂球":"球路"}${curved?"曲线":"直线"}`:tool==="move"?`按住已选球员拖到跑位终点 · ${curved?"曲线":"直线"}`:tool==="mark"?`${markPreset==="freehand"?"按住球场并拖动绘制":"点球场一次放置"}${BOARD_MARK_NAMES[markPreset]}`:"";
+  const activeSmart=smartContinuation?.frameIndex===frameIndex?smartContinuation:null;
+  const previousBeatPaths=useMemo(()=>{
+    if(previewing||frameIndex<=0||board.smartRally?.frameId!==frame?.id)return [];
+    return board.frames[frameIndex-1].paths;
+  },[board,frame?.id,frameIndex,previewing]);
+  const smartActor=activeSmart?board.actors.find(actor=>actor.id===activeSmart.actorId):undefined;
+  const smartActorLabel=smartActor?numberedActorLabel(board.actors,smartActor):"";
+  const toolStatus=activeSmart?.phase==="shot"?(frameIndex===0?"拖出发球线路":"从网球拖出下一拍"):activeSmart?.phase==="move"?`现在拖动${smartActorLabel||"接球方"}跑位`:tool==="actor"?`点球场一次，放置${actorPreset==="me"?"我方球员":actorPreset==="opponent"?"对手球员":"网球"}`:tool==="shot"?`按住网球拖到落点 · ${pathKind==="feed"?"喂球":"球路"}${curved?"曲线":"直线"}`:tool==="move"?`按住已选球员拖到跑位终点 · ${curved?"曲线":"直线"}`:tool==="mark"?`${markPreset==="freehand"?"按住球场并拖动绘制":"点球场一次放置"}${BOARD_MARK_NAMES[markPreset]}`:"";
+  const toolHint=activeSmart?.phase==="shot"?(frameIndex===0?"从网球按住，拖到发球落点后放开":"不需跑位时，也可直接从网球继续拖"):activeSmart?.phase==="move"?"跑位后放开，系统会自动切到下一拍":tool==="actor"||tool==="mark"?"完成一次后自动回到对象模式":"必须从已选对象按住并拖动";
+  const addToolActive=toolPalette!==null||tool==="actor"||tool==="mark";
   const canGoPrevious=elapsed>0;
-  const canGoNext=currentPlaybackFrame<board.frames.length-1;
-  const sheetOpen=toolPalette!==null||filesOpen||frameOpen||objectsOpen||drillOpen||objectOpen;
+  const canGoNext=currentPlaybackFrame<playbackBoard.frames.length-1;
+  const sheetOpen=toolPalette!==null||filesOpen||historyOpen||frameOpen||objectsOpen||drillOpen||objectOpen;
   const sheetFeedback=(error||notice)&&<p className={`board-sheet-feedback ${error?"is-error":"is-status"}`} role={error?"alert":"status"} aria-live={error?"assertive":"polite"} aria-atomic="true">{error||notice}</p>;
   return <div ref={editorRef} className={`board-editor ${previewing?"is-previewing":"is-editing"}`}>
     <div className="board-canvas-shell">
       {previewing&&<div className="board-preview-meta"><span>{`预览 · 第 ${currentPlaybackFrame+1} 拍`}</span><strong>{board.frames[currentPlaybackFrame]?.label}</strong>{drill&&<button onClick={event=>{rememberSheetOpener(event.currentTarget);setIsPlaying(false);setDrillOpen(true);}}><TargetIcon/>练到场上</button>}</div>}
-      <BoardCanvas board={board} frameIndex={frameIndex} selection={selection} setSelection={setSelection} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} previewing={previewing} elapsed={elapsed} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError}/>
+      {!previewing&&<button className="board-history-chip" aria-label={`打开拍次历史，当前第 ${frameIndex+1} 拍，共 ${board.frames.length} 拍`} onClick={event=>{rememberSheetOpener(event.currentTarget);setHistoryOpen(true);}}><ReaderIcon/><span>第 {frameIndex+1} 拍</span></button>}
+      <BoardCanvas board={previewing?playbackBoard:board} frameIndex={frameIndex} selection={selection} setSelection={setSelection} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} smartEnabled={!!activeSmart} contextPaths={previousBeatPaths} previewing={previewing} elapsed={elapsed} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onOverride={overrideSmartActor} onCancel={cancelCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError}/>
       {!sheetOpen&&(error||notice)&&<div className={`board-toast ${error?"is-error":"is-status"}`} role={error?"alert":"status"} aria-live={error?"assertive":"polite"} aria-atomic="true"><span>{error||notice}</span><button aria-label="关闭提示" onClick={()=>{setError("");setNotice("");}}><Cross2Icon/></button></div>}
     </div>
     {previewing?<div className="board-playback-dock" data-testid="board-playback-dock">
@@ -763,14 +854,13 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
       <div className="board-playback-actions"><button disabled={!canGoPrevious} onClick={previousPlaybackFrame}><TrackPreviousIcon/><span>上一拍</span></button><button ref={playbackToggleRef} className="board-play-toggle" onClick={()=>{if(isPlaying){setIsPlaying(false);setNotice("已暂停播放。");return;}const restarting=elapsed>=totalDuration;if(restarting)setElapsed(0);setIsPlaying(true);setNotice(restarting?"从第 1 拍重新播放。":"继续播放战术。");}}>{isPlaying?<PauseIcon/>:<PlayIcon/>}<span>{isPlaying?"暂停":elapsed>=totalDuration?"重播":"继续"}</span></button><button disabled={!canGoNext} onClick={nextPlaybackFrame}><TrackNextIcon/><span>下一拍</span></button><button onClick={()=>setSpeed(value=>value===1?.5:value===.5?.25:1)}><LapTimerIcon/><span>{speed}×</span></button></div>
       <button className="board-return-edit" onClick={returnToEditing}>完成 · 回到编辑</button>
     </div>:<>
-      <div className="board-frame-rail"><Carousel className="board-frame-carousel" contentClassName="board-frame-track" ariaLabel="战术拍次">{board.frames.map((item,index)=><button key={item.id} className={index===frameIndex?"is-active":""} data-testid={`board-frame-${index+1}`} data-frame-id={item.id} data-frame-index={index} data-frame-active={index===frameIndex?"true":"false"} aria-label={index===frameIndex?`当前第 ${index+1} 拍：${item.label}`:`打开第 ${index+1} 拍：${item.label}`} aria-pressed={index===frameIndex} onClick={()=>{setFrameIndex(index);setSelection(null);setTool("select");}}><span>{index+1}</span><strong>{item.label}</strong></button>)}</Carousel><div className="board-frame-actions"><button className="board-edit-frame" aria-label={`编辑第 ${frameIndex+1} 拍`} onClick={event=>{rememberSheetOpener(event.currentTarget);openFrameSheet();}}><Pencil2Icon/><span>编辑</span></button><button className="board-add-frame" aria-label="新增一拍，从当前拍结束位置开始" onClick={()=>addNextFrame(false)}><PlusIcon/><span>新增一拍</span></button></div></div>
-      <div className="board-canvas-meta board-interaction-guide">{tool!=="select"?<><div className="board-guide-copy"><strong aria-live="polite">{toolStatus}</strong><small>{tool==="actor"||tool==="mark"?"完成一次后自动回到对象模式":"必须从已选对象按住并拖动"}</small></div><button aria-label="取消当前操作，回到对象模式" onClick={()=>chooseTool("select")}><Cross2Icon/>取消</button></>:selection?<><div className="board-guide-copy"><strong aria-live="polite">已选中{selectedLabel||"场上对象"}</strong><small>拖动中心调整位置；路线端点也可直接拖动</small></div><div className="board-canvas-context-actions">{selectedActor&&<button className="board-context-draw" aria-label={selectedActor.kind==="ball"?`用${selectedLabel}画球路`:`用${selectedLabel}画跑位`} onClick={event=>{rememberSheetOpener(event.currentTarget);beginSelectedPath(selectedActor.kind==="ball"?"shot":"move");}}>{selectedActor.kind==="ball"?<ArrowTopRightIcon/>:<CornerTopRightIcon/>}{selectedActor.kind==="ball"?"画球路":"画跑位"}</button>}<button aria-label={`调整${selectedLabel||"场上对象"}`} onClick={event=>{rememberSheetOpener(event.currentTarget);openSelectedObject();}}><Pencil2Icon/>调整</button></div></>:<><div className="board-guide-copy"><strong>点选场上对象开始</strong><small>拖中心移动；选中后画球路或跑位</small></div>{drill&&<button onClick={event=>{rememberSheetOpener(event.currentTarget);setDrillOpen(true);}}><TargetIcon/>练到场上</button>}</>}</div>
+      <div className="board-canvas-meta board-interaction-guide">{tool!=="select"?<><div className="board-guide-copy" role="status" aria-live="polite" aria-atomic="true"><strong>{toolStatus}</strong><small>{toolHint}</small></div><button aria-label="取消当前操作，回到对象模式" onClick={()=>chooseTool("select")}><Cross2Icon/>取消</button></>:selection?<><div className="board-guide-copy" role="status" aria-live="polite" aria-atomic="true"><strong>已选中{selectedLabel||"场上对象"}</strong><small>拖动中心调整位置；路线端点也可直接拖动</small></div><div className="board-canvas-context-actions">{selectedActor&&<button className="board-context-draw" aria-label={selectedActor.kind==="ball"?`用${selectedLabel}画球路`:`用${selectedLabel}画跑位`} onClick={event=>{rememberSheetOpener(event.currentTarget);beginSelectedPath(selectedActor.kind==="ball"?"shot":"move");}}>{selectedActor.kind==="ball"?<ArrowTopRightIcon/>:<CornerTopRightIcon/>}{selectedActor.kind==="ball"?"画球路":"画跑位"}</button>}<button aria-label={`调整${selectedLabel||"场上对象"}`} onClick={event=>{rememberSheetOpener(event.currentTarget);openSelectedObject();}}><Pencil2Icon/>调整</button></div></>:<><div className="board-guide-copy"><strong>点选场上对象开始</strong><small>拖中心移动；选中后画球路或跑位</small></div>{drill&&<button onClick={event=>{rememberSheetOpener(event.currentTarget);setDrillOpen(true);}}><TargetIcon/>练到场上</button>}</>}</div>
       <nav className="board-edit-dock" aria-label="画板编辑工具">
         <div className="board-tool-rail" role="toolbar" aria-label="画板主要操作">
           <button ref={selectToolRef} className={tool==="select"?"is-active":""} aria-label="对象" aria-pressed={tool==="select"} aria-haspopup="dialog" aria-expanded={objectsOpen} onClick={event=>openObjects(event.currentTarget)}><LayersIcon/><span>对象</span></button>
-          <button className={tool!=="select"?"is-active":""} aria-label="添加" aria-pressed={tool!=="select"} aria-haspopup="dialog" aria-expanded={toolPalette!==null} onClick={event=>{rememberSheetOpener(event.currentTarget);chooseTool("select");setToolPalette("add");}}><PlusIcon/><span>添加</span></button>
+          <button className={addToolActive?"is-active":""} aria-label="添加" aria-pressed={addToolActive} aria-haspopup="dialog" aria-expanded={toolPalette!==null} onClick={event=>{rememberSheetOpener(event.currentTarget);chooseTool("select");setToolPalette("add");}}><PlusIcon/><span>添加</span></button>
         </div>
-        <button className="board-primary-play" aria-label={`播放战术，${board.frames.length} 拍，共 ${totalDuration.toFixed(1)} 秒`} disabled={!hasPlayablePath} onClick={startPlayback}><PlayIcon/><span><strong>播放</strong><small>{board.frames.length} 拍 · {totalDuration.toFixed(1)} 秒</small></span></button>
+        <button className="board-primary-play" aria-label={`播放战术，${playbackFrameCount} 拍，共 ${totalDuration.toFixed(1)} 秒`} disabled={!hasPlayablePath} onClick={startPlayback}><PlayIcon/><span><strong>播放</strong><small>{playbackFrameCount} 拍 · {totalDuration.toFixed(1)} 秒</small></span></button>
       </nav>
     </>}
 
@@ -779,10 +869,11 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
     </div></div></BottomSheet>
     <BottomSheet open={filesOpen} onOpenChange={open=>{setSheetVisibility(setFilesOpen,open);if(!open)restoreSheetFocus("opener");}} title="画板文件" description="保存在本机，也可带走 PNG 或完整 JSON。" snap={.78}><div className="board-sheet"><button className="guide-close" aria-label="关闭画板文件" onClick={()=>{setFilesOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}
       <label className="board-field"><span>画板名称</span><KeyboardInput value={titleDraft} maxLength={60} onChange={event=>setTitleDraft(event.currentTarget.value)}/></label><button className="sheet-done" onClick={applyRename}>更新名称</button>
-      <div className="board-file-actions"><button onClick={saveNow}><CheckCircledIcon/><span><strong>立即保存</strong><small>写入这台设备</small></span></button><button onClick={duplicateDraft}><CopyIcon/><span><strong>保存副本</strong><small>保留独立草稿</small></span></button><button onClick={()=>void exportPng()}><DownloadIcon/><span><strong>当前拍 PNG</strong><small>不含控制柄</small></span></button><button onClick={exportJson}><ArchiveIcon/><span><strong>完整 JSON</strong><small>可继续编辑</small></span></button><button onClick={()=>importRef.current?.click()}><UploadIcon/><span><strong>导入 JSON</strong><small>替换当前内容</small></span></button><button onClick={()=>{const result=saveNow();if(result.ok){keyboard.hide();setFilesOpen(false);openLibrary();}}}><LayersIcon/><span><strong>草稿与模板</strong><small>也可新建纯空白</small></span></button></div>
+      <div className="board-file-actions"><button onClick={saveNow}><CheckCircledIcon/><span><strong>立即保存</strong><small>写入这台设备</small></span></button><button onClick={duplicateDraft}><CopyIcon/><span><strong>保存副本</strong><small>保留独立草稿</small></span></button><button onClick={()=>{setFilesOpen(false);setHistoryOpen(true);}}><ReaderIcon/><span><strong>拍次历史</strong><small>回看或精修任一拍</small></span></button><button onClick={()=>void exportPng()}><DownloadIcon/><span><strong>当前拍 PNG</strong><small>不含控制柄</small></span></button><button onClick={exportJson}><ArchiveIcon/><span><strong>完整 JSON</strong><small>可继续编辑</small></span></button><button onClick={()=>importRef.current?.click()}><UploadIcon/><span><strong>导入 JSON</strong><small>替换当前内容</small></span></button><button onClick={()=>{const result=saveNow();if(result.ok){keyboard.hide();setFilesOpen(false);openLibrary();}}}><LayersIcon/><span><strong>草稿与模板</strong><small>也可新建纯空白</small></span></button></div>
       <input ref={importRef} className="board-hidden-file" hidden tabIndex={-1} aria-hidden="true" type="file" accept="application/json,.json" onChange={event=>{void importJson(event.currentTarget.files?.[0]);event.currentTarget.value="";}}/>
       {saveState==="error"&&<p className="board-export-warning">本机保存失败。请先导出 JSON，避免丢失本次编辑。</p>}
     </div></BottomSheet>
+    <BottomSheet open={historyOpen} onOpenChange={open=>{setSheetVisibility(setHistoryOpen,open);if(!open)restoreSheetFocus("opener");}} title="拍次历史" description="日常编排会自动接续；只在需要回看或精修时进入这里。" snap={.72}><div className="board-sheet"><button className="guide-close" aria-label="关闭拍次历史" onClick={()=>{setHistoryOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<div className="board-object-list board-history-list">{board.frames.map((item,index)=>{const isCurrent=index===frameIndex,isContinuation=smartContinuation?.frameIndex===index&&smartContinuation.phase==="move"&&item.paths.length===0;return <button key={item.id} aria-current={isCurrent?"step":undefined} aria-label={`编辑第 ${index+1} 拍：${item.label}`} onClick={()=>openFrameFromHistory(index)}><span className="board-history-number">{index+1}</span><span><strong>{item.label}</strong><small>{isContinuation?"等待下一拍":`${item.paths.length} 条轨迹 · ${item.duration.toFixed(1)} 秒`}</small></span>{isCurrent?<CheckCircledIcon/>:<ChevronRightIcon/>}</button>;})}</div></div></BottomSheet>
     <BottomSheet open={frameOpen} onOpenChange={open=>{setSheetVisibility(setFrameOpen,open);if(!open)restoreSheetFocus("opener");}} title={`第 ${frameIndex+1} 拍`} description="每拍是一段同步球路与跑位。" snap={.66}><div className="board-sheet"><button className="guide-close" aria-label="取消编辑拍次" onClick={()=>{setFrameOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<label className="board-field"><span>拍次口令</span><KeyboardInput value={frameLabel} maxLength={42} onChange={event=>setFrameLabel(event.currentTarget.value)}/></label><label className="board-field"><span>时长（秒）</span><KeyboardInput inputMode="decimal" value={frameDuration} onChange={event=>setFrameDuration(event.currentTarget.value)}/></label><button className="sheet-done" onClick={applyFrame}>完成</button><div className="board-sheet-row"><button onClick={()=>{addNextFrame(true);setFrameOpen(false);keyboard.hide();restoreSheetFocus("canvas");}}><CopyIcon/>沿用标记到新增一拍</button><button className="is-danger" disabled={board.frames.length===1} onClick={deleteCurrentFrame}><TrashIcon/>删除此拍</button></div></div></BottomSheet>
     <BottomSheet open={objectsOpen} onOpenChange={open=>{setSheetVisibility(setObjectsOpen,open);if(!open)restoreSheetFocus("opener");}} title="当前拍对象" description="选择后可在球场直接拖动，也可打开调整面板。" snap={.72}><div className="board-sheet"><button className="guide-close" aria-label="关闭对象列表" onClick={()=>{setObjectsOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<div className="board-object-list">{board.actors.map(actor=>{const entryLabel=numberedActorLabel(board.actors,actor);return <button key={actor.id} aria-label={`选择${entryLabel}`} onClick={()=>{setSelection({kind:"actor",id:actor.id});setTool("select");setObjectsOpen(false);restoreSheetFocus("canvas");}}><span className="object-swatch" style={{background:actor.color}}/><span><strong>{entryLabel}</strong><small>{actor.kind==="ball"?"网球 · 可画球路":"球员 · 可画跑位"}</small></span><ChevronRightIcon/></button>;})}{frame.paths.map(path=>{const actor=board.actors.find(item=>item.id===path.actorId);return <button key={path.id} onClick={()=>{setSelection({kind:"element",id:path.id});setTool("select");setObjectsOpen(false);restoreSheetFocus("canvas");}}><ResumeIcon/><span><strong>{path.kind==="move"?"跑位路线":path.kind==="feed"?"喂球路线":"击球路线"}</strong><small>{actor?numberedActorLabel(board.actors,actor):"未关联对象"}</small></span><ChevronRightIcon/></button>;})}{frame.marks.map((mark,index)=>{const typeLabel=BOARD_MARK_NAMES[mark.kind],sameTypeCount=frame.marks.filter(item=>item.kind===mark.kind).length,sameTypeIndex=frame.marks.slice(0,index).filter(item=>item.kind===mark.kind).length+1,baseLabel=mark.text?.trim()||typeLabel,entryLabel=sameTypeCount>1?`${baseLabel} ${sameTypeIndex}/${sameTypeCount}`:baseLabel;return <button key={mark.id} aria-label={`选择${entryLabel}`} onClick={()=>{setSelection({kind:"element",id:mark.id});setTool("select");setObjectsOpen(false);restoreSheetFocus("canvas");}}><DrawingPinIcon/><span><strong>{entryLabel}</strong><small>{typeLabel}</small></span><ChevronRightIcon/></button>;})}</div></div></BottomSheet>
     <BottomSheet open={objectOpen} onOpenChange={open=>{setSheetVisibility(setObjectOpen,open);if(!open)restoreSheetFocus("opener");}} title={selectedLabel||"编辑对象"} description={selectedActor?"球员和网球贯穿所有拍次；移动会承接站位，删除会作用于整套战术。":"这里的路线或标记只属于当前拍。"} snap={.66}><div className="board-sheet"><button className="guide-close" aria-label="关闭对象调整" onClick={()=>{setObjectOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}{selectedActor&&<button className="sheet-done" onClick={()=>beginSelectedPath(selectedActor.kind==="ball"?"shot":"move")}>{selectedActor.kind==="ball"?<ArrowTopRightIcon/>:<CornerTopRightIcon/>}{selectedActor.kind==="ball"?"画球路":"画跑位"}</button>}<div className="object-nudge-grid"><button onClick={()=>nudge(0,-.02)}><ChevronLeftIcon/>向上</button><button onClick={()=>nudge(-.02,0)}><ChevronLeftIcon/>向左</button><button onClick={()=>nudge(.02,0)}>向右<ChevronRightIcon/></button><button onClick={()=>nudge(0,.02)}>向下<ChevronRightIcon/></button></div>{selectedMark&&(selectedMark.kind==="text"||selectedMark.kind==="target")&&<><label className="board-field"><span>显示文字</span><KeyboardInput value={textDraft} maxLength={28} onChange={event=>setTextDraft(event.currentTarget.value)}/></label><button className="sheet-done" onClick={applyObjectText}>更新文字</button></>}{selectedMark?.kind==="target"&&<div className="board-sheet-row"><button onClick={()=>resizeTarget(.84)}><MinusIcon/>缩小目标</button><button onClick={()=>resizeTarget(1.18)}><PlusIcon/>放大目标</button></div>}{selectedPath&&<button className="sheet-done is-secondary" onClick={toggleCurve}>{selectedPath.control?"改为直线":"改为曲线"}</button>}<button className="board-delete-wide" aria-label={selectedActor?`从整套战术所有拍次删除${selectedLabel}`:`仅从第 ${frameIndex+1} 拍删除${selectedLabel}`} onClick={()=>{deleteSelection();restoreSheetFocus("opener");}}><TrashIcon/>{selectedActor?`从整套战术删除${selectedLabel}`:`仅从本拍删除${selectedLabel}`}</button></div></BottomSheet>

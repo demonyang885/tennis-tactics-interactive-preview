@@ -7,6 +7,7 @@ import {
   type BoardFrame,
   type BoardMark,
   type BoardPath,
+  type BoardSmartRally,
   type Point,
 } from "./model";
 
@@ -29,6 +30,7 @@ const FORBIDDEN_IDS = new Set(["__proto__", "prototype", "constructor"]);
 const ACTOR_KINDS = new Set(["player", "ball"]);
 const PATH_KINDS = new Set(["shot", "move", "feed"]);
 const MARK_KINDS = new Set(["target", "cone", "basket", "text", "freehand"]);
+const SMART_RALLY_PHASES = new Set(["shot", "move"]);
 
 class BoardValidationError extends Error {}
 
@@ -230,6 +232,24 @@ function parseUpdatedAt(value: unknown) {
   return updatedAt;
 }
 
+function parseSmartRally(value: unknown, actors: BoardActor[], frames: BoardFrame[]): BoardSmartRally {
+  const source = record(value, "智慧回合");
+  if (source.version !== 1) invalid("不支援的智慧回合版本");
+  const phase = source.phase;
+  if (typeof phase !== "string" || !SMART_RALLY_PHASES.has(phase)) invalid("智慧回合階段不支援");
+  const frameId = id(source.frameId, "智慧回合拍次 ID");
+  const hitterId = id(source.hitterId, "智慧回合擊球者 ID");
+  const actorId = id(source.actorId, "智慧回合操作對象 ID");
+  if (!frames.some((frame) => frame.id === frameId)) invalid("智慧回合引用了不存在的拍次");
+  const players = actors.filter((actor) => actor.kind === "player");
+  const balls = actors.filter((actor) => actor.kind === "ball");
+  if (players.length !== 2 || balls.length !== 1) invalid("智慧回合需要兩位球員與一顆網球");
+  if (!players.some((actor) => actor.id === hitterId)) invalid("智慧回合擊球者必須是球員");
+  if (phase === "shot" && actorId !== balls[0].id) invalid("球路階段必須操作網球");
+  if (phase === "move" && actorId !== hitterId) invalid("跑位階段必須操作當前擊球者");
+  return { version: 1, frameId, phase: phase as BoardSmartRally["phase"], hitterId, actorId };
+}
+
 function validate(value: unknown): BoardDocument {
   const source = record(value, "畫板文件");
   if (source.version !== 1) invalid("不支援的畫板版本");
@@ -265,6 +285,8 @@ function validate(value: unknown): BoardDocument {
     }
   }
 
+  const smartRally = source.smartRally === undefined ? undefined : parseSmartRally(source.smartRally, actors, frames);
+
   return {
     version: 1,
     id: id(source.id, "畫板 ID"),
@@ -278,6 +300,7 @@ function validate(value: unknown): BoardDocument {
     ...(source.drillId === undefined
       ? {}
       : { drillId: optionalString(source.drillId, "訓練 ID", MAX_ID_LENGTH) }),
+    ...(smartRally ? { smartRally } : {}),
   };
 }
 

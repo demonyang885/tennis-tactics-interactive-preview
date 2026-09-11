@@ -16,6 +16,7 @@ import {
   moveActor,
   newBoardId,
   setPath,
+  setSmartRally,
   updateFrame,
   updateMark,
   updatePath,
@@ -74,6 +75,71 @@ test("starter board opens ready to draw without hiding the ball under a player",
     expect(Math.hypot(playerPoint[0] - ballPoint[0], playerPoint[1] - ballPoint[1])).toBeGreaterThan(.08);
   }
   expect(validateBoardDocument(board)).toEqual({ ok: true, value: board });
+});
+
+test("starter board serializes an explicit smart-rally cursor and legacy boards stay manual", () => {
+  const manual = createBlankBoard("手动画板");
+  expect(manual.smartRally).toBeUndefined();
+
+  const starter = createStarterBoard("智慧画板");
+  const players = starter.actors.filter((actor) => actor.kind === "player");
+  const ball = starter.actors.find((actor) => actor.kind === "ball")!;
+  const ballPoint = starter.frames[0].poses[ball.id];
+  const nearest = [...players].sort((left, right) => {
+    const distance = (actor: typeof left) => Math.hypot(starter.frames[0].poses[actor.id][0] - ballPoint[0], starter.frames[0].poses[actor.id][1] - ballPoint[1]);
+    return distance(left) - distance(right);
+  })[0];
+  expect(starter.smartRally).toEqual({
+    version: 1,
+    frameId: starter.frames[0].id,
+    phase: "shot",
+    hitterId: nearest.id,
+    actorId: ball.id,
+  });
+
+  const nextFrame = addFrame(starter, 0);
+  const receiver = players.find((player) => player.id !== nearest.id)!;
+  const moving = setSmartRally(nextFrame, {
+    version: 1,
+    frameId: nextFrame.frames[1].id,
+    phase: "move",
+    hitterId: receiver.id,
+    actorId: receiver.id,
+  });
+  const parsed = parseBoardJSON(JSON.stringify(moving));
+  expect(parsed).toEqual({ ok: true, value: moving });
+
+  const storage = new MemoryStorage();
+  const saved = saveBoard(moving, storage);
+  const reread = readBoards(storage);
+  expect(saved.ok).toBe(true);
+  expect(reread.ok).toBe(true);
+  if (saved.ok && reread.ok) expect(reread.value[0].smartRally).toEqual(saved.value.smartRally);
+
+  const copy = cloneBoard(moving);
+  expect(copy.smartRally).toEqual(moving.smartRally);
+  expect(copy.smartRally).not.toBe(moving.smartRally);
+  expect(setSmartRally(copy).smartRally).toBeUndefined();
+});
+
+test("smart-rally metadata rejects broken references and clears when its actor or frame is removed", () => {
+  const starter = createStarterBoard();
+  const missingFrame = structuredClone(starter) as BoardDocument;
+  missingFrame.smartRally!.frameId = "missing-frame";
+  expect(validateBoardDocument(missingFrame)).toMatchObject({ ok: false });
+
+  const wrongActor = structuredClone(starter) as BoardDocument;
+  wrongActor.smartRally!.actorId = wrongActor.smartRally!.hitterId;
+  expect(validateBoardDocument(wrongActor)).toMatchObject({ ok: false });
+
+  const withoutHitter = deleteActor(starter, starter.smartRally!.hitterId);
+  expect(withoutHitter.smartRally).toBeUndefined();
+  expect(validateBoardDocument(withoutHitter).ok).toBe(true);
+
+  const withSecond = addFrame(starter, 0);
+  const ball = withSecond.actors.find((actor) => actor.kind === "ball")!;
+  const onSecond = setSmartRally(withSecond, { ...starter.smartRally!, frameId: withSecond.frames[1].id, actorId: ball.id });
+  expect(deleteFrame(onSecond, 1).smartRally).toBeUndefined();
 });
 
 test("outgoing paths interpolate and appended frames begin at the prior end", () => {

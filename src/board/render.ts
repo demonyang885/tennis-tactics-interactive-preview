@@ -8,6 +8,8 @@ export type BoardRenderOptions = {
   playing?: boolean;
   selection?: BoardSelection | null;
   showLegend?: boolean;
+  /** Read-only paths from the preceding beat that preserve the completed action while authoring. */
+  contextPaths?: BoardPath[];
 };
 
 const COLORS = {
@@ -86,14 +88,14 @@ function tracePath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geo
   for (let i = 1; i <= segments; i++) ctx.lineTo(...geometry.toCanvas(pointOnBoardPath(path, progress * i / segments)));
 }
 
-function drawPath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress: number, playing: boolean, selected: boolean) {
+function drawPath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress: number, playing: boolean, selected: boolean, opacity = 1) {
   const color = path.kind === "move" ? COLORS.move : path.kind === "feed" ? COLORS.feed : COLORS.shot;
   ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = color;
   ctx.setLineDash(path.kind === "move" ? [5, 5] : []); ctx.lineWidth = path.kind === "move" ? 2.2 : 2.8;
-  if (selected) { ctx.save(); ctx.globalAlpha = .24; ctx.lineWidth = 9; tracePath(ctx, path, geometry); ctx.stroke(); ctx.restore(); }
-  ctx.globalAlpha = playing ? .2 : .9; tracePath(ctx, path, geometry); ctx.stroke();
+  if (selected) { ctx.save(); ctx.globalAlpha = .24 * opacity; ctx.lineWidth = 9; tracePath(ctx, path, geometry); ctx.stroke(); ctx.restore(); }
+  ctx.globalAlpha = (playing ? .2 : .9) * opacity; tracePath(ctx, path, geometry); ctx.stroke();
   if (playing && progress > 0) { ctx.globalAlpha = 1; tracePath(ctx, path, geometry, progress); ctx.stroke(); }
-  ctx.globalAlpha = playing ? .4 : 1;
+  ctx.globalAlpha = (playing ? .4 : 1) * opacity;
   drawArrow(ctx, geometry.toCanvas(path.to), geometry.toCanvas(pointOnBoardPath(path, .94)), color);
   ctx.restore();
 }
@@ -178,6 +180,11 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
   const selected = options.playing ? null : options.selection;
   ctx.save(); ctx.clearRect(0, 0, width, height); ctx.fillStyle = COLORS.surround; ctx.fillRect(0, 0, width, height);
   drawCourt(ctx, geometry);
+  for (const path of options.contextPaths ?? []) {
+    // The preceding beat must remain legible on a small court. Movement stays
+    // slightly quieter so the newest ball route remains the primary signal.
+    drawPath(ctx, path, geometry, 1, false, false, path.kind === "move" ? .82 : .94);
+  }
   for (const mark of frame.marks) drawMark(ctx, mark, geometry, selected?.kind === "element" && selected.id === mark.id);
   for (const path of frame.paths) drawPath(ctx, path, geometry, progress, !!options.playing, selected?.kind === "element" && selected.id === path.id);
   const poses = getFramePose(frame, progress);
@@ -194,7 +201,7 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
   if (selected?.kind === "element") {
     const path = frame.paths.find(item => item.id === selected.id); if (path) drawHandles(ctx, path, geometry);
   }
-  if (options.showLegend !== false) drawLegend(ctx, width, height, frame.paths.some(path => path.kind === "feed"));
+  if (options.showLegend !== false) drawLegend(ctx, width, height, frame.paths.some(path => path.kind === "feed") || !!options.contextPaths?.some(path => path.kind === "feed"));
   ctx.restore();
 }
 
