@@ -326,46 +326,34 @@
 .device-screen :where(.board-header,.board-home,.board-editor,.board-sheet,.board-object-list,.drill-guide) :is(a,button,input,select,summary,textarea,[role="button"],[tabindex]):focus-visible { outline:3px solid #d8ef72 !important; outline-offset:-4px; box-shadow:inset 0 0 0 1px #173d2c !important; }
 .device-screen .board-editor .board-canvas:focus-visible { box-shadow:inset 0 0 0 1px #f7f8f4 !important; }
 .board-canvas canvas { position:absolute; inset:0; display:block; width:100%; height:100%; }
-.board-preview-meta { position:absolute; z-index:2; top:10px; left:14px; right:14px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:7px; min-height:44px; padding:0 7px 0 10px; border:1px solid rgb(255 255 255 / 11%); border-radius:11px; background:rgb(8 39 28 / 72%); color:#dbe8da; backdrop-filter:blur(7px); }
-.board-preview-meta > span { color:#bed1bf; font-size:9px; line-height:13px; font-weight:700; }
-.board-preview-meta > strong { overflow:hidden; font-size:11px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
-.tennis-app .board-preview-meta > button { display:flex; align-items:center; gap:4px; min-height:44px; padding:0 8px; border:0; border-radius:8px; background:#ddec95; color:#193e2b; font-size:10px; line-height:13px; font-weight:750; }
-.board-preview-meta button svg { width:14px; height:14px; }
+.board-canvas-meta { position:absolute; z-index:2; top:10px; left:14px; right:14px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:7px; min-height:44px; padding:0 7px 0 10px; border:1px solid rgb(255 255 255 / 11%); border-radius:11px; background:rgb(8 39 28 / 72%); color:#dbe8da; pointer-events:none; backdrop-filter:blur(7px); }
+.board-canvas-meta > span { color:#bed1bf; font-size:9px; line-height:13px; font-weight:700; }
+.board-canvas-meta > strong { overflow:hidden; font-size:11px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
+.tennis-app .board-canvas-meta > button { display:flex; align-items:center; gap:4px; min-height:44px; padding:0 8px; border:0; border-radius:8px; background:#ddec95; color:#193e2b; font-size:10px; line-height:13px; font-weight:750; pointer-events:auto; }
+.board-canvas-meta button svg { width:14px; height:14px; }
 .tennis-app .board-toast { position:absolute; z-index:4; right:12px; bottom:9px; left:12px; display:flex; align-items:center; gap:8px; min-height:44px; padding:7px 9px 7px 12px; border:1px solid rgb(255 255 255 / 16%); border-radius:11px; background:rgb(11 39 29 / 90%); color:#f0f5ea; box-shadow:0 6px 18px rgb(0 0 0 / 18%); text-align:left; }
 .board-toast span { flex:1; font-size:11px; line-height:16px; }
 .board-toast svg { flex:none; width:15px; height:15px; }
-.board-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-.board-frame-rail { display:flex; align-items:center; gap:7px; flex:none; min-height:64px; padding:6px 8px; border-bottom:1px solid #e4e9df; background:#fff; }
-.board-frame-carousel { flex:1; min-width:0; }
+.board-frame-rail { display:grid; grid-template-columns:minmax(0,1fr) 62px; align-items:center; gap:4px; flex:none; min-height:60px; padding:6px 8px; border-bottom:1px solid #e4e9df; background:#fff; }
+.board-frame-carousel { min-width:0; }
 .board-frame-track { align-items:center; gap:6px; padding:1px 3px; }
-.tennis-app .board-frame-track button { display:grid; grid-template-columns:21px minmax(0,1fr); align-items:center; gap:5px; flex:none; width:106px; height:48px; padding:4px 7px; border:1px solid #e0e6dc; border-radius:12px; background:#f7f8f4; color:#647166; text-align:left; }
+.tennis-app .board-frame-track button { display:grid; grid-template-columns:21px minmax(0,1fr); align-items:center; gap:5px; flex:none; width:118px; height:48px; padding:4px 8px; border:1px solid #e0e6dc; border-radius:12px; background:#f7f8f4; color:#647166; text-align:left; }
 .board-frame-track button > span { display:grid; place-items:center; width:21px; height:21px; border-radius:50%; background:#e8ede4; color:#526157; font-size:10px; font-weight:750; }
 .board-frame-track button > strong { overflow:hidden; font-size:11px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
 .tennis-app .board-frame-track button.is-active { border-color:#8da985; background:#edf3df; color:#2e5537; box-shadow:inset 0 0 0 1px #c8d9b3; }
 .board-frame-track button.is-active > span { background:#315c3d; color:#fff; }
-.board-frame-actions { display:grid; grid-template-columns:46px 94px; gap:5px; flex:none; }
-.tennis-app .board-frame-actions > button { display:flex; align-items:center; justify-content:center; min-height:50px; padding:0 6px; border:1px solid #dfe6da; border-radius:12px; flex-direction:column; gap:2px; font-size:9px; line-height:12px; font-weight:750; }
-.tennis-app .board-edit-frame { background:#f5f7f2; color:#315840; }
-.tennis-app .board-add-frame { border-color:#24533a; background:#24533a; color:#fff; flex-direction:row; gap:5px; font-size:11px; }
-.board-frame-actions svg { width:17px; height:17px; }
-.board-interaction-guide { display:flex; align-items:center; justify-content:space-between; gap:10px; flex:none; min-height:68px; padding:9px 12px 9px 16px; border-bottom:1px solid #e4e9df; background:#fbfcf8; color:#234731; }
-.board-guide-copy { display:flex; min-width:0; flex:1; flex-direction:column; gap:3px; }
-.board-guide-copy strong { overflow:hidden; font-size:13px; line-height:18px; text-overflow:ellipsis; white-space:nowrap; }
-.board-guide-copy small { overflow:hidden; color:#6a796b; font-size:10px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
-.board-canvas-context-actions { display:flex; align-items:center; gap:6px; flex:none; }
-.tennis-app .board-interaction-guide button { display:flex; align-items:center; justify-content:center; gap:4px; min-height:44px; padding:0 9px; border:1px solid #d8e2d3; border-radius:10px; background:#f3f6ee; color:#31583b; font-size:10px; line-height:13px; font-weight:750; }
-.tennis-app .board-interaction-guide .board-context-draw { border-color:#315b40; background:#315b40; color:#fff; }
-.board-interaction-guide button svg { width:15px; height:15px; }
-.board-edit-dock { display:grid; grid-template-columns:124px minmax(0,1fr); align-items:stretch; gap:9px; flex:none; padding:8px 10px calc(var(--mobile-safe-area-height) + 9px); border-top:1px solid #e6ebe2; background:#fff; box-shadow:0 -8px 24px rgb(14 49 33 / 5%); }
-.board-tool-rail { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:7px; }
-.tennis-app .board-tool-rail > button { position:relative; display:flex; align-items:center; justify-content:center; min-width:0; min-height:58px; padding:4px 2px; border:1px solid #dfe6dc; border-radius:13px; background:#f7f8f4; color:#31563e; flex-direction:column; gap:4px; font-size:10px; line-height:13px; font-weight:700; }
-.tennis-app .board-tool-rail > button.is-active { border-color:#cadab8; background:#eef4da; color:#174b31; box-shadow:inset 0 0 0 1px #e1eac5; }
+.tennis-app .board-add-frame { display:flex; align-items:center; justify-content:center; min-height:48px; padding:0; border:0; border-left:1px solid #e3e8df; border-radius:0; background:#fff; color:#28593c; flex-direction:column; gap:2px; }
+.board-add-frame span { font-size:9px; line-height:12px; font-weight:750; }
+.board-add-frame svg { box-sizing:content-box; width:15px; height:15px; padding:3px; border:1.5px solid currentColor; border-radius:50%; }
+.board-edit-dock { flex:none; padding:5px 10px calc(var(--mobile-safe-area-height) + 9px); border-top:1px solid #e6ebe2; background:#fff; box-shadow:0 -8px 24px rgb(14 49 33 / 5%); }
+.board-tool-rail { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); align-items:stretch; gap:2px; padding-bottom:6px; }
+.tennis-app .board-tool-rail > button { position:relative; display:flex; align-items:center; justify-content:center; min-width:0; min-height:58px; padding:4px 2px; border:0; border-radius:13px; background:transparent; color:#31563e; flex-direction:column; gap:4px; font-size:10px; line-height:13px; font-weight:700; }
+.tennis-app .board-tool-rail > button + button { box-shadow:-1px 0 0 #e6e9e3; }
+.tennis-app .board-tool-rail > button.is-active { background:#eef4da; color:#174b31; box-shadow:inset 0 0 0 1px #e1eac5; }
 .board-tool-rail button > svg { width:22px; height:22px; }
-.tennis-app .board-primary-play { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:58px; padding:0 15px; border:0; border-radius:14px; background:#173d2c; color:#fff; box-shadow:0 7px 18px rgb(23 61 44 / 15%); }
-.board-primary-play > svg { flex:none; width:22px; height:22px; color:#d8ef72; }
-.board-primary-play > span { display:flex; align-items:center; justify-content:space-between; gap:10px; flex:1; min-width:0; }
-.board-primary-play strong { font-size:14px; line-height:18px; font-weight:780; letter-spacing:.1px; }
-.board-primary-play small { color:#c8d7cb; font-size:10px; line-height:14px; font-weight:700; white-space:nowrap; }
+.tennis-app .board-primary-play { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:55px; padding:0 15px; border:0; border-radius:14px; background:#173d2c; color:#fff; box-shadow:0 7px 18px rgb(23 61 44 / 15%); }
+.board-primary-play > svg { width:22px; height:22px; color:#d8ef72; }
+.board-primary-play > span { font-size:14px; font-weight:750; letter-spacing:.1px; }
 .mobile-app-viewport[data-platform="android"] .board-edit-dock { padding-bottom:10px; }
 
 .board-playback-dock { display:flex; flex:none; flex-direction:column; gap:8px; padding:10px 16px calc(var(--mobile-safe-area-height) + 10px); border-radius:21px 21px 0 0; background:#fff; box-shadow:0 -8px 25px rgb(7 34 23 / 14%); }
@@ -380,8 +368,6 @@
 .tennis-app .board-return-edit { min-height:44px; padding:0 12px; border:0; border-radius:11px; background:#eaf1df; color:#31583a; font-size:12px; font-weight:750; }
 
 .board-sheet { padding-bottom:8px; }
-.board-sheet-feedback { margin:0 40px 10px 0; padding:9px 10px; border:1px solid #d7e4d4; border-radius:10px; background:#edf5e8; color:#2d5a3d; font-size:11px; line-height:17px; }
-.board-sheet-feedback.is-error { border-color:#ead8d2; background:#fff0ea; color:#925144; }
 .board-field { display:flex; flex-direction:column; gap:6px; margin-bottom:11px; }
 .board-field > span { color:#526555; font-size:11px; line-height:16px; font-weight:700; }
 .board-field input { width:100%; height:46px; padding:0 12px; border:1px solid #d8e1d5; border-radius:11px; background:#f9faf7; color:#203d2b; font-size:14px; outline:none; }
@@ -432,42 +418,9 @@
 
 @media (max-height:820px) {
   .board-frame-rail { min-height:56px; padding-top:5px; padding-bottom:5px; }
-  .tennis-app .board-frame-track button,.tennis-app .board-frame-actions > button { height:46px; min-height:46px; }
-  .board-interaction-guide { min-height:62px; padding-top:7px; padding-bottom:7px; }
+  .tennis-app .board-frame-track button,.tennis-app .board-add-frame { height:46px; min-height:46px; }
   .board-edit-dock { padding-top:4px; padding-bottom:calc(var(--mobile-safe-area-height) + 6px); }
   .tennis-app .board-tool-rail > button { min-height:52px; }
   .tennis-app .board-primary-play { min-height:50px; }
 }
 @media(prefers-reduced-motion:reduce) { .drill-stages summary svg { transition:none; } }
-
-/* Public release shell: real phones use the viewport, not the desktop device simulator. */
-@media (max-width:600px) {
-  html,
-  body,
-  #root { width:100%; height:100%; min-height:100%; overflow:hidden; }
-  body { min-width:0; min-height:100dvh; }
-  #root { min-height:100dvh; }
-
-  .phone-stage { position:fixed; inset:0; display:block; width:100vw; height:100vh; height:100dvh; min-height:0; padding:0; overflow:hidden; }
-  .phone-scale-box { position:absolute; inset:0; width:100% !important; height:100% !important; overflow:hidden; }
-  .phone-device { position:absolute; inset:0; width:100% !important; height:100% !important; transform:none !important; }
-  .device-screen { inset:0 !important; width:100% !important; height:100% !important; border-radius:0 !important; box-shadow:none !important; cursor:auto !important; --device-safe-area-bottom:env(safe-area-inset-bottom,0px) !important; }
-  .device-screen,
-  .device-screen * { cursor:auto !important; }
-  .device-screen :is(button,a,[role="button"]) { cursor:pointer !important; }
-
-  .device-menu-bar,
-  .device-picker-menu,
-  .phone-bezel,
-  .device-camera,
-  .status-bar,
-  .home-indicator-svg,
-  .android-navigation-bar,
-  .mobile-cursor { display:none !important; }
-
-  .mobile-app-viewport,
-  .mobile-app-viewport[data-platform="android"][data-keyboard-visible="false"] { inset:0 !important; }
-  .tennis-app,
-  .mobile-app-viewport[data-platform="android"] .tennis-app { --mobile-safe-area-height:env(safe-area-inset-bottom,0px); }
-  .flow-stack { --flow-header-safe-area:env(safe-area-inset-top,0px) !important; --flow-header-height:calc(var(--flow-header-content-height) + env(safe-area-inset-top,0px)) !important; }
-}

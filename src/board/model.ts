@@ -161,16 +161,6 @@ function defaultCopyFrameLabel(label: string) {
   return `${stem || "拍次"}${suffix}`.slice(0, MAX_LABEL_LENGTH);
 }
 
-function renumberDefaultFrameLabels(frames: BoardFrame[]) {
-  return frames.map((frame, index) => {
-    const match = /^第 \d+ 拍(?: · (.+))?$/.exec(frame.label);
-    if (!match) return frame;
-    const suffix = match[1] ? ` · ${match[1]}` : "";
-    const label = `第 ${index + 1} 拍${suffix}`;
-    return label === frame.label ? frame : { ...frame, label };
-  });
-}
-
 function totalFreehandPoints(board: BoardDocument) {
   return board.frames.reduce((total, frame) => total + frame.marks.reduce(
     (frameTotal, mark) => frameTotal + (mark.kind === "freehand" ? mark.points?.length ?? 0 : 0),
@@ -472,7 +462,7 @@ export function addFrame(board: BoardDocument, afterIndex: number, duplicate = f
   };
   const frames = board.frames.slice();
   frames.splice(afterIndex + 1, 0, frame);
-  return touch(board, { frames: renumberDefaultFrameLabels(reflowFrames(frames, afterIndex + 1)) });
+  return touch(board, { frames: reflowFrames(frames, afterIndex + 1) });
 }
 
 export function deleteFrame(board: BoardDocument, frameIndex: number): BoardDocument {
@@ -480,7 +470,7 @@ export function deleteFrame(board: BoardDocument, frameIndex: number): BoardDocu
   if (board.frames.length === 1) return board;
   const frames = board.frames.filter((_, index) => index !== frameIndex);
   const reflowFrom = frameIndex === 0 ? 0 : frameIndex - 1;
-  return touch(board, { frames: renumberDefaultFrameLabels(reflowFrames(frames, reflowFrom)) });
+  return touch(board, { frames: reflowFrames(frames, reflowFrom) });
 }
 
 export function updateFrame(
