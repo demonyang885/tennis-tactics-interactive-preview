@@ -3,6 +3,7 @@ import {
   BOARD_COORDINATE_MIN,
   BOARD_MAX_FRAMES,
   type BoardActor,
+  type BoardAuthoringMode,
   type BoardDocument,
   type BoardFrame,
   type BoardMark,
@@ -31,6 +32,7 @@ const ACTOR_KINDS = new Set(["player", "ball"]);
 const PATH_KINDS = new Set(["shot", "move", "feed"]);
 const MARK_KINDS = new Set(["target", "cone", "basket", "text", "freehand"]);
 const SMART_RALLY_PHASES = new Set(["shot", "move"]);
+const AUTHORING_MODES = new Set(["blank-rally"]);
 
 class BoardValidationError extends Error {}
 
@@ -286,6 +288,10 @@ function validate(value: unknown): BoardDocument {
   }
 
   const smartRally = source.smartRally === undefined ? undefined : parseSmartRally(source.smartRally, actors, frames);
+  const authoringMode = source.authoringMode;
+  if (authoringMode !== undefined && (typeof authoringMode !== "string" || !AUTHORING_MODES.has(authoringMode))) {
+    invalid("畫板編排模式不支援");
+  }
 
   return {
     version: 1,
@@ -300,6 +306,7 @@ function validate(value: unknown): BoardDocument {
     ...(source.drillId === undefined
       ? {}
       : { drillId: optionalString(source.drillId, "訓練 ID", MAX_ID_LENGTH) }),
+    ...(authoringMode === undefined ? {} : { authoringMode: authoringMode as BoardAuthoringMode }),
     ...(smartRally ? { smartRally } : {}),
   };
 }

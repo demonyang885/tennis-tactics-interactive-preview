@@ -38,16 +38,19 @@ import { BottomSheet, Carousel, FlowStack, KeyboardInput, MobileScroll, useKeybo
 
 import { categories, combinations, interactiveRallies, libraryStats, rallyNodes, tacticGuides, tactics, type CategoryFilter } from "./content/library";
 import type { Combination, Moment, Point, RallyChoice, RallyNode, RallyObservation, RallyScenarioChoice, Tactic, TacticExcerpt } from "./content/types";
+import { getScoreBounceMotion } from "./content/effects";
 import { boardFromTactic, boardFromTactics } from "./board/adapters";
 import { BOARD_DRILLS, getDrillForTactic, type DrillGuide } from "./board/drills";
 import {
   addActor,
   addFrame,
   addMark,
+  armBlankRally,
   BOARD_COORDINATE_MAX,
   BOARD_COORDINATE_MIN,
   cloneBoard,
   createBlankBoard,
+  createBlankRallyBoard,
   createStarterBoard,
   deleteActor,
   deleteFrame,
@@ -57,6 +60,7 @@ import {
   getBoardPose,
   moveActor,
   newBoardId,
+  prepareBlankRallyBoard,
   renameBoard,
   setPath,
   setSmartRally,
@@ -131,34 +135,43 @@ function Court({ tactic, elapsed }: { tactic: Tactic; elapsed: number }) {
       line([-.023,.5],[1.023,.5],"#929a92",4);line([-.019,.492],[-.019,.508],"#626766",5);line([1.019,.492],[1.019,.508],"#626766",5);
       const pose = currentPose(selected,time);
       const previous=selected.frames[pose.index-1], target=selected.frames[pose.index];
+      const scoreBounce=getScoreBounceMotion(selected,time);
       const distance=(a:Point,b:Point)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
       const hitterColor=(moment:Moment,alpha:number)=>distance(moment.ball,moment.me)<=distance(moment.ball,moment.opponent)?`rgba(88,177,255,${alpha})`:`rgba(255,101,116,${alpha})`;
       const history=selected.frames.slice(0,pose.index).map(item=>item.ball);
       if(history.length>1){ctx.save();ctx.beginPath();ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="rgba(207,255,92,.22)";ctx.lineWidth=1.6;history.forEach((point,index)=>{const [hx,hy]=px(point);if(index===0)ctx.moveTo(hx,hy);else ctx.lineTo(hx,hy);});ctx.stroke();ctx.restore();}
-      if(time>0)line(previous.ball,pose.ball,"rgba(209,255,82,.78)",3);
-      selected.frames.slice(1,pose.index).forEach(item=>{const [nx,ny]=px(item.ball);ctx.beginPath();ctx.arc(nx,ny,3.2,0,Math.PI*2);ctx.fillStyle=hitterColor(item,.78);ctx.fill();ctx.lineWidth=1.2;ctx.strokeStyle="rgba(255,255,255,.72)";ctx.stroke();});
-      if(pose.fraction<.999 && pose.segmentProgress<.999){const [tx,ty]=px(target.ball),pulse=12+(Math.sin(time*6)+1)*3;ctx.beginPath();ctx.arc(tx,ty,pulse,0,Math.PI*2);ctx.fillStyle="rgba(209,255,113,.09)";ctx.fill();ctx.strokeStyle="rgba(221,255,142,.78)";ctx.lineWidth=1.8;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.arc(tx,ty,3,0,Math.PI*2);ctx.fillStyle="rgba(214,255,118,.9)";ctx.fill();}
-      const hitPulse=Math.max(0,1-pose.segmentProgress/.22);if(hitPulse>0&&time>0){const [hitX,hitY]=px(previous.ball);ctx.beginPath();ctx.arc(hitX,hitY,5+hitPulse*8,0,Math.PI*2);ctx.strokeStyle=hitterColor(previous,hitPulse*.82);ctx.lineWidth=2.4;ctx.stroke();}
-      if(time>0&&pose.segmentProgress>=.999){const [nodeX,nodeY]=px(pose.ball);ctx.beginPath();ctx.arc(nodeX,nodeY,7,0,Math.PI*2);ctx.strokeStyle=hitterColor(target,.88);ctx.lineWidth=2;ctx.stroke();}
-      if(time>0){for(let i=6;i>=1;i--){const freshness=(7-i)/6,u=Math.max(0,pose.segmentProgress-i*.035),trailPoint=mixPoint(previous.ball,target.ball,u),[trailX,trailY]=px(trailPoint);ctx.beginPath();ctx.arc(trailX,trailY,1.2+freshness*1.6,0,Math.PI*2);ctx.fillStyle=`rgba(193,255,0,${.035+freshness*.17})`;ctx.fill();}}
+      if(time>0&&!scoreBounce)line(previous.ball,pose.ball,"rgba(209,255,82,.78)",3);
+      if(scoreBounce){
+        const incoming=selected.frames.at(-3)?.ball;
+        if(incoming)line(incoming,scoreBounce.landing,"rgba(209,255,82,.78)",3);
+        const [landingX,landingY]=px(scoreBounce.landing),[currentX,currentY]=px(scoreBounce.position);
+        ctx.save();ctx.beginPath();ctx.moveTo(landingX,landingY);ctx.lineTo(currentX,currentY);ctx.strokeStyle=`rgba(209,255,82,${.28+.2*(1-scoreBounce.flightProgress)})`;ctx.lineWidth=2;ctx.setLineDash([3,5]);ctx.stroke();ctx.setLineDash([]);
+        if(scoreBounce.impactStrength>0){for(let ring=0;ring<2;ring+=1){const radius=7+ring*7+(1-scoreBounce.impactStrength)*8;ctx.beginPath();ctx.ellipse(landingX,landingY,radius,radius*.38,0,0,Math.PI*2);ctx.strokeStyle=`rgba(215,255,103,${scoreBounce.impactStrength*(.62-ring*.2)})`;ctx.lineWidth=1.8;ctx.stroke();}ctx.beginPath();ctx.ellipse(landingX,landingY,7,2.3,0,0,Math.PI*2);ctx.fillStyle=`rgba(208,255,74,${.18+.45*scoreBounce.impactStrength})`;ctx.fill();}
+        scoreBounce.ghosts.forEach(ghost=>{const [ghostX,ghostY]=px(ghost.position);ctx.beginPath();ctx.arc(ghostX,ghostY-ghost.lift*10,4.2,0,Math.PI*2);ctx.fillStyle=`rgba(193,255,0,${ghost.opacity})`;ctx.fill();});ctx.restore();
+      }
+      selected.frames.slice(1,pose.index).forEach(item=>{if(scoreBounce&&distance(item.ball,scoreBounce.landing)<.035)return;const [nx,ny]=px(item.ball);ctx.beginPath();ctx.arc(nx,ny,3.2,0,Math.PI*2);ctx.fillStyle=hitterColor(item,.78);ctx.fill();ctx.lineWidth=1.2;ctx.strokeStyle="rgba(255,255,255,.72)";ctx.stroke();});
+      if(!scoreBounce&&pose.fraction<.999 && pose.segmentProgress<.999){const [tx,ty]=px(target.ball),pulse=12+(Math.sin(time*6)+1)*3;ctx.beginPath();ctx.arc(tx,ty,pulse,0,Math.PI*2);ctx.fillStyle="rgba(209,255,113,.09)";ctx.fill();ctx.strokeStyle="rgba(221,255,142,.78)";ctx.lineWidth=1.8;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.arc(tx,ty,3,0,Math.PI*2);ctx.fillStyle="rgba(214,255,118,.9)";ctx.fill();}
+      const hitPulse=Math.max(0,1-pose.segmentProgress/.22);if(!scoreBounce&&hitPulse>0&&time>0){const [hitX,hitY]=px(previous.ball);ctx.beginPath();ctx.arc(hitX,hitY,5+hitPulse*8,0,Math.PI*2);ctx.strokeStyle=hitterColor(previous,hitPulse*.82);ctx.lineWidth=2.4;ctx.stroke();}
+      if(!scoreBounce&&time>0&&pose.segmentProgress>=.999){const [nodeX,nodeY]=px(pose.ball);ctx.beginPath();ctx.arc(nodeX,nodeY,7,0,Math.PI*2);ctx.strokeStyle=hitterColor(target,.88);ctx.lineWidth=2;ctx.stroke();}
+      if(!scoreBounce&&time>0){for(let i=6;i>=1;i--){const freshness=(7-i)/6,u=Math.max(0,pose.segmentProgress-i*.035),trailPoint=mixPoint(previous.ball,target.ball,u),[trailX,trailY]=px(trailPoint);ctx.beginPath();ctx.arc(trailX,trailY,1.2+freshness*1.6,0,Math.PI*2);ctx.fillStyle=`rgba(193,255,0,${.035+freshness*.17})`;ctx.fill();}}
       const player = (p: Point,color: string,label: string) => {const [cx,cy] = px(p);ctx.beginPath();ctx.arc(cx,cy,9.5,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();ctx.lineWidth=1.7;ctx.strokeStyle="#fff";ctx.stroke();ctx.font='12px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';ctx.textAlign="center";ctx.textBaseline="top";ctx.fillStyle="#f3f5ec";ctx.fillText(label,cx,cy+13);};
       player(pose.opponent,"#c8182b","对手");player(pose.me,"#216caf","我方");
-      const [ballX, ballY] = px(pose.ball);
-      if(pose.height > .1) {ctx.beginPath();ctx.ellipse(ballX+4,ballY+5,3,1.5,0,0,Math.PI*2);ctx.fillStyle="rgba(0,0,0,.25)";ctx.fill();}
-      ctx.beginPath();ctx.arc(ballX,ballY-pose.height*7,4+pose.height*2,0,Math.PI*2);ctx.fillStyle="#c1ff00";ctx.fill();
+      const visualBall=scoreBounce?.position??pose.ball,[ballX, ballY] = px(visualBall),visualLift=scoreBounce?scoreBounce.lift*10:pose.height*7;
+      if(scoreBounce||pose.height > .1) {ctx.beginPath();ctx.ellipse(ballX+3,ballY+4,4-(scoreBounce?.squash??0),1.6,0,0,Math.PI*2);ctx.fillStyle="rgba(0,0,0,.25)";ctx.fill();}
+      ctx.beginPath();if(scoreBounce?.phase==="impact")ctx.ellipse(ballX,ballY,5.3+scoreBounce.squash*2.2,Math.max(2.2,4.2-scoreBounce.squash*2),0,0,Math.PI*2);else ctx.arc(ballX,ballY-visualLift,scoreBounce?4.8:4+pose.height*2,0,Math.PI*2);ctx.fillStyle="#c1ff00";ctx.fill();
     };
     drawRef.current=draw;const resize=new ResizeObserver(draw);resize.observe(holder);draw();return () => resize.disconnect();
   }, []);
   useEffect(() => {drawRef.current();},[tactic,elapsed]);
   const pose=currentPose(tactic,elapsed);
-  const displayCaption=pose.caption;
+  const scoreBounce=getScoreBounceMotion(tactic,elapsed),displayCaption=scoreBounce?.phase==="scored"?"落地后继续向外弹开，对手无法触球":pose.caption;
   const totalSteps=tactic.frames.length-1,currentStep=Math.min(totalSteps,pose.index);
   const completedSteps=pose.segmentProgress>=.999?currentStep:currentStep-1;
-  return <div className="court-display"><div ref={holderRef} className="court-stage" data-testid="court-stage">
-    <canvas ref={canvasRef} role="img" aria-label={`${tactic.name}，红色为对手，蓝色为我方，黄色为网球，亮色线为已经完成的球路，圆环为下一关键位置`}/>
-    <div className="stage-progress" aria-label={`当前第 ${currentStep} 步，共 ${totalSteps} 步`}><span>步骤 {currentStep}/{totalSteps}</span><div>{Array.from({length:totalSteps},(_,index)=><i key={index} className={index<completedSteps?"is-complete":index===currentStep-1?"is-active":""}/>)}</div><span className="stage-hint">圆环＝下一落点</span></div>
+  return <div className="court-display"><div ref={holderRef} className="court-stage" data-testid="court-stage" data-ball-phase={scoreBounce?.phase??"flight"}>
+    <canvas ref={canvasRef} role="img" aria-label={scoreBounce?(scoreBounce.phase==="scored"?`${tactic.name}，网球落地后沿实际方向弹出对手可触及范围，完成这一分`:`${tactic.name}，网球已经落地，正沿实际方向弹离对手；此时不显示下一落点圆环`):`${tactic.name}，红色为对手，蓝色为我方，黄色为网球，亮色线为已经完成的球路，圆环为下一关键位置`}/>
+    <div className="stage-progress" aria-label={`当前第 ${currentStep} 步，共 ${totalSteps} 步`}><span>步骤 {currentStep}/{totalSteps}</span><div>{Array.from({length:totalSteps},(_,index)=><i key={index} className={index<completedSteps?"is-complete":index===currentStep-1?"is-active":""}/>)}</div><span className="stage-hint">{scoreBounce?(scoreBounce.phase==="scored"?"已弹出触球范围":"落地→弹出得分"):"圆环＝下一落点"}</span></div>
     </div>
-    <div className={`stage-caption ${elapsed>=tactic.duration ? "is-finished" : ""}`} aria-live="polite" aria-atomic="true"><span>{displayCaption}</span></div>
+    <div className={`stage-caption ${scoreBounce?.phase==="scored"||elapsed>=tactic.duration ? "is-finished" : ""}`} aria-live="polite" aria-atomic="true"><span>{displayCaption}</span></div>
   </div>;
 }
 function TacticExplanation({ tactic }: { tactic: Tactic }) {
@@ -491,7 +504,7 @@ function BoardHome({ openBoard }:{openBoard:(board:BoardDocument)=>void}) {
     openBoard({...parsed.value,id:newBoardId(),title:withBoundedSuffix(parsed.value.title,"（导入）",120,"导入画板"),updatedAt:new Date().toISOString()});
   };
   return <MobileScroll className="board-home-scroll"><main className="board-home">
-    <section className="board-home-hero"><span className="board-kicker"><DrawingPinIcon/> COURT CANVAS</span><h2>把想法画成下一拍</h2><p>两位球员和网球已经就位，直接拖出第一条球路。</p><div className="board-home-primary"><button onClick={()=>openBoard(createStarterBoard("我的新战术"))}><PlusIcon/>新建战术画板</button><button aria-label="导入画板 JSON" onClick={()=>importRef.current?.click()}><UploadIcon/></button></div><button className="board-home-blank" onClick={()=>openBoard(createBlankBoard("我的空白战术"))}><FilePlusIcon/>新建纯空白画板</button><input ref={importRef} className="board-hidden-file" hidden tabIndex={-1} aria-hidden="true" type="file" accept="application/json,.json" onChange={event=>{void importBoard(event.currentTarget.files?.[0]);event.currentTarget.value="";}}/></section>
+    <section className="board-home-hero"><span className="board-kicker"><DrawingPinIcon/> COURT CANVAS</span><h2>把想法画成下一拍</h2><p>两位球员和网球已经就位，直接拖出第一条球路。</p><div className="board-home-primary"><button onClick={()=>openBoard(createStarterBoard("我的新战术"))}><PlusIcon/>新建战术画板</button><button aria-label="导入画板 JSON" onClick={()=>importRef.current?.click()}><UploadIcon/></button></div><button className="board-home-blank" onClick={()=>openBoard(createBlankRallyBoard("我的空白战术"))}><FilePlusIcon/>新建纯空白画板</button><input ref={importRef} className="board-hidden-file" hidden tabIndex={-1} aria-hidden="true" type="file" accept="application/json,.json" onChange={event=>{void importBoard(event.currentTarget.files?.[0]);event.currentTarget.value="";}}/></section>
     {storageError&&<p className="board-error" role="alert">{storageError}</p>}
     <section className="board-home-section"><div className="board-section-heading"><div><span>本机草稿</span><h3>继续上次的画板</h3></div><small>{drafts.length} 份</small></div>
       {drafts.length?<div className="board-draft-list">{drafts.map(board=><article key={board.id}><button className="board-draft-open" onClick={()=>openBoard(board)}><span className="board-draft-icon"><LayersIcon/></span><span><strong>{board.title}</strong><small>{board.frames.length} 拍 · {new Date(board.updatedAt).toLocaleDateString("zh-CN",{month:"numeric",day:"numeric"})}</small></span><ChevronRightIcon/></button><button className="board-draft-delete" aria-label={`删除${board.title}`} onClick={()=>removeDraft(board.id)}><TrashIcon/></button></article>)}</div>:<div className="board-empty"><FilePlusIcon/><p>还没有本机草稿。新建后会自动保存在这台设备。</p></div>}
@@ -758,8 +771,12 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
     if(selection.kind==="actor")next=deleteActor(board,selection.id);
     else if(selectedPath)next=deletePath(board,frameIndex,selection.id);
     else if(selectedMark)next=deleteMark(board,frameIndex,selection.id);
+    if(selection.kind==="actor")next=armBlankRally(next);
     const removedLabel=selectedActor?numberedActorLabel(board.actors,selectedActor):selectedPath?selectedPath.kind==="move"?"跑位路线":selectedPath.kind==="feed"?"喂球路线":"击球路线":selectedMark?BOARD_MARK_NAMES[selectedMark.kind]:"对象";
-    commit(next);setSelection(null);setObjectOpen(false);keyboard.hide();setNotice(selectedActor?`已从整套战术的所有拍次删除${removedLabel}。`:`已从第 ${frameIndex+1} 拍删除${removedLabel}。`);
+    const resumed=selection.kind==="actor"?getSmartBoardContinuation(next):null;
+    commit(next);setObjectOpen(false);keyboard.hide();
+    if(resumed){setFrameIndex(resumed.frameIndex);setSelection({kind:"actor",id:resumed.actorId});setTool(resumed.phase);setPathKind("shot");setNotice(`已删除${removedLabel}，双人回合已恢复。现在从网球拖出发球线路。`);return;}
+    setSelection(null);setNotice(selectedActor?`已从整套战术的所有拍次删除${removedLabel}。`:`已从第 ${frameIndex+1} 拍删除${removedLabel}。`);
   };
   const nudge=(dx:number,dy:number)=>{
     const clamp=(point:BoardPoint):BoardPoint=>clampBoardPoint([point[0]+dx,point[1]+dy]);
@@ -820,6 +837,10 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
       }
     }
     if(smartBefore&&completion.gesture==="mark"&&applySmartContinuation(committedBoardRef.current)){setNotice("标记已添加，继续当前回合。");return;}
+    if(completion.created&&completion.gesture==="actor"){
+      const current=committedBoardRef.current,armed=armBlankRally(current);
+      if(armed!==current){markCommitted(armed);if(applySmartContinuation(armed)){setNotice("两位球员和网球已就位。现在从网球拖出第一条球路。");return;}}
+    }
     setSelection(completion.selection);
     if(completion.created){setTool("select");setNotice("已添加并选中，可直接拖动调整位置。");}
   };
@@ -902,7 +923,7 @@ function useFlowAccessibilityIsolation() {
 export default function Prototype() {
   useFlowAccessibilityIsolation();
   const [info,setInfo]=useState(false);
-  function makeBoard(board:BoardDocument):FlowScreen {return {id:`board-${board.id}`,title:board.title,headerHeight:62,header:()=><BoardHeader boardId={board.id} initialTitle={board.title}/>,render:flow=> <BoardEditor initialBoard={board} back={flow.pop} openLibrary={()=>flow.previous?.id==="board-home"?flow.pop():flow.replace(makeBoardHome())}/>};}
+  function makeBoard(board:BoardDocument):FlowScreen {const prepared=prepareBlankRallyBoard(board);return {id:`board-${prepared.id}`,title:prepared.title,headerHeight:62,header:()=><BoardHeader boardId={prepared.id} initialTitle={prepared.title}/>,render:flow=> <BoardEditor initialBoard={prepared} back={flow.pop} openLibrary={()=>flow.previous?.id==="board-home"?flow.pop():flow.replace(makeBoardHome())}/>};}
   function makeBoardHome():FlowScreen {return {id:"board-home",title:"战术画板",headerHeight:62,header:flow=><AppHeader title="战术画板" back={flow.pop}/>,render:flow=><BoardHome openBoard={board=>flow.push(makeBoard(board))}/>};}
   const makeDetail=(tactic:Tactic,contextLabel?:string):FlowScreen=>({id:tactic.id,title:tactic.name,headerHeight:62,header:flow=><AppHeader title={tactic.name} back={flow.pop}/>,render:flow=> <TacticPlayer tactic={tactic} contextLabel={contextLabel} openBoard={()=>flow.push(makeBoard(boardFromTactic(tactic)))}/>});
   function makeCombination(combination:Combination):FlowScreen {return {id:`${combination.id}-plan`,title:combination.name,headerHeight:62,header:flow=><AppHeader title={`${combination.name} · 思路`} back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><CombinationDetail combination={combination} openTactic={(tactic,contextLabel)=>flow.push(makeDetail(tactic,contextLabel))} openBoard={()=>flow.push(makeBoard(boardFromTactics(combination.stages.map(stage=>combinationExample(stage.tacticId,stage.excerpt)),combination.name)))}/>};}

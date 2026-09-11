@@ -8,6 +8,10 @@ export type Moment = {
   caption: string;
   loft: number;
   ballHeight?: number;
+  ballMotion?: {
+    kind: "score-bounce";
+    direction?: Point;
+  };
 };
 
 export type Category = "先稳住" | "拉开空档" | "改变节奏" | "把握机会";

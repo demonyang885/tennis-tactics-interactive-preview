@@ -3,8 +3,10 @@ import {
   addActor,
   addFrame,
   addMark,
+  armBlankRally,
   cloneBoard,
   createBlankBoard,
+  createBlankRallyBoard,
   createStarterBoard,
   deleteActor,
   deleteFrame,
@@ -15,6 +17,7 @@ import {
   getFramePose,
   moveActor,
   newBoardId,
+  prepareBlankRallyBoard,
   setPath,
   setSmartRally,
   updateFrame,
@@ -63,17 +66,21 @@ function playableBoard() {
   return addFrame(board, 0);
 }
 
-test("starter board opens ready to draw without hiding the ball under a player", () => {
+test("starter board opens at the right-side serve positions", () => {
   const board = createStarterBoard("即用画板");
   expect(board.title).toBe("即用画板");
   expect(board.actors.filter((actor) => actor.kind === "player")).toHaveLength(2);
   expect(board.actors.filter((actor) => actor.kind === "ball")).toHaveLength(1);
+  const me = board.actors.find((actor) => actor.label === "我方")!;
+  const opponent = board.actors.find((actor) => actor.label === "对手")!;
   const ball = board.actors.find((actor) => actor.kind === "ball")!;
+  const mePoint = board.frames[0].poses[me.id];
+  const opponentPoint = board.frames[0].poses[opponent.id];
   const ballPoint = board.frames[0].poses[ball.id];
-  for (const player of board.actors.filter((actor) => actor.kind === "player")) {
-    const playerPoint = board.frames[0].poses[player.id];
-    expect(Math.hypot(playerPoint[0] - ballPoint[0], playerPoint[1] - ballPoint[1])).toBeGreaterThan(.08);
-  }
+  expect(mePoint).toEqual([.64, .98]);
+  expect(opponentPoint).toEqual([.30, .07]);
+  expect(ballPoint).toEqual([.64, .96]);
+  expect(Math.hypot(mePoint[0] - ballPoint[0], mePoint[1] - ballPoint[1])).toBeCloseTo(.02);
   expect(validateBoardDocument(board)).toEqual({ ok: true, value: board });
 });
 
@@ -120,6 +127,108 @@ test("starter board serializes an explicit smart-rally cursor and legacy boards 
   expect(copy.smartRally).toEqual(moving.smartRally);
   expect(copy.smartRally).not.toBe(moving.smartRally);
   expect(setSmartRally(copy).smartRally).toBeUndefined();
+});
+
+test("only provenance-marked blank boards opt into smart continuation at the standard setup", () => {
+  const actors = [
+    { id: "me", label: "我方", kind: "player" as const, point: [.64, .98] as Point },
+    { id: "opponent", label: "对手", kind: "player" as const, point: [.30, .07] as Point },
+    { id: "ball", label: "网球", kind: "ball" as const, point: [.64, .96] as Point },
+  ];
+  const build = (blank: BoardDocument) => actors.reduce(
+    (board, actor) => addActor(board, { id: actor.id, label: actor.label, kind: actor.kind }, actor.point),
+    blank,
+  );
+
+  const legacy = build(createBlankBoard("旧空白草稿"));
+  expect(armBlankRally(legacy)).toBe(legacy);
+  expect(legacy.smartRally).toBeUndefined();
+
+  const optedIn = build(createBlankRallyBoard("连续空白画板"));
+  const armed = armBlankRally(optedIn);
+  expect(armed.authoringMode).toBe("blank-rally");
+  expect(armed.smartRally).toEqual({
+    version: 1,
+    frameId: armed.frames[0].id,
+    phase: "shot",
+    hitterId: "me",
+    actorId: "ball",
+  });
+  expect(parseBoardJSON(JSON.stringify(armed))).toEqual({ ok: true, value: armed });
+
+  const nonstandard = addActor(optedIn, { id: "extra", label: "加练球员", kind: "player" }, [.5, .5]);
+  expect(armBlankRally(nonstandard)).toBe(nonstandard);
+  expect(nonstandard.smartRally).toBeUndefined();
+});
+
+test("prepares only recognizable legacy default blank drafts and repairs a missing shot tail", () => {
+  const empty = createBlankBoard("我的空白战术");
+  const preparedEmpty = prepareBlankRallyBoard(empty);
+  expect(preparedEmpty.authoringMode).toBe("blank-rally");
+  expect(preparedEmpty.smartRally).toBeUndefined();
+  expect(prepareBlankRallyBoard(preparedEmpty)).toBe(preparedEmpty);
+
+  let setup = createBlankBoard("我的空白战术");
+  setup = addActor(setup, { id: "me", label: "我方", kind: "player" }, [.64, .98]);
+  setup = addActor(setup, { id: "opponent", label: "对手", kind: "player" }, [.30, .07]);
+  setup = addActor(setup, { id: "ball", label: "网球", kind: "ball" }, [.64, .96]);
+  const preparedSetup = prepareBlankRallyBoard(setup);
+  expect(preparedSetup.authoringMode).toBe("blank-rally");
+  expect(preparedSetup.smartRally).toMatchObject({ phase: "shot", hitterId: "me", actorId: "ball" });
+
+  const legacyWithEmptyBeat = addFrame(setup, 0);
+  const routed = setPath(legacyWithEmptyBeat, 1, {
+    id: "legacy-first-shot",
+    kind: "shot",
+    actorId: "ball",
+    from: [.64, .96],
+    to: [.72, .24],
+  });
+  const repaired = prepareBlankRallyBoard(routed);
+  expect(repaired.authoringMode).toBe("blank-rally");
+  expect(repaired.frames).toHaveLength(3);
+  expect(repaired.frames[0].paths).toEqual([]);
+  expect(repaired.frames[1].paths).toEqual(routed.frames[1].paths);
+  expect(repaired.frames[2].poses.ball).toEqual([.72, .24]);
+  expect(repaired.frames[2].paths).toEqual([]);
+  expect(repaired.smartRally).toEqual({
+    version: 1,
+    frameId: repaired.frames[2].id,
+    phase: "move",
+    hitterId: "opponent",
+    actorId: "opponent",
+  });
+  expect(prepareBlankRallyBoard(repaired)).toBe(repaired);
+  expect(validateBoardDocument(repaired)).toEqual({ ok: true, value: repaired });
+  const serialized = parseBoardJSON(JSON.stringify(repaired));
+  expect(serialized.ok).toBe(true);
+  if (serialized.ok) {
+    expect(serialized.value.smartRally).toMatchObject({
+      frameId: serialized.value.frames.at(-1)!.id,
+      phase: "move",
+      hitterId: "opponent",
+      actorId: "opponent",
+    });
+  }
+  const storage = new MemoryStorage();
+  expect(saveBoard(repaired, storage).ok).toBe(true);
+  const reread = readBoards(storage);
+  expect(reread.ok).toBe(true);
+  if (reread.ok) {
+    expect(reread.value[0].smartRally).toMatchObject({
+      frameId: reread.value[0].frames.at(-1)!.id,
+      phase: "move",
+      hitterId: "opponent",
+      actorId: "opponent",
+    });
+  }
+
+  const renamedImport = { ...empty, title: "我的空白战术（导入）" };
+  expect(prepareBlankRallyBoard(renamedImport)).toBe(renamedImport);
+  const sourceBacked = { ...empty, sourceTacticId: "serve-wide" };
+  expect(prepareBlankRallyBoard(sourceBacked)).toBe(sourceBacked);
+  const partial = addActor(empty, { id: "solo", label: "我方", kind: "player" }, [.5, .8]);
+  expect(prepareBlankRallyBoard(partial)).toBe(partial);
 });
 
 test("smart-rally metadata rejects broken references and clears when its actor or frame is removed", () => {
