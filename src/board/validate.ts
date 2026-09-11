@@ -236,7 +236,8 @@ function parseUpdatedAt(value: unknown) {
 
 function parseSmartRally(value: unknown, actors: BoardActor[], frames: BoardFrame[]): BoardSmartRally {
   const source = record(value, "智慧回合");
-  if (source.version !== 1) invalid("不支援的智慧回合版本");
+  if (source.version !== 1 && source.version !== 2) invalid("不支援的智慧回合版本");
+  const version = source.version;
   const phase = source.phase;
   if (typeof phase !== "string" || !SMART_RALLY_PHASES.has(phase)) invalid("智慧回合階段不支援");
   const frameId = id(source.frameId, "智慧回合拍次 ID");
@@ -249,7 +250,19 @@ function parseSmartRally(value: unknown, actors: BoardActor[], frames: BoardFram
   if (!players.some((actor) => actor.id === hitterId)) invalid("智慧回合擊球者必須是球員");
   if (phase === "shot" && actorId !== balls[0].id) invalid("球路階段必須操作網球");
   if (phase === "move" && actorId !== hitterId) invalid("跑位階段必須操作當前擊球者");
-  return { version: 1, frameId, phase: phase as BoardSmartRally["phase"], hitterId, actorId };
+  if (version === 2) {
+    const frameIndex = frames.findIndex((frame) => frame.id === frameId);
+    const frame = frames[frameIndex];
+    if (frameIndex !== frames.length - 1) invalid("同步智慧回合必須指向最後一拍");
+    if (frame.paths.length > 0) invalid("同步智慧回合的編輯尾拍不能含有路線");
+    const hasEarlierPaths = frames.slice(0, frameIndex).some((candidate) => candidate.paths.length > 0);
+    const previousHasShot = frameIndex > 0 && frames[frameIndex - 1].paths.some(
+      (path) => path.actorId === balls[0].id && (path.kind === "shot" || path.kind === "feed"),
+    );
+    if (phase === "move" && !previousHasShot) invalid("跑位階段前一拍必須有來球路線");
+    if (phase === "shot" && hasEarlierPaths && !previousHasShot) invalid("下一球必須承接前一拍來球");
+  }
+  return { version, frameId, phase: phase as BoardSmartRally["phase"], hitterId, actorId };
 }
 
 function validate(value: unknown): BoardDocument {

@@ -270,7 +270,7 @@ test("authors a smart rally as shot, receiver movement, then the next shot", asy
   // Even though the ball overlaps the server, the armed ball starts the serve
   // with zero setup clicks rather than moving the player underneath it.
   await dragBoardPoint(page, board, ballStart, [.70, .25]);
-  await expect(page.getByText(/第 1 拍已完成.*接球方跑位/)).toBeVisible();
+  await expect(page.getByText(/第 1 拍球路已记录.*接球方跑位.*同步/)).toBeVisible();
   let saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(2);
   expect(saved.frames[0].paths).toHaveLength(1);
@@ -280,17 +280,21 @@ test("authors a smart rally as shot, receiver movement, then the next shot", asy
   await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
 
   await dragBoardPoint(page, board, opponentStart, [.66, .34]);
-  await expect(page.getByText(/跑位已记录.*网球拖出下一拍/)).toBeVisible();
+  await expect(page.getByText(/跑位已与上一条球路同步.*网球拖出下一拍/)).toBeVisible();
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(2);
-  expect(saved.frames[1].paths).toHaveLength(1);
-  expect(saved.frames[1].paths[0]).toMatchObject({ kind: "move", actorId: opponent.id });
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: opponent.id });
+  expect(saved.frames[1].paths).toEqual([]);
+  expect(saved.frames[1].poses[opponent.id][0]).toBeCloseTo(.66, 1);
+  expect(saved.frames[1].poses[opponent.id][1]).toBeCloseTo(.34, 1);
   await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
 
   await dragBoardPoint(page, board, [.70, .25], [.32, .75]);
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(3);
-  expect(saved.frames[1].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[1].paths.map((path) => path.kind)).toEqual(["shot"]);
   expect(saved.frames[1].paths.find((path) => path.kind === "shot")?.actorId).toBe(ball.id);
   expect(saved.frames[2].paths).toEqual([]);
   expect(saved.frames[2].poses[ball.id][0]).toBeCloseTo(.32, 1);
@@ -316,16 +320,19 @@ test("keeps the armed actor draggable when the ball and receiver share a point",
   await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
 
   await dragBoardPoint(page, board, receiverPoint, [.66, .34]);
+  await expect(page.getByText(/跑位已与上一条球路同步.*网球拖出下一拍/)).toBeVisible();
   await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
   let saved = await saveAndRead(page);
-  expect(saved.frames[1].paths).toHaveLength(1);
-  expect(saved.frames[1].paths[0]).toMatchObject({ kind: "move", actorId: opponent.id });
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: opponent.id });
+  expect(saved.frames[1].paths).toEqual([]);
 
   await dragBoardPoint(page, board, receiverPoint, [.32, .75]);
   await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动我方跑位/);
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(3);
-  expect(saved.frames[1].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[1].paths.map((path) => path.kind)).toEqual(["shot"]);
   expect(saved.frames[1].paths.find((path) => path.kind === "shot")?.actorId).toBe(ball.id);
   expect(saved.frames[2].paths).toEqual([]);
 });
@@ -355,22 +362,24 @@ test("keeps the last full beat's shot and movement clearly visible on a 390px co
   );
 
   await dragBoardPoint(page, canvas, receiverStart, [.66, .34]);
+  await expect(page.getByText(/跑位已与上一条球路同步.*网球拖出下一拍/)).toBeVisible();
   await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
   saved = await saveAndRead(page);
-  const receiverMove = saved.frames[1].paths.find((path) => path.kind === "move");
-  expect(receiverMove, "the receiver movement is recorded in the return frame").toBeDefined();
+  const receiverMove = saved.frames[0].paths.find((path) => path.kind === "move");
+  expect(receiverMove, "the receiver movement is synchronized with the incoming serve").toBeDefined();
+  expect(saved.frames[1].paths, "the return frame stays empty until its outgoing shot is drawn").toEqual([]);
   await expectPathClearlyVisible(canvas, serve!, "shot", "the incoming serve stays clearly visible after receiver movement");
-  await expectPathClearlyVisible(canvas, receiverMove!, "move", "the receiver movement is clearly visible before the return");
+  await expectPathClearlyVisible(canvas, receiverMove!, "move", "the receiver movement is clearly visible with the incoming serve");
 
   await dragBoardPoint(page, canvas, [.70, .25], [.32, .75]);
   await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动我方跑位/);
   saved = await saveAndRead(page);
   const returnShot = saved.frames[1].paths.find((path) => path.kind === "shot");
   expect(returnShot, "the completed return remains in the prior full beat").toBeDefined();
-  expect(saved.frames[1].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[1].paths.map((path) => path.kind)).toEqual(["shot"]);
   expect(saved.frames[2].paths, "visual context must not be duplicated into the new frame data").toEqual([]);
   await expectPathClearlyVisible(canvas, returnShot!, "shot", "the prior beat's return remains clearly visible on the new beat");
-  await expectPathClearlyVisible(canvas, receiverMove!, "move", "the prior beat's receiver movement remains clearly visible on the new beat");
 });
 
 test("undo and redo treat a shot plus its automatic empty successor as one action", async ({ page }) => {
@@ -390,13 +399,15 @@ test("undo and redo treat a shot plus its automatic empty successor as one actio
   await press(undo);
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(2);
-  expect(saved.frames[1].paths.map((path) => path.kind)).toEqual(["move"]);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[1].paths).toEqual([]);
   await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
 
   await press(redo);
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(3);
-  expect(saved.frames[1].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[1].paths.map((path) => path.kind)).toEqual(["shot"]);
   expect(saved.frames[2].paths).toEqual([]);
   await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动我方跑位/);
 });
@@ -416,6 +427,188 @@ test("can select the ball directly to skip receiver movement", async ({ page }) 
   expect(saved.frames[1].paths).toHaveLength(1);
   expect(saved.frames[1].paths[0]).toMatchObject({ kind: "shot", actorId: ball.id });
   expect(saved.frames[2].paths).toEqual([]);
+});
+
+test("synchronizes an extra player move before the armed receiver is skipped", async ({ page }) => {
+  await openBlankBoard(page);
+  const play = playButton(page);
+  const board = page.getByTestId("board-canvas");
+  const meStart: Point = [.62, .82];
+  const opponentStart: Point = [.46, .18];
+  const ballStart: Point = [.34, .72];
+  await chooseAddItem(page, /^我方球员/);
+  await clickBoardPoint(page, board, meStart);
+  await chooseAddItem(page, /^对手球员/);
+  await clickBoardPoint(page, board, opponentStart);
+  await chooseAddItem(page, /^网球/);
+  await clickBoardPoint(page, board, ballStart);
+
+  const initial = await saveAndRead(page);
+  const ball = initial.actors.find((actor) => actor.kind === "ball")!;
+  const me = initial.actors.find((actor) => actor.label === "我方")!;
+  const opponent = initial.actors.find((actor) => actor.label === "对手")!;
+  const firstLanding: Point = [.70, .25];
+
+  await dragBoardPoint(page, board, ballStart, firstLanding);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+
+  // Move the non-armed player first. It still belongs to the incoming serve
+  // beat, while the smart flow must continue waiting for the receiver.
+  await dragBoardPoint(page, board, meStart, [.52, .68]);
+
+  let saved = await saveAndRead(page);
+  expect(saved.frames).toHaveLength(2);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: me.id });
+  expect(saved.frames[1].paths).toEqual([]);
+  expect(saved.smartRally).toMatchObject({
+    frameId: saved.frames[1].id,
+    phase: "move",
+    hitterId: opponent.id,
+    actorId: opponent.id,
+  });
+  await expect(play).toContainText(/1\s*拍/);
+  await expect(play).toContainText(/1\.5\s*秒/);
+
+  // Selecting the ball skips the still-armed receiver move. The already
+  // synchronized extra movement must not leak into the outgoing return beat.
+  await dragBoardPoint(page, board, firstLanding, [.32, .75]);
+  saved = await saveAndRead(page);
+  expect(saved.frames).toHaveLength(3);
+  expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: me.id });
+  expect(saved.frames[1].paths).toHaveLength(1);
+  expect(saved.frames[1].paths[0]).toMatchObject({ kind: "shot", actorId: ball.id });
+  expect(saved.frames[1].paths.some((path) => path.kind === "move")).toBe(false);
+  expect(saved.frames[2].paths).toEqual([]);
+});
+
+test("undo restores the smart move tool after a conflicting receiver route falls back to manual", async ({ page }) => {
+  await page.evaluate((key) => {
+    const draft: BoardDocument = {
+      version: 1,
+      id: "conflicting-smart-move",
+      title: "冲突跑位草稿",
+      updatedAt: new Date().toISOString(),
+      actors: [
+        { id: "me", label: "我方", kind: "player", color: "#3e8ad6" },
+        { id: "opponent", label: "对手", kind: "player", color: "#dc4151" },
+        { id: "ball", label: "网球", kind: "ball", color: "#d8ef72" },
+      ],
+      frames: [
+        {
+          id: "incoming-beat",
+          label: "第 1 拍",
+          duration: 1.5,
+          poses: { me: [.64, .98], opponent: [.30, .07], ball: [.64, .96] },
+          paths: [
+            { id: "incoming-shot", kind: "shot", actorId: "ball", from: [.64, .96], to: [.70, .25] },
+            { id: "existing-receiver-move", kind: "move", actorId: "opponent", from: [.30, .07], to: [.56, .18] },
+          ],
+          marks: [],
+        },
+        {
+          id: "smart-move-tail",
+          label: "第 2 拍",
+          duration: 1.5,
+          poses: { me: [.64, .98], opponent: [.56, .18], ball: [.70, .25] },
+          paths: [],
+          marks: [],
+        },
+      ],
+      smartRally: {
+        version: 2,
+        frameId: "smart-move-tail",
+        phase: "move",
+        hitterId: "opponent",
+        actorId: "opponent",
+      },
+    };
+    window.localStorage.setItem(key, JSON.stringify({ version: 1, boards: [draft] }));
+  }, STORAGE_KEY);
+  await page.reload();
+  await openBoard(page);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+
+  const board = page.getByTestId("board-canvas");
+  await dragBoardPoint(page, board, [.56, .18], [.66, .34]);
+  await expect(page.getByText(/上一拍已有这位球员的路线.*切换为手动编辑/)).toBeVisible();
+
+  let saved = await saveAndRead(page);
+  expect(saved.smartRally).toBeUndefined();
+  expect(saved.frames[0].paths.find((path) => path.id === "existing-receiver-move")).toBeDefined();
+  expect(saved.frames[1].paths).toContainEqual(expect.objectContaining({ kind: "move", actorId: "opponent" }));
+
+  await press(page.getByRole("button", { name: "撤销", exact: true }));
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+  saved = await saveAndRead(page);
+  expect(saved.smartRally).toMatchObject({
+    version: 2,
+    frameId: "smart-move-tail",
+    phase: "move",
+    hitterId: "opponent",
+    actorId: "opponent",
+  });
+  expect(saved.frames[1].paths).toEqual([]);
+});
+
+test("preserves the sixtieth shot and saves a valid manual board when smart continuation hits the frame cap", async ({ page }) => {
+  await page.evaluate((key) => {
+    const ballPoints: Point[] = [[.35, .75], [.65, .25]];
+    const frames: BoardDocument["frames"] = Array.from({ length: 60 }, (_, index) => {
+      const from = ballPoints[index % 2];
+      const to = ballPoints[(index + 1) % 2];
+      return {
+        id: `frame-${index + 1}`,
+        label: `第 ${index + 1} 拍`,
+        duration: 1.5,
+        poses: { me: [.62, .82], opponent: [.46, .18], ball: from },
+        paths: index < 59
+          ? [{ id: `shot-${index + 1}`, kind: "shot", actorId: "ball", from, to }]
+          : [],
+        marks: [],
+      };
+    });
+    const draft: BoardDocument = {
+      version: 1,
+      id: "smart-rally-at-frame-cap",
+      title: "六十拍上限草稿",
+      updatedAt: new Date().toISOString(),
+      actors: [
+        { id: "me", label: "我方", kind: "player", color: "#3e8ad6" },
+        { id: "opponent", label: "对手", kind: "player", color: "#dc4151" },
+        { id: "ball", label: "网球", kind: "ball", color: "#d8ef72" },
+      ],
+      frames,
+      smartRally: {
+        version: 2,
+        frameId: "frame-60",
+        phase: "shot",
+        hitterId: "opponent",
+        actorId: "ball",
+      },
+    };
+    window.localStorage.setItem(key, JSON.stringify({ version: 1, boards: [draft] }));
+  }, STORAGE_KEY);
+  await page.reload();
+  await openBoard(page);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
+
+  const board = page.getByTestId("board-canvas");
+  const finalLanding: Point = [.28, .72];
+  await dragBoardPoint(page, board, [.65, .25], finalLanding);
+  await expect(page.getByText(/畫板最多 60 拍.*球路已保留.*已切换为手动编辑/)).toBeVisible();
+
+  const saved = await saveAndRead(page);
+  expect(saved.frames).toHaveLength(60);
+  expect(saved.smartRally).toBeUndefined();
+  expect(saved.frames[59].paths).toHaveLength(1);
+  expect(saved.frames[59].paths[0]).toMatchObject({
+    kind: "shot",
+    actorId: "ball",
+    from: [.65, .25],
+  });
+  expect(saved.frames[59].paths[0].to[0]).toBeCloseTo(finalLanding[0], 2);
+  expect(saved.frames[59].paths[0].to[1]).toBeCloseTo(finalLanding[1], 2);
 });
 
 test("keeps manual blank and multiple-ball boards on the safe fallback path", async ({ page }) => {
@@ -533,6 +726,7 @@ test("a pure blank board preserves consecutive ball routes as atomic rally beats
 
   let saved = await saveAndRead(page);
   const ball = saved.actors.find((actor) => actor.kind === "ball")!;
+  const opponent = saved.actors.find((actor) => actor.label === "对手")!;
   expect(saved.authoringMode).toBe("blank-rally");
   expect(saved.smartRally).toMatchObject({ phase: "shot", actorId: ball.id });
 
@@ -549,13 +743,16 @@ test("a pure blank board preserves consecutive ball routes as atomic rally beats
   await expectPathClearlyVisible(canvas, firstRoute!, "shot", "the pure blank board must keep its first route visible on the next beat");
 
   await dragBoardPoint(page, canvas, opponentStart, opponentEnd);
+  await expect(page.getByText(/跑位已与上一条球路同步.*网球拖出下一拍/)).toBeVisible();
   await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
   await dragBoardPoint(page, canvas, firstLanding, secondLanding);
 
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(3);
   expect(saved.frames[0].paths).toContainEqual(firstRoute);
-  expect(saved.frames[1].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: opponent.id });
+  expect(saved.frames[1].paths.map((path) => path.kind)).toEqual(["shot"]);
   const secondRoute = saved.frames[1].paths.find((path) => path.kind === "shot");
   expect(secondRoute).toMatchObject({ actorId: ball.id });
   expect(secondRoute?.from[0]).toBeCloseTo(firstLanding[0], 5);
@@ -569,7 +766,8 @@ test("a pure blank board preserves consecutive ball routes as atomic rally beats
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(2);
   expect(saved.frames[0].paths).toContainEqual(firstRoute);
-  expect(saved.frames[1].paths.map((path) => path.kind)).toEqual(["move"]);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[1].paths).toEqual([]);
   await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
 });
 
@@ -620,6 +818,7 @@ test("reopens a legacy default blank draft and repairs its missing continuation"
   await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
   const canvas = page.getByTestId("board-canvas");
   await dragBoardPoint(page, canvas, [.46, .18], [.66, .34]);
+  await expect(page.getByText(/跑位已与上一条球路同步.*网球拖出下一拍/)).toBeVisible();
   await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
   await dragBoardPoint(page, canvas, firstLanding, [.32, .75]);
 
@@ -632,9 +831,33 @@ test("reopens a legacy default blank draft and repairs its missing continuation"
     from: [.34, .72],
     to: firstLanding,
   });
-  expect(saved.frames[1].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: "opponent" });
+  expect(saved.frames[1].paths.map((path) => path.kind)).toEqual(["shot"]);
+  expect(saved.frames[2].paths).toEqual([]);
   expect(saved.frames[2].poses.ball[0]).toBeCloseTo(.32, 5);
   expect(saved.frames[2].poses.ball[1]).toBeCloseTo(.75, 5);
+});
+
+test("playback counts a synchronized opening shot and receiver movement as one beat", async ({ page }) => {
+  await openBoard(page);
+  const play = playButton(page);
+  const board = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  const opponent = initial.actors.find((actor) => actor.label === "对手")!;
+
+  await dragBoardPoint(page, board, actorPoint(initial, "网球"), [.70, .25]);
+  await dragBoardPoint(page, board, actorPoint(initial, "对手"), [.66, .34]);
+  await expect(page.getByText(/跑位已与上一条球路同步.*网球拖出下一拍/)).toBeVisible();
+
+  const saved = await saveAndRead(page);
+  expect(saved.frames).toHaveLength(2);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: opponent.id });
+  expect(saved.frames[1].paths).toEqual([]);
+  await expect(play).toBeEnabled();
+  await expect(play).toContainText(/1\s*拍/);
+  await expect(play).toContainText(/1\.5\s*秒/);
 });
 
 test("playback ignores the automatic trailing empty frame and manages edge focus", async ({ page }) => {

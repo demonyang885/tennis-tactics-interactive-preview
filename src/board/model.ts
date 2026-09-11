@@ -35,7 +35,8 @@ export type BoardFrame = {
 };
 
 export type BoardSmartRally = {
-  version: 1;
+  /** Version 2 stores receiver movement in the same beat as the incoming shot. */
+  version: 1 | 2;
   frameId: string;
   phase: "shot" | "move";
   hitterId: string;
@@ -207,7 +208,7 @@ function assertDuration(duration: number) {
 }
 
 function assertSmartRally(board: BoardDocument, smartRally: BoardSmartRally) {
-  if (smartRally.version !== 1) throw new Error("不支援的智慧回合版本");
+  if (smartRally.version !== 1 && smartRally.version !== 2) throw new Error("不支援的智慧回合版本");
   if (smartRally.phase !== "shot" && smartRally.phase !== "move") throw new Error("不支援的智慧回合階段");
   assertIdValue(smartRally.frameId, "智慧回合拍次 ID");
   assertIdValue(smartRally.hitterId, "智慧回合擊球者 ID");
@@ -219,6 +220,29 @@ function assertSmartRally(board: BoardDocument, smartRally: BoardSmartRally) {
   if (!players.some((actor) => actor.id === smartRally.hitterId)) throw new Error("智慧回合擊球者必須是球員");
   if (smartRally.phase === "shot" && smartRally.actorId !== balls[0].id) throw new Error("球路階段必須操作網球");
   if (smartRally.phase === "move" && smartRally.actorId !== smartRally.hitterId) throw new Error("跑位階段必須操作當前擊球者");
+  if (smartRally.version === 2) {
+    const frameIndex = board.frames.findIndex((frame) => frame.id === smartRally.frameId);
+    const frame = board.frames[frameIndex];
+    if (frameIndex !== board.frames.length - 1) throw new Error("同步智慧回合必須指向最後一拍");
+    if (frame.paths.length > 0) throw new Error("同步智慧回合的編輯尾拍不能含有路線");
+    const hasEarlierPaths = board.frames.slice(0, frameIndex).some((candidate) => candidate.paths.length > 0);
+    const previousHasShot = frameIndex > 0 && board.frames[frameIndex - 1].paths.some(
+      (path) => path.actorId === balls[0].id && (path.kind === "shot" || path.kind === "feed"),
+    );
+    if (smartRally.phase === "move" && !previousHasShot) throw new Error("跑位階段前一拍必須有來球路線");
+    if (smartRally.phase === "shot" && hasEarlierPaths && !previousHasShot) throw new Error("下一球必須承接前一拍來球");
+  }
+}
+
+function clearInvalidSmartRally(board: BoardDocument): BoardDocument {
+  if (!board.smartRally) return board;
+  try {
+    assertSmartRally(board, board.smartRally);
+    return board;
+  } catch {
+    const { smartRally: _smartRally, ...manualBoard } = board;
+    return manualBoard;
+  }
 }
 
 function canonicalizePathStarts(frame: BoardFrame): BoardFrame {
@@ -338,7 +362,7 @@ export function createStarterBoard(title = "我的战术板"): BoardDocument {
     return distance < nearestDistance ? player : nearest;
   });
   return setSmartRally(board, {
-    version: 1,
+    version: 2,
     frameId: board.frames[0].id,
     phase: "shot",
     hitterId: hitter.id,
@@ -388,7 +412,7 @@ export function armBlankRally(board: BoardDocument): BoardDocument {
     return distance < nearestDistance ? player : nearest;
   });
   return setSmartRally(board, {
-    version: 1,
+    version: 2,
     frameId: frame.id,
     phase: "shot",
     hitterId: hitter.id,
@@ -437,7 +461,7 @@ export function prepareBlankRallyBoard(board: BoardDocument): BoardDocument {
   if (!receiver) return board;
   const withTail = addFrame(marked, frameIndex, false);
   return setSmartRally(withTail, {
-    version: 1,
+    version: 2,
     frameId: withTail.frames[frameIndex + 1].id,
     phase: "move",
     hitterId: receiver.id,
@@ -501,6 +525,91 @@ export function getBoardPose(board: BoardDocument, elapsedSeconds: number): Boar
 
   const frameIndex = board.frames.length - 1;
   return { frameIndex, progress: 1, poses: getFramePose(board.frames[frameIndex], 1) };
+}
+
+/**
+ * Move a guided receiver route from the editing tail into the preceding
+ * incoming-shot beat. Playback already advances every route in one frame with
+ * a shared progress value, so this data placement makes the ball and receiver
+ * start and finish together without changing manual or template timelines.
+ */
+export function synchronizeMoveWithPreviousShot(
+  board: BoardDocument,
+  frameIndex: number,
+  movePathId: string,
+): BoardDocument {
+  assertFrameIndex(board, frameIndex);
+  if (frameIndex === 0) return board;
+
+  const frame = board.frames[frameIndex];
+  const move = frame.paths.find((path) => path.id === movePathId);
+  const actor = move ? board.actors.find((candidate) => candidate.id === move.actorId) : undefined;
+  const previous = board.frames[frameIndex - 1];
+  const ballIds = new Set(board.actors.filter((candidate) => candidate.kind === "ball").map((candidate) => candidate.id));
+  const hasIncomingShot = previous.paths.some((path) => ballIds.has(path.actorId) && (path.kind === "shot" || path.kind === "feed"));
+
+  if (!move || move.kind !== "move" || actor?.kind !== "player" || !hasIncomingShot) return board;
+  if (previous.paths.some((path) => path.actorId === move.actorId)) return board;
+
+  const previousStart = previous.poses[move.actorId];
+  if (!previousStart) return board;
+  const synchronizedMove = copyPath({ ...move, from: previousStart });
+  const frames = board.frames.slice();
+  frames[frameIndex - 1] = { ...previous, paths: [...previous.paths, synchronizedMove] };
+  frames[frameIndex] = { ...frame, paths: frame.paths.filter((path) => path.id !== movePathId) };
+  return touch(board, { frames: reflowFrames(frames, frameIndex - 1) });
+}
+
+/**
+ * Upgrade only explicitly-versioned guided drafts from the former delayed
+ * movement layout. Manual, imported, source-backed and template boards have no
+ * v1 smart cursor and are therefore never inferred or rewritten.
+ */
+export function prepareSynchronizedRallyBoard(board: BoardDocument): BoardDocument {
+  if (board.smartRally?.version !== 1) return board;
+  const ballIds = new Set(board.actors.filter((actor) => actor.kind === "ball").map((actor) => actor.id));
+  const tailIndex = board.frames.length - 1;
+  if (board.smartRally.frameId !== board.frames[tailIndex]?.id) return board;
+  const firstShotIndex = board.frames.findIndex((frame) => frame.paths.some((path) => ballIds.has(path.actorId) && path.kind === "shot"));
+  const canonicalLegacyShape = board.frames.every((frame, frameIndex) => {
+    if (frame.paths.some((path) => path.kind === "feed" || (ballIds.has(path.actorId) ? path.kind !== "shot" : path.kind !== "move"))) return false;
+    const shots = frame.paths.filter((path) => ballIds.has(path.actorId));
+    if (frameIndex === tailIndex) return shots.length === 0;
+    if (firstShotIndex < 0 || frameIndex < firstShotIndex) return frame.paths.length === 0;
+    return shots.length === 1;
+  });
+  const tail = board.frames[tailIndex];
+  const expectedTailMove = tail.paths.some((path) => path.kind === "move" && path.actorId === board.smartRally?.hitterId);
+  const phaseMatchesTail = board.smartRally.phase === "move"
+    ? !expectedTailMove
+    : (tailIndex === 0 && tail.paths.length === 0) || expectedTailMove;
+  const hasCanonicalShotRange = firstShotIndex >= 0
+    || (tailIndex === 0 && tail.paths.length === 0 && board.smartRally.phase === "shot");
+  if (!canonicalLegacyShape || !hasCanonicalShotRange || !phaseMatchesTail) return board;
+
+  const candidates = board.frames.flatMap((frame, frameIndex) => {
+    if (frameIndex === 0) return [];
+    const previous = board.frames[frameIndex - 1];
+    const hasIncomingShot = previous.paths.some((path) => ballIds.has(path.actorId) && (path.kind === "shot" || path.kind === "feed"));
+    if (!hasIncomingShot) return [];
+    return frame.paths
+      .filter((path) => path.kind === "move")
+      .map((path) => ({ frameIndex, path }));
+  });
+
+  // A player already moving in the incoming-shot beat is ambiguous. Keep the
+  // old document intact instead of replacing a deliberate manual route.
+  if (candidates.some(({ frameIndex, path }) => board.frames[frameIndex - 1].paths.some((candidate) => candidate.actorId === path.actorId))) {
+    return board;
+  }
+
+  let migrated = board;
+  for (const { frameIndex, path } of candidates) {
+    const next = synchronizeMoveWithPreviousShot(migrated, frameIndex, path.id);
+    if (next === migrated) return board;
+    migrated = next;
+  }
+  return setSmartRally(migrated, { ...board.smartRally, version: 2 });
 }
 
 export function moveActor(board: BoardDocument, frameIndex: number, actorId: string, point: Point): BoardDocument {
@@ -574,7 +683,7 @@ export function updatePath(
     .filter((path) => path.id === pathId || path.actorId !== actorId)
     .map((path) => path.id === pathId ? updated : path);
   frames[frameIndex] = { ...frame, paths };
-  return touch(board, { frames: reflowFrames(frames, frameIndex) });
+  return clearInvalidSmartRally(touch(board, { frames: reflowFrames(frames, frameIndex) }));
 }
 
 export function deletePath(board: BoardDocument, frameIndex: number, pathId: string): BoardDocument {
@@ -584,7 +693,7 @@ export function deletePath(board: BoardDocument, frameIndex: number, pathId: str
   if (paths.length === frame.paths.length) return board;
   const frames = board.frames.slice();
   frames[frameIndex] = { ...frame, paths };
-  return touch(board, { frames: reflowFrames(frames, frameIndex) });
+  return clearInvalidSmartRally(touch(board, { frames: reflowFrames(frames, frameIndex) }));
 }
 
 export function addFrame(board: BoardDocument, afterIndex: number, duplicate = false): BoardDocument {
@@ -617,7 +726,7 @@ export function deleteFrame(board: BoardDocument, frameIndex: number): BoardDocu
   const frames = board.frames.filter((_, index) => index !== frameIndex);
   const reflowFrom = frameIndex === 0 ? 0 : frameIndex - 1;
   const next = touch(board, { frames: renumberDefaultFrameLabels(reflowFrames(frames, reflowFrom)) });
-  if (next.smartRally?.frameId !== deletedFrameId) return next;
+  if (next.smartRally?.frameId !== deletedFrameId) return clearInvalidSmartRally(next);
   const { smartRally: _smartRally, ...manualBoard } = next;
   return manualBoard;
 }

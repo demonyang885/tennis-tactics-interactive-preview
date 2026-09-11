@@ -18,12 +18,15 @@ import {
   moveActor,
   newBoardId,
   prepareBlankRallyBoard,
+  prepareSynchronizedRallyBoard,
   setPath,
   setSmartRally,
+  synchronizeMoveWithPreviousShot,
   updateFrame,
   updateMark,
   updatePath,
   type BoardDocument,
+  type Point,
 } from "../src/board/model";
 import { BOARD_STORAGE_KEY, deleteBoard, readBoards, saveBoard, type BoardStorage } from "../src/board/storage";
 import { parseBoardJSON, validateBoardDocument } from "../src/board/validate";
@@ -66,6 +69,39 @@ function playableBoard() {
   return addFrame(board, 0);
 }
 
+function delayedReceiverBoard(version: 1 | 2 = 1) {
+  let board = createStarterBoard("延迟跑位草稿");
+  const ball = board.actors.find((actor) => actor.kind === "ball")!;
+  const receiver = board.actors.find((actor) => actor.label === "对手")!;
+  board = updateFrame(board, 0, { duration: 2.4 });
+  board = setPath(board, 0, {
+    id: "incoming-shot",
+    kind: "shot",
+    actorId: ball.id,
+    from: board.frames[0].poses[ball.id],
+    to: [.72, .24],
+    control: [.78, .58],
+  });
+  board = addFrame(board, 0);
+  board = updateFrame(board, 1, { duration: .6 });
+  board = setPath(board, 1, {
+    id: "delayed-receiver-move",
+    kind: "move",
+    actorId: receiver.id,
+    from: board.frames[1].poses[receiver.id],
+    to: [.64, .34],
+    control: [.44, .20],
+  });
+  board = setSmartRally(board, {
+    version,
+    frameId: board.frames[1].id,
+    phase: "shot",
+    hitterId: receiver.id,
+    actorId: ball.id,
+  });
+  return { board, ball, receiver };
+}
+
 test("starter board opens at the right-side serve positions", () => {
   const board = createStarterBoard("即用画板");
   expect(board.title).toBe("即用画板");
@@ -97,17 +133,24 @@ test("starter board serializes an explicit smart-rally cursor and legacy boards 
     return distance(left) - distance(right);
   })[0];
   expect(starter.smartRally).toEqual({
-    version: 1,
+    version: 2,
     frameId: starter.frames[0].id,
     phase: "shot",
     hitterId: nearest.id,
     actorId: ball.id,
   });
 
-  const nextFrame = addFrame(starter, 0);
+  const routed = setPath(starter, 0, {
+    id: "opening-shot",
+    kind: "shot",
+    actorId: ball.id,
+    from: starter.frames[0].poses[ball.id],
+    to: [.70, .24],
+  });
+  const nextFrame = addFrame(routed, 0);
   const receiver = players.find((player) => player.id !== nearest.id)!;
   const moving = setSmartRally(nextFrame, {
-    version: 1,
+    version: 2,
     frameId: nextFrame.frames[1].id,
     phase: "move",
     hitterId: receiver.id,
@@ -148,7 +191,7 @@ test("only provenance-marked blank boards opt into smart continuation at the sta
   const armed = armBlankRally(optedIn);
   expect(armed.authoringMode).toBe("blank-rally");
   expect(armed.smartRally).toEqual({
-    version: 1,
+    version: 2,
     frameId: armed.frames[0].id,
     phase: "shot",
     hitterId: "me",
@@ -192,7 +235,7 @@ test("prepares only recognizable legacy default blank drafts and repairs a missi
   expect(repaired.frames[2].poses.ball).toEqual([.72, .24]);
   expect(repaired.frames[2].paths).toEqual([]);
   expect(repaired.smartRally).toEqual({
-    version: 1,
+    version: 2,
     frameId: repaired.frames[2].id,
     phase: "move",
     hitterId: "opponent",
@@ -231,6 +274,181 @@ test("prepares only recognizable legacy default blank drafts and repairs a missi
   expect(prepareBlankRallyBoard(partial)).toBe(partial);
 });
 
+test("synchronizes a receiver move with the preceding shot and carries the end pose across the boundary", () => {
+  const { board, ball, receiver } = delayedReceiverBoard(1);
+  const originalJson = JSON.stringify(board);
+  const synchronized = synchronizeMoveWithPreviousShot(board, 1, "delayed-receiver-move");
+
+  expect(synchronized).not.toBe(board);
+  expect(JSON.stringify(board)).toBe(originalJson);
+  expect(synchronized.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(synchronized.frames[1].paths).toEqual([]);
+
+  const incoming = synchronized.frames[0].paths.find((path) => path.id === "incoming-shot")!;
+  const movement = synchronized.frames[0].paths.find((path) => path.id === "delayed-receiver-move")!;
+  expect(movement.actorId).toBe(receiver.id);
+  expect(movement.from).toEqual(synchronized.frames[0].poses[receiver.id]);
+  expect(synchronized.frames[1].poses[receiver.id]).toEqual(movement.to);
+  expect(synchronized.frames[1].poses[ball.id]).toEqual(incoming.to);
+
+  // The incoming beat lasts 2.4 seconds. Both curves must therefore be at
+  // exactly 50% after 1.2 seconds, regardless of the next beat's .6s length.
+  const midpoint = getBoardPose(synchronized, 1.2);
+  expect(midpoint).toMatchObject({ frameIndex: 0, progress: .5 });
+  expect(midpoint.poses[ball.id][0]).toBeCloseTo(.73, 5);
+  expect(midpoint.poses[ball.id][1]).toBeCloseTo(.59, 5);
+  expect(midpoint.poses[receiver.id][0]).toBeCloseTo(.455, 5);
+  expect(midpoint.poses[receiver.id][1]).toBeCloseTo(.2025, 5);
+
+  const withReturn = setPath(synchronized, 1, {
+    id: "return-shot",
+    kind: "shot",
+    actorId: ball.id,
+    from: [0, 0],
+    to: [.34, .78],
+  });
+  expect(withReturn.frames[1].paths[0].from).toEqual(incoming.to);
+
+  const justBefore = getBoardPose(withReturn, 2.4 - 1e-6);
+  expect(justBefore.frameIndex).toBe(0);
+  expect(justBefore.poses[receiver.id][0]).toBeCloseTo(movement.to[0], 4);
+  expect(justBefore.poses[receiver.id][1]).toBeCloseTo(movement.to[1], 4);
+  const atBoundary = getBoardPose(withReturn, 2.4);
+  expect(atBoundary).toMatchObject({ frameIndex: 1, progress: 0 });
+  expect(atBoundary.poses[receiver.id]).toEqual(movement.to);
+  expect(atBoundary.poses[ball.id]).toEqual(incoming.to);
+  const afterBoundary = getBoardPose(withReturn, 2.7);
+  expect(afterBoundary.frameIndex).toBe(1);
+  expect(afterBoundary.progress).toBeCloseTo(.5, 10);
+  expect(afterBoundary.poses[receiver.id]).toEqual(movement.to);
+  expect(afterBoundary.poses[ball.id][0]).toBeCloseTo(.53, 5);
+  expect(afterBoundary.poses[ball.id][1]).toBeCloseTo(.51, 5);
+  expect(validateBoardDocument(withReturn)).toEqual({ ok: true, value: withReturn });
+});
+
+test("conservatively migrates delayed v1 rallies and leaves ambiguous or unmarked boards untouched", () => {
+  const { board: legacy, receiver } = delayedReceiverBoard(1);
+  const legacyJson = JSON.stringify(legacy);
+  expect(parseBoardJSON(legacyJson)).toEqual({ ok: true, value: legacy });
+
+  const migrated = prepareSynchronizedRallyBoard(legacy);
+  expect(migrated).not.toBe(legacy);
+  expect(JSON.stringify(legacy)).toBe(legacyJson);
+  expect(migrated.smartRally?.version).toBe(2);
+  expect(migrated.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(migrated.frames[1].paths).toEqual([]);
+  expect(migrated.frames[1].poses[receiver.id]).toEqual([.64, .34]);
+  expect(validateBoardDocument(migrated)).toEqual({ ok: true, value: migrated });
+  expect(prepareSynchronizedRallyBoard(migrated)).toBe(migrated);
+
+  const manual = setSmartRally(legacy);
+  expect(prepareSynchronizedRallyBoard(manual)).toBe(manual);
+  expect(prepareSynchronizedRallyBoard(migrated)).toBe(migrated);
+
+  const conflicted = setPath(legacy, 0, {
+    id: "existing-receiver-route",
+    kind: "move",
+    actorId: receiver.id,
+    from: legacy.frames[0].poses[receiver.id],
+    to: [.38, .12],
+  });
+  const conflictedJson = JSON.stringify(conflicted);
+  expect(synchronizeMoveWithPreviousShot(conflicted, 1, "delayed-receiver-move")).toBe(conflicted);
+  expect(prepareSynchronizedRallyBoard(conflicted)).toBe(conflicted);
+  expect(JSON.stringify(conflicted)).toBe(conflictedJson);
+  expect(conflicted.smartRally?.version).toBe(1);
+  expect(conflicted.frames[0].paths.find((path) => path.id === "existing-receiver-route")?.to).toEqual([.38, .12]);
+  expect(conflicted.frames[1].paths.find((path) => path.id === "delayed-receiver-move")).toBeDefined();
+  expect(validateBoardDocument(conflicted)).toEqual({ ok: true, value: conflicted });
+});
+
+test("migrates a canonical v1 rally that starts after leading empty setup frames", () => {
+  let legacy = createStarterBoard("旧版前置空拍");
+  const ball = legacy.actors.find((actor) => actor.kind === "ball")!;
+  const receiver = legacy.actors.find((actor) => actor.label === "对手")!;
+  legacy = addFrame(legacy, 0);
+  legacy = setPath(legacy, 1, {
+    id: "late-first-shot",
+    kind: "shot",
+    actorId: ball.id,
+    from: legacy.frames[1].poses[ball.id],
+    to: [.70, .24],
+  });
+  legacy = addFrame(legacy, 1);
+  legacy = setPath(legacy, 2, {
+    id: "late-receiver-move",
+    kind: "move",
+    actorId: receiver.id,
+    from: legacy.frames[2].poses[receiver.id],
+    to: [.62, .32],
+  });
+  legacy = setSmartRally(legacy, {
+    version: 1,
+    frameId: legacy.frames[2].id,
+    phase: "shot",
+    hitterId: receiver.id,
+    actorId: ball.id,
+  });
+
+  const migrated = prepareSynchronizedRallyBoard(legacy);
+  expect(migrated).not.toBe(legacy);
+  expect(migrated.smartRally?.version).toBe(2);
+  expect(migrated.frames[0].paths).toEqual([]);
+  expect(migrated.frames[1].paths.map((path) => path.id).sort()).toEqual([
+    "late-first-shot",
+    "late-receiver-move",
+  ]);
+  expect(migrated.frames[2].paths).toEqual([]);
+  expect(migrated.frames[2].poses[ball.id]).toEqual([.70, .24]);
+  expect(migrated.frames[2].poses[receiver.id]).toEqual([.62, .32]);
+  expect(validateBoardDocument(migrated)).toEqual({ ok: true, value: migrated });
+});
+
+test("does not migrate v1 rallies with a missing shot or a tail phase mismatch", () => {
+  const { board: canonical, ball, receiver } = delayedReceiverBoard(1);
+
+  // Once the first shot appears, every non-tail beat in the old guided shape
+  // must contain exactly one shot. An empty gap is not safe to infer through.
+  const missingShot = addFrame(canonical, 0);
+  expect(missingShot.frames.map((frame) => frame.paths.map((path) => path.kind))).toEqual([
+    ["shot"],
+    [],
+    ["move"],
+  ]);
+  expect(prepareSynchronizedRallyBoard(missingShot)).toBe(missingShot);
+  expect(missingShot.smartRally?.version).toBe(1);
+
+  // A tail that already contains the expected receiver move must be waiting
+  // for a shot. A v1 cursor that still says "move" is internally ambiguous.
+  const movePhaseWithTailMove = setSmartRally(canonical, {
+    version: 1,
+    frameId: canonical.frames[1].id,
+    phase: "move",
+    hitterId: receiver.id,
+    actorId: receiver.id,
+  });
+  expect(prepareSynchronizedRallyBoard(movePhaseWithTailMove)).toBe(movePhaseWithTailMove);
+  expect(movePhaseWithTailMove.smartRally?.version).toBe(1);
+
+  // Conversely, a shot cursor without its expected tail move must not be
+  // upgraded merely because the preceding frames look like a rally.
+  const shotPhaseWithoutTailMove = deletePath(canonical, 1, "delayed-receiver-move");
+  expect(shotPhaseWithoutTailMove.smartRally).toMatchObject({
+    version: 1,
+    phase: "shot",
+    actorId: ball.id,
+  });
+  expect(prepareSynchronizedRallyBoard(shotPhaseWithoutTailMove)).toBe(shotPhaseWithoutTailMove);
+
+  const misplacedCursor = structuredClone(canonical) as BoardDocument;
+  misplacedCursor.smartRally!.frameId = misplacedCursor.frames[0].id;
+  expect(validateBoardDocument(misplacedCursor).ok).toBe(true);
+  expect(prepareSynchronizedRallyBoard(misplacedCursor)).toBe(misplacedCursor);
+  expect(validateBoardDocument(missingShot)).toEqual({ ok: true, value: missingShot });
+  expect(validateBoardDocument(movePhaseWithTailMove)).toEqual({ ok: true, value: movePhaseWithTailMove });
+  expect(validateBoardDocument(shotPhaseWithoutTailMove)).toEqual({ ok: true, value: shotPhaseWithoutTailMove });
+});
+
 test("smart-rally metadata rejects broken references and clears when its actor or frame is removed", () => {
   const starter = createStarterBoard();
   const missingFrame = structuredClone(starter) as BoardDocument;
@@ -241,12 +459,66 @@ test("smart-rally metadata rejects broken references and clears when its actor o
   wrongActor.smartRally!.actorId = wrongActor.smartRally!.hitterId;
   expect(validateBoardDocument(wrongActor)).toMatchObject({ ok: false });
 
+  const occupiedV2Tail = structuredClone(starter) as BoardDocument;
+  occupiedV2Tail.frames[0].paths.push({
+    id: "unexpected-tail-shot",
+    kind: "shot",
+    actorId: occupiedV2Tail.smartRally!.actorId,
+    from: occupiedV2Tail.frames[0].poses[occupiedV2Tail.smartRally!.actorId],
+    to: [.7, .24],
+  });
+  expect(validateBoardDocument(occupiedV2Tail)).toMatchObject({ ok: false });
+
+  const moveWithoutIncomingShot = structuredClone(starter) as BoardDocument;
+  const receiver = moveWithoutIncomingShot.actors.find((actor) => actor.kind === "player" && actor.id !== moveWithoutIncomingShot.smartRally!.hitterId)!;
+  moveWithoutIncomingShot.smartRally = { ...moveWithoutIncomingShot.smartRally!, phase: "move", hitterId: receiver.id, actorId: receiver.id };
+  expect(validateBoardDocument(moveWithoutIncomingShot)).toMatchObject({ ok: false });
+
+  const ball = starter.actors.find((actor) => actor.kind === "ball")!;
+  let withIncoming = setPath(starter, 0, {
+    id: "smart-incoming-shot",
+    kind: "shot",
+    actorId: ball.id,
+    from: starter.frames[0].poses[ball.id],
+    to: [.70, .24],
+  });
+  withIncoming = addFrame(withIncoming, 0);
+  withIncoming = setSmartRally(withIncoming, {
+    version: 2,
+    frameId: withIncoming.frames[1].id,
+    phase: "move",
+    hitterId: receiver.id,
+    actorId: receiver.id,
+  });
+  const withoutIncoming = deletePath(withIncoming, 0, "smart-incoming-shot");
+  expect(withoutIncoming.smartRally).toBeUndefined();
+  expect(validateBoardDocument(withoutIncoming).ok).toBe(true);
+
+  const withReceiverMove = setPath(withIncoming, 1, {
+    id: "smart-receiver-move",
+    kind: "move",
+    actorId: receiver.id,
+    from: withIncoming.frames[1].poses[receiver.id],
+    to: [.62, .32],
+  });
+  const synchronized = synchronizeMoveWithPreviousShot(withReceiverMove, 1, "smart-receiver-move");
+  const waitingForReturn = setSmartRally(synchronized, {
+    version: 2,
+    frameId: synchronized.frames[1].id,
+    phase: "shot",
+    hitterId: receiver.id,
+    actorId: ball.id,
+  });
+  const returnWithoutIncoming = deletePath(waitingForReturn, 0, "smart-incoming-shot");
+  expect(returnWithoutIncoming.frames[0].paths).toContainEqual(expect.objectContaining({ id: "smart-receiver-move" }));
+  expect(returnWithoutIncoming.smartRally).toBeUndefined();
+  expect(validateBoardDocument(returnWithoutIncoming).ok).toBe(true);
+
   const withoutHitter = deleteActor(starter, starter.smartRally!.hitterId);
   expect(withoutHitter.smartRally).toBeUndefined();
   expect(validateBoardDocument(withoutHitter).ok).toBe(true);
 
   const withSecond = addFrame(starter, 0);
-  const ball = withSecond.actors.find((actor) => actor.kind === "ball")!;
   const onSecond = setSmartRally(withSecond, { ...starter.smartRally!, frameId: withSecond.frames[1].id, actorId: ball.id });
   expect(deleteFrame(onSecond, 1).smartRally).toBeUndefined();
 });

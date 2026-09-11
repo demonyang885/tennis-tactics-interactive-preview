@@ -1,6 +1,6 @@
 import { boardFromTactic, boardFromTactics } from "../src/board/adapters";
 import { tactics } from "../src/content/library";
-import { getBoardDuration, getBoardPose, getFrameEnd } from "../src/board/model";
+import { getBoardDuration, getBoardPose, getFrameEnd, getFramePose } from "../src/board/model";
 import { validateBoardDocument } from "../src/board/validate";
 import type { Tactic } from "../src/content/types";
 
@@ -43,6 +43,10 @@ assert(pointEquals(getFrameEnd(single.frames[0]).ball, single.frames[1].poses.ba
 assert(pointEquals(getFrameEnd(single.frames[0]).me, single.frames[1].poses.me), "player movement should end at the next frame pose");
 assert(single.frames[0].paths.filter((path) => path.actorId === "ball" && path.kind === "shot").length === 1, "a moving ball should create one shot path");
 assert(single.frames[0].paths.filter((path) => path.actorId === "me" && path.kind === "move").length === 1, "a moving player should create one movement path");
+const templateMidpoint = getFramePose(single.frames[0], .5);
+assert(templateMidpoint.ball[0] !== single.frames[0].poses.ball[0], "template ball should be moving at the shared midpoint");
+assert(templateMidpoint.me[0] !== single.frames[0].poses.me[0], "template player should move during the same shared midpoint");
+assert(templateMidpoint.ball[0] !== getFrameEnd(single.frames[0]).ball[0], "template ball should not finish before the player movement");
 
 single.frames[0].poses.ball[0] = .99;
 assert(first.frames[0].ball[0] === .5, "adapter output must not alias source coordinates");

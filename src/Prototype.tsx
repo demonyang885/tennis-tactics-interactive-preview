@@ -61,9 +61,11 @@ import {
   moveActor,
   newBoardId,
   prepareBlankRallyBoard,
+  prepareSynchronizedRallyBoard,
   renameBoard,
   setPath,
   setSmartRally,
+  synchronizeMoveWithPreviousShot,
   updateFrame,
   updateMark,
   updatePath,
@@ -542,15 +544,18 @@ type BoardDrag = {
  * imported or tactic-derived board into guided authoring.
  */
 function getSmartBoardContinuation(board:BoardDocument):SmartBoardContinuation|null {
-  const smart=board.smartRally;if(!smart)return null;
+  const smart=board.smartRally;if(!smart||smart.version!==2)return null;
   const frameIndex=board.frames.findIndex(frame=>frame.id===smart.frameId);
   if(frameIndex<0||frameIndex!==board.frames.length-1)return null;
   const players=board.actors.filter(actor=>actor.kind==="player"),balls=board.actors.filter(actor=>actor.kind==="ball");
   if(players.length!==2||balls.length!==1||!players.some(player=>player.id===smart.hitterId))return null;
   const frame=board.frames[frameIndex],actor=board.actors.find(item=>item.id===smart.actorId);
-  if(!actor||!frame.poses[actor.id]||frame.paths.some(path=>path.actorId===balls[0].id))return null;
+  if(!actor||!frame.poses[actor.id]||frame.paths.length>0)return null;
+  const hasEarlierPaths=board.frames.slice(0,frameIndex).some(candidate=>candidate.paths.length>0);
+  const previousHasShot=frameIndex>0&&board.frames[frameIndex-1].paths.some(path=>path.actorId===balls[0].id&&(path.kind==="shot"||path.kind==="feed"));
+  if((smart.phase==="move"&&!previousHasShot)||(smart.phase==="shot"&&hasEarlierPaths&&!previousHasShot))return null;
   if(smart.phase==="shot"&&actor.kind!=="ball")return null;
-  if(smart.phase==="move"&&(actor.kind!=="player"||actor.id!==smart.hitterId||frame.paths.some(path=>path.kind==="move"&&path.actorId===actor.id)))return null;
+  if(smart.phase==="move"&&(actor.kind!=="player"||actor.id!==smart.hitterId))return null;
   return {frameIndex,phase:smart.phase,hitterId:smart.hitterId,actorId:smart.actorId};
 }
 
@@ -700,14 +705,14 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
     if(delta[event.key]){event.preventDefault();onNudge(...delta[event.key]!);}
     else if(event.key==="Delete"||event.key==="Backspace"){event.preventDefault();onDelete();}
   };
-  return <div ref={holderRef} className="board-canvas" data-testid="board-canvas" data-scroll-drag="ignore" tabIndex={0} role="application" aria-label="可编辑网球战术画板。标准双人画板可直接从网球拖出球路，放开后会自动接续对手跑位与下一拍；点选任一球员或网球可随时改写当前操作。方向键可微调，Delete 键删除。" onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={event=>endPointer(event)} onPointerCancel={event=>endPointer(event,true)}><canvas ref={canvasRef}/></div>;
+  return <div ref={holderRef} className="board-canvas" data-testid="board-canvas" data-scroll-drag="ignore" tabIndex={0} role="application" aria-label="可编辑网球战术画板。标准双人画板可直接从网球拖出球路，放开后会自动接续接球方跑位与下一拍；播放时，接球方跑位会与来球同步。点选任一球员或网球可随时改写当前操作。方向键可微调，Delete 键删除。" onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={event=>endPointer(event)} onPointerCancel={event=>endPointer(event,true)}><canvas ref={canvasRef}/></div>;
 }
 
-function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocument;back:()=>void;openLibrary:()=>void}) {
+function BoardEditor({ initialBoard, migrationSource, legacyNeedsReview=false, back, openLibrary }:{initialBoard:BoardDocument;migrationSource?:BoardDocument;legacyNeedsReview?:boolean;back:()=>void;openLibrary:()=>void}) {
   const keyboard=useKeyboard();
   const initialSmart=getSmartBoardContinuation(initialBoard);
   const [board,setBoardState]=useState(initialBoard),[frameIndex,setFrameIndex]=useState(initialSmart?.frameIndex??0),[selection,setSelection]=useState<BoardSelection|null>(initialSmart?{kind:"actor",id:initialSmart.actorId}:null),[committedRevision,setCommittedRevision]=useState(0);
-  const [past,setPast]=useState<BoardDocument[]>([]),[future,setFuture]=useState<BoardDocument[]>([]),[saveState,setSaveState]=useState<BoardSaveState>("dirty"),[error,setError]=useState(""),[notice,setNotice]=useState("");
+  const [past,setPast]=useState<BoardDocument[]>(migrationSource?[migrationSource]:[]),[future,setFuture]=useState<BoardDocument[]>([]),[saveState,setSaveState]=useState<BoardSaveState>("dirty"),[error,setError]=useState(""),[notice,setNotice]=useState(migrationSource?"已将旧版跑位改为与来球同步；可撤销为手动时间线。":legacyNeedsReview?"这份旧版时间线无法安全自动同步，已切换为手动编辑，请检查拍次。":"");
   const [tool,setTool]=useState<BoardTool>(initialSmart?.phase??"select"),[actorPreset,setActorPreset]=useState<ActorPreset>("me"),[pathKind,setPathKind]=useState<"shot"|"feed">("shot"),[markPreset,setMarkPreset]=useState<MarkPreset>("target"),[curved,setCurved]=useState(true);
   const [viewMode,setViewMode]=useState<"edit"|"preview">("edit"),[isPlaying,setIsPlaying]=useState(false),[elapsed,setElapsed]=useState(0),[speed,setSpeed]=useState(1);
   const [filesOpen,setFilesOpen]=useState(false),[historyOpen,setHistoryOpen]=useState(false),[frameOpen,setFrameOpen]=useState(false),[objectsOpen,setObjectsOpen]=useState(false),[drillOpen,setDrillOpen]=useState(false),[objectOpen,setObjectOpen]=useState(false),[toolPalette,setToolPalette]=useState<"add"|"marks"|null>(null);
@@ -716,7 +721,7 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
   const smartContinuation=getSmartBoardContinuation(board);
   const playbackBoard=useMemo(()=>{
     const smart=getSmartBoardContinuation(board),last=board.frames[board.frames.length-1];
-    const trimsGeneratedTail=!!smart&&smart.phase==="move"&&smart.frameIndex===board.frames.length-1&&last.paths.length===0;
+    const trimsGeneratedTail=board.frames.length>1&&!!smart&&smart.frameIndex===board.frames.length-1&&last.paths.length===0;
     const frames=trimsGeneratedTail?board.frames.slice(0,-1):board.frames;
     return frames.some(item=>item.paths.length)?{...board,frames}:{...board,frames:frames.slice(0,1).map(item=>({...item,duration:0}))};
   },[board]);
@@ -737,8 +742,8 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
   const commit=useCallback((next:BoardDocument)=>{const current=committedBoardRef.current;if(next===current)return;setPast(items=>[...items,current].slice(-50));setFuture([]);markCommitted(next);setSaveState("dirty");setError("");},[markCommitted]);
   const preview=useCallback((next:BoardDocument)=>setBoard(next),[setBoard]);
   const finishPreview=useCallback((base:BoardDocument,cancel=false)=>{if(cancel){setBoard(committedBoardRef.current);return;}const current=boardRef.current;if(current===base)return;const previous=committedBoardRef.current;setPast(items=>[...items,previous].slice(-50));setFuture([]);markCommitted(current);setSaveState("dirty");setError("");},[markCommitted,setBoard]);
-  const undo=useCallback(()=>{const previous=past[past.length-1];if(!previous)return;const current=committedBoardRef.current,currentSmart=getSmartBoardContinuation(current),currentFrameId=current.frames[frameIndex]?.id,followSmart=!!currentSmart&&currentSmart.frameIndex===frameIndex&&tool===currentSmart.phase&&selection?.kind==="actor"&&selection.id===currentSmart.actorId;setPast(past.slice(0,-1));setFuture(items=>[current,...items].slice(0,50));markCommitted(previous);resetTransientEditorState(previous,followSmart,currentFrameId);setSaveState("dirty");},[frameIndex,markCommitted,past,resetTransientEditorState,selection,tool]);
-  const redo=useCallback(()=>{const next=future[0];if(!next)return;const current=committedBoardRef.current,currentSmart=getSmartBoardContinuation(current),currentFrameId=current.frames[frameIndex]?.id,followSmart=!!currentSmart&&currentSmart.frameIndex===frameIndex&&tool===currentSmart.phase&&selection?.kind==="actor"&&selection.id===currentSmart.actorId;setFuture(future.slice(1));setPast(items=>[...items,current].slice(-50));markCommitted(next);resetTransientEditorState(next,followSmart,currentFrameId);setSaveState("dirty");},[frameIndex,future,markCommitted,resetTransientEditorState,selection,tool]);
+  const undo=useCallback(()=>{const previous=past[past.length-1];if(!previous)return;const current=committedBoardRef.current,currentSmart=getSmartBoardContinuation(current),targetSmart=getSmartBoardContinuation(previous),currentFrameId=current.frames[frameIndex]?.id,wasFollowing=!!currentSmart&&currentSmart.frameIndex===frameIndex&&tool===currentSmart.phase&&selection?.kind==="actor"&&selection.id===currentSmart.actorId,followSmart=!!targetSmart&&(!currentSmart||wasFollowing);setPast(past.slice(0,-1));setFuture(items=>[current,...items].slice(0,50));markCommitted(previous);resetTransientEditorState(previous,followSmart,currentFrameId);setSaveState("dirty");},[frameIndex,markCommitted,past,resetTransientEditorState,selection,tool]);
+  const redo=useCallback(()=>{const next=future[0];if(!next)return;const current=committedBoardRef.current,currentSmart=getSmartBoardContinuation(current),targetSmart=getSmartBoardContinuation(next),currentFrameId=current.frames[frameIndex]?.id,wasFollowing=!!currentSmart&&currentSmart.frameIndex===frameIndex&&tool===currentSmart.phase&&selection?.kind==="actor"&&selection.id===currentSmart.actorId,followSmart=!!targetSmart&&(!currentSmart||wasFollowing);setFuture(future.slice(1));setPast(items=>[...items,current].slice(-50));markCommitted(next);resetTransientEditorState(next,followSmart,currentFrameId);setSaveState("dirty");},[frameIndex,future,markCommitted,resetTransientEditorState,selection,tool]);
   const saveNow=useCallback(()=>{setSaveState("saving");const candidate=committedBoardRef.current,result=saveBoard(candidate);if(result.ok){const showingCommitted=boardRef.current===candidate;committedBoardRef.current=result.value;needsSaveRef.current=false;if(showingCommitted)setBoard(result.value);setSaveState("saved");setError("");window.dispatchEvent(new Event(BOARD_DRAFTS_EVENT));}else{setSaveState("error");setError(result.error);}return result;},[setBoard]);
 
   useEffect(()=>{if(saveState!=="dirty")return;const timer=window.setTimeout(saveNow,700);return()=>window.clearTimeout(timer);},[committedRevision,saveNow,saveState]);
@@ -798,7 +803,14 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
   const duplicateDraft=()=>{const copy=cloneBoard(board);const result=saveBoard(copy);if(result.ok){setError("");setNotice(`已保存副本「${result.value.title}」。`);window.dispatchEvent(new Event(BOARD_DRAFTS_EVENT));}else setError(result.error);};
   const exportJson=()=>saveDownload(new Blob([JSON.stringify(board,null,2)],{type:"application/json"}),safeFilename(board.title,"json"));
   const exportPng=async()=>{try{saveDownload(await exportBoardPng(board,frameIndex),safeFilename(`${board.title}-第${frameIndex+1}拍`,"png"));}catch(reason){setError(reason instanceof Error?reason.message:"无法导出图片");}};
-  const importJson=async(file:File|undefined)=>{if(!file)return;const parsed=parseBoardJSON(await file.text());if(!parsed.ok){setError(parsed.error);return;}const imported={...parsed.value,id:initialBoard.id,updatedAt:new Date().toISOString()};commit(imported);setTitleDraft(imported.title);resetTransientEditorState(imported,true,imported.frames[0]?.id);setFrameLabel(imported.frames[0]?.label??"");setFrameDuration(String(imported.frames[0]?.duration??0));setFilesOpen(false);keyboard.hide();restoreSheetFocus("canvas");};
+  const importJson=async(file:File|undefined)=>{
+    if(!file)return;const parsed=parseBoardJSON(await file.text());if(!parsed.ok){setError(parsed.error);return;}
+    const raw={...parsed.value,id:initialBoard.id,updatedAt:new Date().toISOString()},wasLegacy=raw.smartRally?.version===1,synchronized=prepareSynchronizedRallyBoard(raw),migrated=wasLegacy&&synchronized!==raw;
+    const imported=wasLegacy&&!migrated?setSmartRally(raw):synchronized;
+    if(migrated)commit(setSmartRally(raw));
+    commit(imported);setTitleDraft(imported.title);resetTransientEditorState(imported,true,imported.frames[0]?.id);setFrameLabel(imported.frames[0]?.label??"");setFrameDuration(String(imported.frames[0]?.duration??0));setFilesOpen(false);keyboard.hide();restoreSheetFocus("canvas");
+    if(wasLegacy)setNotice(migrated?"已将导入的旧版跑位改为与来球同步；可撤销为手动时间线。":"导入的旧版时间线无法安全自动同步，已切换为手动编辑，请检查拍次。");
+  };
   const chooseTool=(next:BoardTool)=>{
     setTool(next);setViewMode("edit");setIsPlaying(false);
     const selected=selection?.kind==="actor"?board.actors.find(actor=>actor.id===selection.id):undefined;
@@ -810,6 +822,15 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
   const resizeTarget=(scale:number)=>{if(selectedMark?.kind!=="target")return;const size=selectedMark.size??[.28,.12];commit(updateMark(board,frameIndex,selectedMark.id,{size:[Math.max(.08,Math.min(.8,size[0]*scale)),Math.max(.04,Math.min(.5,size[1]*scale))]}));};
   const applyObjectText=()=>{if(selectedMark&&(selectedMark.kind==="text"||selectedMark.kind==="target")){commit(updateMark(board,frameIndex,selectedMark.id,{text:textDraft.trim()||undefined}));setObjectOpen(false);keyboard.hide();restoreSheetFocus("opener");}};
   const applySmartContinuation=(next:BoardDocument)=>{const smart=getSmartBoardContinuation(next);if(!smart)return false;setFrameIndex(smart.frameIndex);setSelection({kind:"actor",id:smart.actorId});setTool(smart.phase);setPathKind("shot");return true;};
+  const synchronizeSmartMoves=(current:BoardDocument,index:number)=>{
+    let synchronized=current;
+    for(const move of current.frames[index].paths.filter(path=>path.kind==="move")){
+      const next=synchronizeMoveWithPreviousShot(synchronized,index,move.id);
+      if(next===synchronized)return current;
+      synchronized=next;
+    }
+    return synchronized;
+  };
   const completeCanvasAction=(completion:BoardCanvasCompletion)=>{
     const smartBefore=getSmartBoardContinuation(completion.base);
     if(completion.gesture==="path"&&completion.path&&smartBefore?.frameIndex===frameIndex){
@@ -819,19 +840,37 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
       if(completesShot&&ball){
         try{
           const nextHitter=players.find(player=>player.id!==smartBefore.hitterId);if(!nextHitter)throw new Error("找不到下一位击球者");
-          let next=addFrame(current,frameIndex,false),nextFrame=next.frames[frameIndex+1];
-          next=setSmartRally(next,{version:1,frameId:nextFrame.id,phase:"move",hitterId:nextHitter.id,actorId:nextHitter.id});
+          const hasPendingMoves=current.frames[frameIndex].paths.some(path=>path.kind==="move");
+          const shotBase=hasPendingMoves?synchronizeSmartMoves(current,frameIndex):current;
+          if(hasPendingMoves&&shotBase===current){
+            const manual=setSmartRally(current);markCommitted(manual);setSelection(completion.selection);setTool("select");
+            setNotice("上一拍已有冲突路线；本次球路已保留，并切换为手动编辑。");return;
+          }
+          let next=addFrame(shotBase,frameIndex,false),nextFrame=next.frames[frameIndex+1];
+          next=setSmartRally(next,{version:2,frameId:nextFrame.id,phase:"move",hitterId:nextHitter.id,actorId:nextHitter.id});
           markCommitted(next);
-          if(applySmartContinuation(next)){navigator.vibrate?.(8);setNotice(`第 ${frameIndex+1} 拍已完成。现在拖动接球方跑位。`);return;}
-        }catch(reason){setError(reason instanceof Error?reason.message:"无法自动接续下一拍");}
+          if(applySmartContinuation(next)){navigator.vibrate?.(8);setNotice(`第 ${frameIndex+1} 拍球路已记录。现在补上接球方跑位，播放时会同步。`);return;}
+        }catch(reason){const manual=setSmartRally(current);markCommitted(manual);setSelection(completion.selection);setTool("select");setError(reason instanceof Error?`${reason.message}；球路已保留，已切换为手动编辑。`:"无法自动接续下一拍；球路已保留，已切换为手动编辑。");return;}
       }else if(completesExpectedMove&&ball){
         try{
-          const next=setSmartRally(current,{version:1,frameId:current.frames[frameIndex].id,phase:"shot",hitterId:smartBefore.hitterId,actorId:ball.id});
+          const synchronized=synchronizeSmartMoves(current,frameIndex);
+          if(synchronized===current){
+            const manual=setSmartRally(current);markCommitted(manual);setSelection(completion.selection);setTool("select");
+            setNotice("上一拍已有这位球员的路线；本次跑位已保留，并切换为手动编辑。");return;
+          }
+          const next=setSmartRally(synchronized,{version:2,frameId:synchronized.frames[frameIndex].id,phase:"shot",hitterId:smartBefore.hitterId,actorId:ball.id});
           markCommitted(next);
-          if(applySmartContinuation(next)){navigator.vibrate?.(8);setNotice("跑位已记录。现在从网球拖出下一拍。");return;}
-        }catch(reason){setError(reason instanceof Error?reason.message:"无法接续下一拍");}
-      }else if(completion.path.kind==="move"&&applySmartContinuation(current)){
-        setNotice("额外跑位已记录；智慧流程仍等待指定球员。");return;
+          if(applySmartContinuation(next)){navigator.vibrate?.(8);setNotice("跑位已与上一条球路同步。现在从网球拖出下一拍。");return;}
+        }catch(reason){const manual=setSmartRally(current);markCommitted(manual);setSelection(completion.selection);setTool("select");setError(reason instanceof Error?`${reason.message}；跑位已保留，已切换为手动编辑。`:"无法接续下一拍；跑位已保留，已切换为手动编辑。");return;}
+      }else if(completion.path.kind==="move"){
+        const synchronized=synchronizeSmartMoves(current,frameIndex);
+        if(synchronized!==current){
+          const next=synchronized.smartRally?.version===1?setSmartRally(synchronized,{...synchronized.smartRally,version:2}):synchronized;
+          markCommitted(next);
+          if(applySmartContinuation(next)){setNotice("额外跑位已与上一条球路同步；继续拖动指定接球方。");return;}
+        }
+        const manual=setSmartRally(current);markCommitted(manual);setSelection(completion.selection);setTool("select");
+        setNotice("上一拍已有这位球员的路线；本次跑位已保留，并切换为手动编辑。");return;
       }else{
         const manual=setSmartRally(current);markCommitted(manual);setSelection(completion.selection);setTool("select");setNotice("这项操作已保留，并切换为手动编辑。");return;
       }
@@ -861,7 +900,7 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
   const smartActor=activeSmart?board.actors.find(actor=>actor.id===activeSmart.actorId):undefined;
   const smartActorLabel=smartActor?numberedActorLabel(board.actors,smartActor):"";
   const toolStatus=activeSmart?.phase==="shot"?(frameIndex===0?"拖出发球线路":"从网球拖出下一拍"):activeSmart?.phase==="move"?`现在拖动${smartActorLabel||"接球方"}跑位`:tool==="actor"?`点球场一次，放置${actorPreset==="me"?"我方球员":actorPreset==="opponent"?"对手球员":"网球"}`:tool==="shot"?`按住网球拖到落点 · ${pathKind==="feed"?"喂球":"球路"}${curved?"曲线":"直线"}`:tool==="move"?`按住已选球员拖到跑位终点 · ${curved?"曲线":"直线"}`:tool==="mark"?`${markPreset==="freehand"?"按住球场并拖动绘制":"点球场一次放置"}${BOARD_MARK_NAMES[markPreset]}`:"";
-  const toolHint=activeSmart?.phase==="shot"?(frameIndex===0?"从网球按住，拖到发球落点后放开":"不需跑位时，也可直接从网球继续拖"):activeSmart?.phase==="move"?"跑位后放开，系统会自动切到下一拍":tool==="actor"||tool==="mark"?"完成一次后自动回到对象模式":"必须从已选对象按住并拖动";
+  const toolHint=activeSmart?.phase==="shot"?(frameIndex===0?"从网球按住，拖到发球落点后放开":"从网球按住，拖出这一拍的回球路线"):activeSmart?.phase==="move"?"跑位会与来球同步；也可直接拖动网球跳过跑位":tool==="actor"||tool==="mark"?"完成一次后自动回到对象模式":"必须从已选对象按住并拖动";
   const addToolActive=toolPalette!==null||tool==="actor"||tool==="mark";
   const canGoPrevious=elapsed>0;
   const canGoNext=currentPlaybackFrame<playbackBoard.frames.length-1;
@@ -898,7 +937,7 @@ function BoardEditor({ initialBoard, back, openLibrary }:{initialBoard:BoardDocu
       <input ref={importRef} className="board-hidden-file" hidden tabIndex={-1} aria-hidden="true" type="file" accept="application/json,.json" onChange={event=>{void importJson(event.currentTarget.files?.[0]);event.currentTarget.value="";}}/>
       {saveState==="error"&&<p className="board-export-warning">本机保存失败。请先导出 JSON，避免丢失本次编辑。</p>}
     </div></BottomSheet>
-    <BottomSheet open={historyOpen} onOpenChange={open=>{setSheetVisibility(setHistoryOpen,open);if(!open)restoreSheetFocus("opener");}} title="拍次历史" description="日常编排会自动接续；只在需要回看或精修时进入这里。" snap={.72}><div className="board-sheet"><button className="guide-close" aria-label="关闭拍次历史" onClick={()=>{setHistoryOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<div className="board-object-list board-history-list">{board.frames.map((item,index)=>{const isCurrent=index===frameIndex,isContinuation=smartContinuation?.frameIndex===index&&smartContinuation.phase==="move"&&item.paths.length===0;return <button key={item.id} aria-current={isCurrent?"step":undefined} aria-label={`编辑第 ${index+1} 拍：${item.label}`} onClick={()=>openFrameFromHistory(index)}><span className="board-history-number">{index+1}</span><span><strong>{item.label}</strong><small>{isContinuation?"等待下一拍":`${item.paths.length} 条轨迹 · ${item.duration.toFixed(1)} 秒`}</small></span>{isCurrent?<CheckCircledIcon/>:<ChevronRightIcon/>}</button>;})}</div></div></BottomSheet>
+    <BottomSheet open={historyOpen} onOpenChange={open=>{setSheetVisibility(setHistoryOpen,open);if(!open)restoreSheetFocus("opener");}} title="拍次历史" description="日常编排会自动接续；只在需要回看或精修时进入这里。" snap={.72}><div className="board-sheet"><button className="guide-close" aria-label="关闭拍次历史" onClick={()=>{setHistoryOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<div className="board-object-list board-history-list">{board.frames.map((item,index)=>{const isCurrent=index===frameIndex,isContinuation=smartContinuation?.frameIndex===index&&item.paths.length===0,continuationLabel=smartContinuation?.phase==="move"?"等待接球方跑位":index===0?"等待第一条球路":"等待下一拍球路";return <button key={item.id} aria-current={isCurrent?"step":undefined} aria-label={`编辑第 ${index+1} 拍：${item.label}`} onClick={()=>openFrameFromHistory(index)}><span className="board-history-number">{index+1}</span><span><strong>{item.label}</strong><small>{isContinuation?continuationLabel:`${item.paths.length} 条轨迹 · ${item.duration.toFixed(1)} 秒`}</small></span>{isCurrent?<CheckCircledIcon/>:<ChevronRightIcon/>}</button>;})}</div></div></BottomSheet>
     <BottomSheet open={frameOpen} onOpenChange={open=>{setSheetVisibility(setFrameOpen,open);if(!open)restoreSheetFocus("opener");}} title={`第 ${frameIndex+1} 拍`} description="每拍是一段同步球路与跑位。" snap={.66}><div className="board-sheet"><button className="guide-close" aria-label="取消编辑拍次" onClick={()=>{setFrameOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<label className="board-field"><span>拍次口令</span><KeyboardInput value={frameLabel} maxLength={42} onChange={event=>setFrameLabel(event.currentTarget.value)}/></label><label className="board-field"><span>时长（秒）</span><KeyboardInput inputMode="decimal" value={frameDuration} onChange={event=>setFrameDuration(event.currentTarget.value)}/></label><button className="sheet-done" onClick={applyFrame}>完成</button><div className="board-sheet-row"><button onClick={()=>{addNextFrame(true);setFrameOpen(false);keyboard.hide();restoreSheetFocus("canvas");}}><CopyIcon/>沿用标记到新增一拍</button><button className="is-danger" disabled={board.frames.length===1} onClick={deleteCurrentFrame}><TrashIcon/>删除此拍</button></div></div></BottomSheet>
     <BottomSheet open={objectsOpen} onOpenChange={open=>{setSheetVisibility(setObjectsOpen,open);if(!open)restoreSheetFocus("opener");}} title="当前拍对象" description="选择后可在球场直接拖动，也可打开调整面板。" snap={.72}><div className="board-sheet"><button className="guide-close" aria-label="关闭对象列表" onClick={()=>{setObjectsOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<div className="board-object-list">{board.actors.map(actor=>{const entryLabel=numberedActorLabel(board.actors,actor);return <button key={actor.id} aria-label={`选择${entryLabel}`} onClick={()=>{setSelection({kind:"actor",id:actor.id});setTool("select");setObjectsOpen(false);restoreSheetFocus("canvas");}}><span className="object-swatch" style={{background:actor.color}}/><span><strong>{entryLabel}</strong><small>{actor.kind==="ball"?"网球 · 可画球路":"球员 · 可画跑位"}</small></span><ChevronRightIcon/></button>;})}{frame.paths.map(path=>{const actor=board.actors.find(item=>item.id===path.actorId);return <button key={path.id} onClick={()=>{setSelection({kind:"element",id:path.id});setTool("select");setObjectsOpen(false);restoreSheetFocus("canvas");}}><ResumeIcon/><span><strong>{path.kind==="move"?"跑位路线":path.kind==="feed"?"喂球路线":"击球路线"}</strong><small>{actor?numberedActorLabel(board.actors,actor):"未关联对象"}</small></span><ChevronRightIcon/></button>;})}{frame.marks.map((mark,index)=>{const typeLabel=BOARD_MARK_NAMES[mark.kind],sameTypeCount=frame.marks.filter(item=>item.kind===mark.kind).length,sameTypeIndex=frame.marks.slice(0,index).filter(item=>item.kind===mark.kind).length+1,baseLabel=mark.text?.trim()||typeLabel,entryLabel=sameTypeCount>1?`${baseLabel} ${sameTypeIndex}/${sameTypeCount}`:baseLabel;return <button key={mark.id} aria-label={`选择${entryLabel}`} onClick={()=>{setSelection({kind:"element",id:mark.id});setTool("select");setObjectsOpen(false);restoreSheetFocus("canvas");}}><DrawingPinIcon/><span><strong>{entryLabel}</strong><small>{typeLabel}</small></span><ChevronRightIcon/></button>;})}</div></div></BottomSheet>
     <BottomSheet open={objectOpen} onOpenChange={open=>{setSheetVisibility(setObjectOpen,open);if(!open)restoreSheetFocus("opener");}} title={selectedLabel||"编辑对象"} description={selectedActor?"球员和网球贯穿所有拍次；移动会承接站位，删除会作用于整套战术。":"这里的路线或标记只属于当前拍。"} snap={.66}><div className="board-sheet"><button className="guide-close" aria-label="关闭对象调整" onClick={()=>{setObjectOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}{selectedActor&&<button className="sheet-done" onClick={()=>beginSelectedPath(selectedActor.kind==="ball"?"shot":"move")}>{selectedActor.kind==="ball"?<ArrowTopRightIcon/>:<CornerTopRightIcon/>}{selectedActor.kind==="ball"?"画球路":"画跑位"}</button>}<div className="object-nudge-grid"><button onClick={()=>nudge(0,-.02)}><ChevronLeftIcon/>向上</button><button onClick={()=>nudge(-.02,0)}><ChevronLeftIcon/>向左</button><button onClick={()=>nudge(.02,0)}>向右<ChevronRightIcon/></button><button onClick={()=>nudge(0,.02)}>向下<ChevronRightIcon/></button></div>{selectedMark&&(selectedMark.kind==="text"||selectedMark.kind==="target")&&<><label className="board-field"><span>显示文字</span><KeyboardInput value={textDraft} maxLength={28} onChange={event=>setTextDraft(event.currentTarget.value)}/></label><button className="sheet-done" onClick={applyObjectText}>更新文字</button></>}{selectedMark?.kind==="target"&&<div className="board-sheet-row"><button onClick={()=>resizeTarget(.84)}><MinusIcon/>缩小目标</button><button onClick={()=>resizeTarget(1.18)}><PlusIcon/>放大目标</button></div>}{selectedPath&&<button className="sheet-done is-secondary" onClick={toggleCurve}>{selectedPath.control?"改为直线":"改为曲线"}</button>}<button className="board-delete-wide" aria-label={selectedActor?`从整套战术所有拍次删除${selectedLabel}`:`仅从第 ${frameIndex+1} 拍删除${selectedLabel}`} onClick={()=>{deleteSelection();restoreSheetFocus("opener");}}><TrashIcon/>{selectedActor?`从整套战术删除${selectedLabel}`:`仅从本拍删除${selectedLabel}`}</button></div></BottomSheet>
@@ -923,7 +962,22 @@ function useFlowAccessibilityIsolation() {
 export default function Prototype() {
   useFlowAccessibilityIsolation();
   const [info,setInfo]=useState(false);
-  function makeBoard(board:BoardDocument):FlowScreen {const prepared=prepareBlankRallyBoard(board);return {id:`board-${prepared.id}`,title:prepared.title,headerHeight:62,header:()=><BoardHeader boardId={prepared.id} initialTitle={prepared.title}/>,render:flow=> <BoardEditor initialBoard={prepared} back={flow.pop} openLibrary={()=>flow.previous?.id==="board-home"?flow.pop():flow.replace(makeBoardHome())}/>};}
+  function makeBoard(board:BoardDocument):FlowScreen {
+    const blankPrepared=prepareBlankRallyBoard(board);
+    const synchronized=prepareSynchronizedRallyBoard(blankPrepared);
+    const wasLegacy=blankPrepared.smartRally?.version===1;
+    const migrated=wasLegacy&&synchronized!==blankPrepared;
+    const legacyNeedsReview=wasLegacy&&!migrated;
+    const prepared=legacyNeedsReview?setSmartRally(blankPrepared):synchronized;
+    const migrationSource=migrated?setSmartRally(blankPrepared):undefined;
+    return {
+      id:`board-${prepared.id}`,
+      title:prepared.title,
+      headerHeight:62,
+      header:()=><BoardHeader boardId={prepared.id} initialTitle={prepared.title}/>,
+      render:flow=> <BoardEditor initialBoard={prepared} migrationSource={migrationSource} legacyNeedsReview={legacyNeedsReview} back={flow.pop} openLibrary={()=>flow.previous?.id==="board-home"?flow.pop():flow.replace(makeBoardHome())}/>,
+    };
+  }
   function makeBoardHome():FlowScreen {return {id:"board-home",title:"战术画板",headerHeight:62,header:flow=><AppHeader title="战术画板" back={flow.pop}/>,render:flow=><BoardHome openBoard={board=>flow.push(makeBoard(board))}/>};}
   const makeDetail=(tactic:Tactic,contextLabel?:string):FlowScreen=>({id:tactic.id,title:tactic.name,headerHeight:62,header:flow=><AppHeader title={tactic.name} back={flow.pop}/>,render:flow=> <TacticPlayer tactic={tactic} contextLabel={contextLabel} openBoard={()=>flow.push(makeBoard(boardFromTactic(tactic)))}/>});
   function makeCombination(combination:Combination):FlowScreen {return {id:`${combination.id}-plan`,title:combination.name,headerHeight:62,header:flow=><AppHeader title={`${combination.name} · 思路`} back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><CombinationDetail combination={combination} openTactic={(tactic,contextLabel)=>flow.push(makeDetail(tactic,contextLabel))} openBoard={()=>flow.push(makeBoard(boardFromTactics(combination.stages.map(stage=>combinationExample(stage.tacticId,stage.excerpt)),combination.name)))}/>};}
