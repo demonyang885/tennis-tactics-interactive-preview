@@ -290,8 +290,6 @@
 .tennis-app .board-home-primary button { display:flex; align-items:center; justify-content:center; gap:7px; min-height:48px; padding:0 13px; border:0; border-radius:13px; background:#dced8d; color:#183d2b; font-size:13px; font-weight:750; }
 .tennis-app .board-home-primary button:last-child { padding:0; background:rgb(255 255 255 / 12%); color:#ecf5e3; box-shadow:inset 0 0 0 1px rgb(255 255 255 / 16%); }
 .board-home-primary svg { width:18px; height:18px; }
-.tennis-app .board-home-blank { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; min-height:44px; margin-top:8px; padding:0 12px; border:1px solid rgb(255 255 255 / 18%); border-radius:12px; background:transparent; color:#dce9dc; font-size:11px; font-weight:700; }
-.board-home-blank svg { width:16px; height:16px; }
 .board-hidden-file { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none; }
 .board-error { margin:11px 1px 0; padding:10px 12px; border:1px solid #e6c6bc; border-radius:11px; background:#fff3ef; color:#8c483d; font-size:12px; line-height:18px; }
 .board-home-section { margin-top:23px; }
@@ -400,6 +398,8 @@
 .device-screen .bottom-sheet .board-file-actions .board-file-share { grid-column:1 / -1; border-color:#b8cbaa; background:#edf4df; color:#244f34; }
 .board-file-actions .board-file-share > span { flex:1; }
 .board-file-actions .board-file-share > svg:last-child { width:15px; height:15px; }
+.device-screen .bottom-sheet .board-file-actions .board-clear-action { grid-column:1 / -1; justify-content:center; min-height:42px; border-color:transparent; background:transparent; color:#68756a; }
+.board-file-actions .board-clear-action small { color:#89918a; }
 .board-export-warning { margin:11px 0 0; padding:9px 10px; border-radius:10px; background:#fff0ea; color:#925144; font-size:11px; line-height:17px; }
 .board-media-sheet { min-height:300px; }
 .board-media-privacy { display:flex; align-items:flex-start; gap:10px; margin:0 0 12px; padding:11px 12px; border:1px solid #dbe7d5; border-radius:12px; background:#f1f6eb; color:#31583b; }

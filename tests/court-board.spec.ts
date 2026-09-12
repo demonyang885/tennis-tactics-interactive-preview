@@ -23,13 +23,11 @@ async function openBoard(page: Page) {
   await waitForFlowSettled(page);
 }
 
-async function openBlankBoard(page: Page) {
+async function openClearedBoard(page: Page) {
   await openBoard(page);
-  await press(page.getByRole("button", { name: /打开我的战术板的文件选项/ }));
-  await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
-  await waitForFlowSettled(page);
-  await press(page.getByRole("button", { name: "新建纯空白画板" }));
-  await waitForFlowSettled(page);
+  await press(page.getByRole("button", { name: /打开.*的文件选项/ }));
+  await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /一键清除/ }));
+  await expect(page.getByTestId("bottom-sheet")).toBeHidden();
   await expect(page.getByTestId("board-canvas")).toBeVisible();
 }
 
@@ -253,6 +251,72 @@ test("uses the three-control hierarchy and keeps advanced object recovery availa
   await openBoard(page);
   saved = await saveAndRead(page);
   expect(saved.frames[0].poses[opponent.id][0]).toBeCloseTo(.68, 1);
+});
+
+test("replaces the separate blank workflow with one undoable clear action", async ({ page }) => {
+  await openBoard(page);
+  const canvas = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  await dragBoardPoint(page, canvas, actorPoint(initial, "网球"), [.70, .25]);
+  const beforeClear = await saveAndRead(page);
+  expect(beforeClear.actors).toHaveLength(3);
+  expect(beforeClear.frames).toHaveLength(2);
+  expect(beforeClear.frames[0].paths.some((path) => path.kind === "shot")).toBe(true);
+
+  await press(page.getByRole("button", { name: /打开.*的文件选项/ }));
+  const files = page.getByTestId("bottom-sheet");
+  await expect(files.getByRole("button", { name: /一键清除.*可撤销/ })).toBeVisible();
+  await press(files.getByRole("button", { name: /一键清除/ }));
+  await expect(files).toBeHidden();
+  await expect(canvas).toBeFocused();
+  await expect(page.getByText(/画板已清空.*撤销恢复/)).toBeVisible();
+  await expect(playButton(page)).toBeDisabled();
+  await expect(playButton(page)).toContainText(/0\s*拍.*0\.0\s*秒/);
+
+  let cleared = await saveAndRead(page);
+  expect(cleared.id).toBe(beforeClear.id);
+  expect(cleared.title).toBe(beforeClear.title);
+  expect(cleared.actors).toEqual([]);
+  expect(cleared.frames).toHaveLength(1);
+  expect(cleared.frames[0]).toMatchObject({
+    label: "第 1 拍 · 起始站位",
+    poses: {},
+    paths: [],
+    marks: [],
+  });
+  expect(cleared.smartRally).toBeUndefined();
+
+  await press(page.getByRole("button", { name: "撤销", exact: true }));
+  const restored = await saveAndRead(page);
+  expect(restored.id).toBe(beforeClear.id);
+  expect(restored.title).toBe(beforeClear.title);
+  expect(restored.actors).toEqual(beforeClear.actors);
+  expect(restored.frames).toEqual(beforeClear.frames);
+  expect(restored.smartRally).toEqual(beforeClear.smartRally);
+
+  await press(page.getByRole("button", { name: "重做", exact: true }));
+  cleared = await saveAndRead(page);
+  expect(cleared.actors).toEqual([]);
+  expect(cleared.frames).toHaveLength(1);
+
+  await page.reload();
+  await openBoard(page);
+  cleared = await readLatest(page);
+  expect(cleared.id).toBe(beforeClear.id);
+  expect(cleared.actors).toEqual([]);
+  expect(cleared.frames).toHaveLength(1);
+  await expect(playButton(page)).toBeDisabled();
+
+  await press(page.getByRole("button", { name: /打开.*的文件选项/ }));
+  await expect(files.getByRole("button", { name: /一键清除.*场上已经为空/ })).toBeDisabled();
+  await press(files.getByRole("button", { name: /分享战术动画/ }));
+  await expect(files.getByRole("button", { name: /^视频.*先画一条路线/ })).toBeDisabled();
+  await expect(files.getByRole("button", { name: /^循环 GIF.*先画一条路线/ })).toBeDisabled();
+  await press(files.getByRole("button", { name: "返回保存选项" }));
+  await press(files.getByRole("button", { name: /草稿与模板/ }));
+  await waitForFlowSettled(page);
+  await expect(page.getByRole("button", { name: "新建战术画板", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "新建纯空白画板", exact: true })).toHaveCount(0);
 });
 
 test("authors a smart rally as shot, receiver movement, then the next shot", async ({ page }) => {
@@ -565,7 +629,7 @@ test("can select the ball directly to skip receiver movement", async ({ page }) 
 });
 
 test("synchronizes an extra player move before the armed receiver is skipped", async ({ page }) => {
-  await openBlankBoard(page);
+  await openClearedBoard(page);
   const play = playButton(page);
   const board = page.getByTestId("board-canvas");
   const meStart: Point = [.62, .82];
@@ -686,6 +750,51 @@ test("undo restores the smart move tool after a conflicting receiver route falls
   expect(saved.frames[1].paths).toEqual([]);
 });
 
+test("reopens a guided board safely after an opening player route switches it to manual", async ({ page }) => {
+  await openBoard(page);
+  const canvas = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  const opponent = initial.actors.find((actor) => actor.label === "对手")!;
+  await dragBoardPoint(page, canvas, initial.frames[0].poses[opponent.id], [.48, .24]);
+  await expect(page.getByText(/跑位已保留.*切换为手动编辑/)).toBeVisible();
+
+  const manual = await saveAndRead(page);
+  expect(manual.authoringMode).toBe("blank-rally");
+  expect(manual.smartRally).toBeUndefined();
+  const manualMove = manual.frames[0].paths.find((path) => path.actorId === opponent.id);
+  expect(manualMove).toMatchObject({ kind: "move", actorId: opponent.id });
+  expect(manualMove?.to[0]).toBeCloseTo(.48, 5);
+  expect(manualMove?.to[1]).toBeCloseTo(.24, 5);
+
+  await page.reload();
+  await openBoard(page);
+  await expect(page.getByTestId("board-canvas")).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  const reopened = await saveAndRead(page);
+  expect(reopened.smartRally).toBeUndefined();
+  expect(reopened.frames[0].paths).toEqual(manual.frames[0].paths);
+
+  await press(page.getByRole("button", { name: /打开.*的文件选项/ }));
+  const files = page.getByTestId("bottom-sheet");
+  await files.locator('input[type="file"]').setInputFiles({
+    name: "manual-guided-board.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({
+      ...manual,
+      id: "import-source-id",
+      title: "导入的手动画板",
+      updatedAt: new Date().toISOString(),
+    })),
+  });
+  await expect(files).toBeHidden();
+  const imported = await saveAndRead(page);
+  expect(imported.id).toBe(reopened.id);
+  expect(imported.title).toBe("导入的手动画板");
+  expect(imported.authoringMode).toBe("blank-rally");
+  expect(imported.smartRally).toBeUndefined();
+  expect(imported.frames[0].paths).toEqual(manual.frames[0].paths);
+});
+
 test("preserves the sixtieth shot and saves a valid manual board when smart continuation hits the frame cap", async ({ page }) => {
   await page.evaluate((key) => {
     const ballPoints: Point[] = [[.35, .75], [.65, .25]];
@@ -746,9 +855,9 @@ test("preserves the sixtieth shot and saves a valid manual board when smart cont
   expect(saved.frames[59].paths[0].to[1]).toBeCloseTo(finalLanding[1], 2);
 });
 
-test("keeps manual blank and multiple-ball boards on the safe fallback path", async ({ page }) => {
+test("keeps cleared and multiple-ball boards on the safe fallback path", async ({ page }) => {
   test.slow();
-  await openBlankBoard(page);
+  await openClearedBoard(page);
   const board = page.getByTestId("board-canvas");
   await expect(page.locator(".board-interaction-guide")).toContainText(/点选场上对象开始/);
 
@@ -785,7 +894,8 @@ test("keeps manual blank and multiple-ball boards on the safe fallback path", as
   await expect(objects.getByText("我方 2/2", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await press(page.getByRole("button", { name: "返回画板列表" }));
+  await press(page.getByRole("button", { name: /打开.*的文件选项/ }));
+  await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
   await waitForFlowSettled(page);
   await press(page.getByRole("button", { name: "新建战术画板", exact: true }));
   await waitForFlowSettled(page);
@@ -809,8 +919,8 @@ test("keeps manual blank and multiple-ball boards on the safe fallback path", as
   expect(saved.frames[0].paths[0].actorId).toBe(balls[1].id);
 });
 
-test("restores the guided tool after an extra player is deleted from a blank board", async ({ page }) => {
-  await openBlankBoard(page);
+test("restores the guided tool after an extra player is deleted from a cleared board", async ({ page }) => {
+  await openClearedBoard(page);
   const canvas = page.getByTestId("board-canvas");
   const ballStart: Point = [.34, .72];
 
@@ -840,9 +950,9 @@ test("restores the guided tool after an extra player is deleted from a blank boa
   expect(saved.smartRally).toMatchObject({ frameId: saved.frames[1].id, phase: "move" });
 });
 
-test("a pure blank board preserves consecutive ball routes as atomic rally beats", async ({ page }) => {
+test("a cleared tactical board preserves consecutive ball routes as atomic rally beats", async ({ page }) => {
   test.slow();
-  await openBlankBoard(page);
+  await openClearedBoard(page);
   const canvas = page.getByTestId("board-canvas");
   const meStart: Point = [.62, .82];
   const opponentStart: Point = [.46, .18];
@@ -904,6 +1014,36 @@ test("a pure blank board preserves consecutive ball routes as atomic rally beats
   expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
   expect(saved.frames[1].paths).toEqual([]);
   await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
+});
+
+test("normalizes a legacy empty draft so clear stays disabled", async ({ page }) => {
+  await page.evaluate((key) => {
+    const legacy: BoardDocument = {
+      version: 1,
+      id: "legacy-empty-blank",
+      title: "我的空白战术",
+      updatedAt: new Date().toISOString(),
+      actors: [],
+      frames: [{
+        id: "legacy-empty-frame",
+        label: "起始站位",
+        duration: 1.5,
+        poses: {},
+        paths: [],
+        marks: [],
+      }],
+    };
+    window.localStorage.setItem(key, JSON.stringify({ version: 1, boards: [legacy] }));
+  }, STORAGE_KEY);
+  await page.reload();
+  await openBoard(page);
+
+  const normalized = await saveAndRead(page);
+  expect(normalized.id).toBe("legacy-empty-blank");
+  expect(normalized.authoringMode).toBe("blank-rally");
+  expect(normalized.frames[0].label).toBe("第 1 拍 · 起始站位");
+  await press(page.getByRole("button", { name: /打开.*的文件选项/ }));
+  await expect(page.getByTestId("bottom-sheet").getByRole("button", { name: /一键清除.*场上已经为空/ })).toBeDisabled();
 });
 
 test("reopens a legacy default blank draft and repairs its missing continuation", async ({ page }) => {

@@ -342,12 +342,51 @@ export function createBlankBoard(title = DEFAULT_TITLE): BoardDocument {
  * switched to guided authoring based on their shape alone.
  */
 export function createBlankRallyBoard(title = DEFAULT_TITLE): BoardDocument {
-  return { ...createBlankBoard(title), authoringMode: "blank-rally" };
+  const board = createBlankBoard(title);
+  return {
+    ...board,
+    authoringMode: "blank-rally",
+    frames: [{ ...board.frames[0], label: "第 1 拍 · 起始站位" }],
+  };
+}
+
+export function isBoardContentEmpty(board: BoardDocument) {
+  const frame = board.frames[0];
+  return board.authoringMode === "blank-rally"
+    && board.sourceTacticId === undefined
+    && board.drillId === undefined
+    && board.smartRally === undefined
+    && board.actors.length === 0
+    && board.frames.length === 1
+    && frame?.label === "第 1 拍 · 起始站位"
+    && frame.duration === BOARD_DEFAULT_FRAME_DURATION
+    && Object.keys(frame.poses).length === 0
+    && frame.paths.length === 0
+    && frame.marks.length === 0;
+}
+
+/**
+ * Clear a board back to the empty state of the same guided editor.
+ *
+ * The board keeps its identity and title so auto-save updates the current
+ * draft. Source-backed metadata is intentionally removed because the cleared
+ * canvas no longer represents that tactic or drill. Keeping blank-rally
+ * provenance lets a standard two-player, one-ball setup resume the exact same
+ * smart authoring flow as the starter board.
+ */
+export function clearBoardContent(board: BoardDocument): BoardDocument {
+  if (isBoardContentEmpty(board)) return board;
+  const empty = createBlankRallyBoard(board.title);
+  return {
+    ...empty,
+    id: board.id,
+    updatedAt: nowIso(),
+  };
 }
 
 /** A ready-to-draw board for the primary entry flow. */
 export function createStarterBoard(title = "我的战术板"): BoardDocument {
-  let board = createBlankBoard(title);
+  let board = createBlankRallyBoard(title);
   const me: BoardActor = { id: newBoardId("player"), label: "我方", kind: "player", color: "#3e8ad6" };
   const opponent: BoardActor = { id: newBoardId("player"), label: "对手", kind: "player", color: "#dc4151" };
   const ball: BoardActor = { id: newBoardId("ball"), label: "网球", kind: "ball", color: "#d8ef72" };
@@ -405,7 +444,15 @@ export function armBlankRally(board: BoardDocument): BoardDocument {
   const frame = board.frames.at(-1);
   const ball = balls[0];
   const ballPoint = frame?.poses[ball.id];
-  if (!frame || !ballPoint || frame.paths.some((path) => path.actorId === ball.id)) return board;
+  if (!frame || !ballPoint || players.some((player) => !frame.poses[player.id]) || frame.paths.length > 0) return board;
+  const frameIndex = board.frames.length - 1;
+  const hasEarlierPaths = board.frames.slice(0, frameIndex).some((candidate) => candidate.paths.length > 0);
+  const previousHasShot = frameIndex > 0 && board.frames[frameIndex - 1].paths.some(
+    (path) => path.actorId === ball.id && (path.kind === "shot" || path.kind === "feed"),
+  );
+  // Provenance allows guidance, but it must never rewrite an authored manual
+  // timeline. Only arm when the same v2 cursor invariants already hold.
+  if (hasEarlierPaths && !previousHasShot) return board;
   const hitter = players.reduce((nearest, player) => {
     const distance = Math.hypot(frame.poses[player.id][0] - ballPoint[0], frame.poses[player.id][1] - ballPoint[1]);
     const nearestDistance = Math.hypot(frame.poses[nearest.id][0] - ballPoint[0], frame.poses[nearest.id][1] - ballPoint[1]);
@@ -420,13 +467,29 @@ export function armBlankRally(board: BoardDocument): BoardDocument {
   });
 }
 
+function normalizeLegacyEmptyBlankRally(board: BoardDocument): BoardDocument {
+  const frame = board.frames[0];
+  const isLegacyEmpty = board.frames.length === 1
+    && board.actors.length === 0
+    && frame?.label === "起始站位"
+    && frame.duration === BOARD_DEFAULT_FRAME_DURATION
+    && Object.keys(frame.poses).length === 0
+    && frame.paths.length === 0
+    && frame.marks.length === 0;
+  if (!isLegacyEmpty) return board;
+  return touch(board, {
+    authoringMode: "blank-rally",
+    frames: [{ ...frame, label: "第 1 拍 · 起始站位" }],
+  });
+}
+
 /**
  * Conservatively upgrades drafts created by the former “我的空白战术” entry.
  * The exact untouched default title is the only legacy provenance available;
  * source-backed, imported/renamed and non-standard documents stay manual.
  */
 export function prepareBlankRallyBoard(board: BoardDocument): BoardDocument {
-  if (board.authoringMode === "blank-rally") return armBlankRally(board);
+  if (board.authoringMode === "blank-rally") return armBlankRally(normalizeLegacyEmptyBlankRally(board));
   if (board.title !== "我的空白战术"
     || board.sourceTacticId !== undefined
     || board.drillId !== undefined
@@ -442,7 +505,7 @@ export function prepareBlankRallyBoard(board: BoardDocument): BoardDocument {
     && Object.keys(frame.poses).length === 0
     && frame.paths.length === 0
     && frame.marks.length === 0;
-  if (isUntouchedEmpty) return touch(board, { authoringMode: "blank-rally" });
+  if (isUntouchedEmpty) return normalizeLegacyEmptyBlankRally(board);
   if (players.length !== 2 || balls.length !== 1) return board;
 
   const marked = touch(board, { authoringMode: "blank-rally" });

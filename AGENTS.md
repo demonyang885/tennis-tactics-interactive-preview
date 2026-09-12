@@ -1,5 +1,12 @@
 # Mobile Prototype Agent Guide
 
+## Current Product Direction — 2026-09-12 Unified Board Entry
+
+- Keep one user-facing board type: `战术画板`. Remove the separate `新建纯空白画板` entry; an empty canvas is the same editor after its starter content has been cleared, not a second workflow.
+- Put a deliberately low-emphasis `一键清除` action inside the board file/options sheet. It clears all actors, paths, marks, extra frames, and source/drill attachments while preserving the current board identity and title.
+- Clearing is one undoable editor action with no blocking confirmation. Close the sheet, return focus to the canvas, and state clearly that `撤销` restores the previous board.
+- The cleared board keeps guided-rally provenance. Once exactly two players and one ball are added, it must arm the same `球路 → 接球方跑位 → 下一条球路` flow used by the default starter board. Keep legacy blank drafts readable, but do not expose a separate blank-board creation path again.
+
 ## Current Product Direction — 2026-09-12 Curve Editing and Local Sharing
 
 - A just-completed guided ball route must remain directly editable after the flow advances to receiver movement. Expose the immediately preceding visible route without sending the user through frame history: selecting it shows its endpoints and curve control, dragging the white diamond adjusts curvature, and one explicit `继续` action resumes the same smart-rally phase. Preserve the source frame, following poses, smart cursor, and one-gesture/one-undo contract.
@@ -29,7 +36,7 @@
 - This direction supersedes the visible frame-rail and explicit `新增一拍` requirements in the submission-gate section below. Keep the underlying frame history, playback model, and advanced editing capability, but remove the always-visible row of frame cards from the normal authoring flow.
 - A ready starter board opens with exactly two players and one ball. Its first action is immediately ready to draw the serve from the ball; the user must not select `对象`、`添加`、`画球路`, or `新增一拍` first.
 - The ready starter board begins in a recognizable serve/return stance: server and ball at the near baseline, receiver at the opposite baseline. When the ball overlaps the server, the armed ball must still win hit testing so the opening drag remains the serve.
-- A newly created pure blank board explicitly records that provenance. After the user places exactly two players and one ball, arm the same guided rally so its first route persists and the second shot can continue. Conservatively migrate only the exact former default draft titled `我的空白战术`; arbitrary legacy drafts, renamed imports, source-backed boards, partial setups, and non-standard boards must remain manual.
+- A board cleared through `一键清除` explicitly records guided-rally provenance. After the user places exactly two players and one ball, arm the same guided rally so its first route persists and the second shot can continue. Conservatively migrate only the exact former default draft titled `我的空白战术`; arbitrary legacy drafts, renamed imports, source-backed boards, partial setups, and non-standard boards must remain manual.
 - Completing a ball route commits that shot, creates the next frame in the background, alternates the hitter, selects the receiving player, and arms player movement. Completing that movement selects the ball and arms the next shot. Continue this `球路 → 对方跑位 → 下一条球路` loop for two-player boards.
 - Smart progression is a default, not a lock. Directly selecting another actor must override the armed action, and advanced object/add/history controls must remain available as recovery paths. Existing non-standard boards, empty boards, and boards with more than two players fall back safely to manual editing.
 - Automatic stage changes must be announced in visible text and an accessible live region, identify the active actor without relying on color alone, and remain reversible. Undo/redo must restore both the board document and the inferred active authoring stage.
@@ -51,7 +58,7 @@
 ## Supporting Product Context — 2026-09-11
 
 - Keep Theme 1 as the current Court Canvas direction. Preserve its dark-green court, blue/red player roles, bright ball path, dashed movement path, compact frame rail, and large green playback action. This iteration intentionally simplifies hierarchy rather than pixel-cloning every reference control.
-- The primary `战术画板` entry is immediate: reopen the newest valid local draft, or open a ready-to-draw starter board containing `我方`、`对手` and `网球`. Keep the draft/template library and a genuinely empty board as secondary choices inside `画板文件` → `草稿与模板`.
+- The primary `战术画板` entry is immediate: reopen the newest valid local draft, or open a ready-to-draw starter board containing `我方`、`对手` and `网球`. Keep the draft/template library inside `画板文件` → `草稿与模板`; use the low-emphasis `一键清除` action when an empty canvas is needed.
 - The interaction hierarchy is defined exclusively by the submission-gate section above. Do not restore the superseded five-tool rail or persistent repeat-add behavior. Keep `沿用标记到新增一拍` only as an explicit secondary copy action inside frame editing.
 - Treat edit and preview as separate modes. Pausing, scrubbing, stepping, or reaching the end must retain the preview pose and dock; only `完成 · 回到编辑` returns to the editable frame. Playback state is transient and must never enter document history or saved JSON.
 - All pointer geometry must stay in one CSS-pixel space. Convert pointer coordinates with `(client - rect origin) * clientSize / rectSize`, and use the same client dimensions for rendering and hit testing. Preserve actor/mark/handle grab offsets, require 5 CSS px movement before committing, restore the previous selection on `pointercancel`, and record one complete gesture as exactly one undo step.

@@ -5,7 +5,7 @@
 - Source visual truth: `/Users/clawbot/.codex/attachments/7403c781-828e-434b-bd95-97f5d4938215/codex-clipboard-b27c7413-2db7-4005-b9ec-c51eac9a8a76.png`
 - Browser-rendered implementation: `/Users/clawbot/Documents/Codex/2026-09-10/app/tennis-tactics/test-results/court-board-renders-the-pu-baaa8-th-without-simulator-chrome/court-board-public-mobile.png`
 - Focused comparison input: `/Users/clawbot/Documents/Codex/2026-09-10/app/tennis-tactics/docs/design-qa/controls-comparison.png`
-- Live implementation: `http://127.0.0.1:4174/`, inspected in the Codex in-app browser.
+- Live implementation: `http://127.0.0.1:4175/`, inspected in the Codex in-app browser.
 - Source pixels: 908 × 454. The source is a partial, framed, likely high-density device crop; its exact CSS density is not encoded in the file.
 - Implementation pixels/CSS size: 390 × 844 at device scale factor 1; the captured screen measures 390 CSS px wide with no simulator chrome.
 - Focus normalization: implementation rows `y=594…844` were cropped and resampled to 454 px high only for side-by-side control comparison. Layout conclusions use proportions and hierarchy, not resampled pixel distances.
@@ -35,7 +35,7 @@ The source does not include a full screen, so full-screen pixel fidelity cannot 
 - Earlier P1: the visible frame rail and repeated object/tool selection made users manage editor modes instead of constructing a rally.
   - Fix: removed the persistent rail and explicit normal-flow `新增一拍`; starter boards now open armed for the serve and advance `shot → receiver move → next shot` automatically.
 - Earlier P1: inferring smart mode from “two players plus one ball” could take over tactic, legacy, or imported boards.
-  - Fix: added explicit, validated, serialized `smartRally` metadata; only starter boards opt in.
+  - Fix: added explicit, validated, serialized guided-rally provenance; only the unified starter/cleared tactical-board flow opts in.
 - Earlier P1: generic tail trimming could hide a legitimate final manual/tactic frame.
   - Fix: playback trims only an explicitly generated, empty smart continuation frame.
 - Earlier P2: undo/redo or mid-playback exit could lose or jump away from the active authoring stage.
@@ -53,9 +53,9 @@ The source does not include a full screen, so full-screen pixel fidelity cannot 
 
 ## Verification
 
-- Primary interactions exercised: zero-click serve from the revised serving stance, automatic receiver selection, receiver movement, next shot, hitter alternation, overlapping ball/receiver targets, direct skip, short-drag cancellation, directional shots, undo, redo, save/reload continuation, playback, history opening, guided pure-blank continuation, manual legacy blank-board fallback, multi-ball fallback, and simulated touch input.
+- Primary interactions exercised: zero-click serve from the revised serving stance, automatic receiver selection, receiver movement, next shot, hitter alternation, overlapping ball/receiver targets, direct skip, short-drag cancellation, directional shots, undo, redo, save/reload continuation, playback, history opening, one-action clearing and restoration, cleared-board continuation, manual legacy blank-board fallback, multi-ball fallback, and simulated touch input.
 - Browser console: the final reload and complete flow produced no current runtime errors. Earlier Vite hot-reload parse messages occurred during editing and were resolved before the final reload/build.
-- Automated gate: runtime/content checks, production build, 48 serial Playwright tests, 4 Sites package tests, 3 Pages package tests, and `git diff --check` passed.
+- Automated gate: runtime/content checks, production build, 77 serial Playwright tests, 6 media-core tests, 4 Sites package tests, 3 Pages package tests, and `git diff --check` passed.
 - Independent browser QA: two testers reproduced the deployed defect first, then verified the fixed working tree at desktop, 390 × 844, and 360 × 732 simulated-touch sizes. The eight-case second-shot matrix passed with zero console errors or warnings.
 
 ## Findings
@@ -136,6 +136,19 @@ The 393 × 852 captures make the contact ellipse, ghost spacing, trajectory, pla
 - Desktop in-app-browser review exercised curve selection, free dragging, GIF generation, video generation, preview, format switching, and cancellation states. The final console contained only Vite connection and React development messages, with no errors or warnings. The 390 × 844 one-to-one capture remained unclipped and without horizontal overflow.
 - Automated gate: production build and integrity checks, 72 serial Playwright tests, 6 dependency-free media-core tests, 4 Sites package tests, 3 Pages package tests, and `git diff --check` passed.
 - Result: no actionable P0, P1, or P2 interaction, persistence, responsive, accessibility, export, or resource-cleanup findings remain.
+
+## Unified tactical board and one-action clearing — 2026-09-12
+
+- The board library now exposes one creation path, `新建战术画板`. The former `新建纯空白画板` button and its secondary-path copy are removed; templates and existing legacy drafts still open in the same editor.
+- `一键清除` sits at the bottom of `保存与分享` with deliberately low visual emphasis. It clears actors, paths, marks, extra frames, and tactic/drill attachments while preserving the board ID and title. The sheet closes, focus returns to the court, and the visible message states that `撤销` restores all prior content.
+- Clear is one immutable history action. One undo restores the complete pre-clear document; redo clears it again. A canonical empty board disables the action, playback, and both animation formats, so repeated clearing cannot create meaningless frame IDs or undo entries.
+- The cleared board and the default starter now carry the same guided authoring provenance and use the same `BoardEditor`. After two players and one ball are placed, the editor arms the identical serve, synchronized receiver movement, and next-shot sequence. Legacy `我的空白战术` documents remain conservatively readable without restoring a separate creation workflow.
+- The first empty frame uses the same `第 1 拍 · 起始站位` label as the starter. Clearing also detaches source tactic and drill metadata so a blank court cannot continue to claim template-specific guidance.
+- Legacy empty drafts are normalized to that same canonical frame before the editor renders, so the already-empty clear action stays disabled. A provenance-marked board that has switched to a manual timeline is never forcibly re-armed: save/reopen and in-editor JSON import preserve its routes and remain error-free.
+- Desktop in-app-browser review confirmed the single library entry, the low-emphasis clear placement, the empty court, disabled playback, canvas-focus return, undo restoration, and a clean console with no application errors or warnings. The existing 390 × 844 public-mobile regression remains unclipped and at one-to-one width.
+- Automated gate: production build and integrity checks, 77 serial Playwright tests, 6 media-core tests, 4 Sites package tests, 3 Pages package tests, and `git diff --check` passed.
+- Two independent code and flow reviews found no remaining P0, P1, or P2 issues after the legacy and manual-reopen fixes.
+- Result: no actionable P0, P1, or P2 interaction, persistence, responsive, accessibility, or data-migration findings remain.
 
 ## Follow-up device validation
 

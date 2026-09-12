@@ -51,9 +51,9 @@ import {
   armBlankRally,
   BOARD_COORDINATE_MAX,
   BOARD_COORDINATE_MIN,
+  clearBoardContent,
   cloneBoard,
   createBlankBoard,
-  createBlankRallyBoard,
   createStarterBoard,
   deleteActor,
   deleteFrame,
@@ -61,6 +61,7 @@ import {
   deletePath,
   getBoardDuration,
   getBoardPose,
+  isBoardContentEmpty,
   isUntouchedSmartTail,
   moveActor,
   newBoardId,
@@ -511,7 +512,7 @@ function BoardHome({ openBoard }:{openBoard:(board:BoardDocument)=>void}) {
     openBoard({...parsed.value,id:newBoardId(),title:withBoundedSuffix(parsed.value.title,"（导入）",120,"导入画板"),updatedAt:new Date().toISOString()});
   };
   return <MobileScroll className="board-home-scroll"><main className="board-home">
-    <section className="board-home-hero"><span className="board-kicker"><DrawingPinIcon/> COURT CANVAS</span><h2>把想法画成下一拍</h2><p>两位球员和网球已经就位，直接拖出第一条球路。</p><div className="board-home-primary"><button onClick={()=>openBoard(createStarterBoard("我的新战术"))}><PlusIcon/>新建战术画板</button><button aria-label="导入画板 JSON" onClick={()=>importRef.current?.click()}><UploadIcon/></button></div><button className="board-home-blank" onClick={()=>openBoard(createBlankRallyBoard("我的空白战术"))}><FilePlusIcon/>新建纯空白画板</button><input ref={importRef} className="board-hidden-file" hidden tabIndex={-1} aria-hidden="true" type="file" accept="application/json,.json" onChange={event=>{void importBoard(event.currentTarget.files?.[0]);event.currentTarget.value="";}}/></section>
+    <section className="board-home-hero"><span className="board-kicker"><DrawingPinIcon/> COURT CANVAS</span><h2>把想法画成下一拍</h2><p>两位球员和网球已经就位，直接拖出第一条球路。</p><div className="board-home-primary"><button onClick={()=>openBoard(createStarterBoard("我的新战术"))}><PlusIcon/>新建战术画板</button><button aria-label="导入画板 JSON" onClick={()=>importRef.current?.click()}><UploadIcon/></button></div><input ref={importRef} className="board-hidden-file" hidden tabIndex={-1} aria-hidden="true" type="file" accept="application/json,.json" onChange={event=>{void importBoard(event.currentTarget.files?.[0]);event.currentTarget.value="";}}/></section>
     {storageError&&<p className="board-error" role="alert">{storageError}</p>}
     <section className="board-home-section"><div className="board-section-heading"><div><span>本机草稿</span><h3>继续上次的画板</h3></div><small>{drafts.length} 份</small></div>
       {drafts.length?<div className="board-draft-list">{drafts.map(board=><article key={board.id}><button className="board-draft-open" onClick={()=>openBoard(board)}><span className="board-draft-icon"><LayersIcon/></span><span><strong>{board.title}</strong><small>{board.frames.length} 拍 · {new Date(board.updatedAt).toLocaleDateString("zh-CN",{month:"numeric",day:"numeric"})}</small></span><ChevronRightIcon/></button><button className="board-draft-delete" aria-label={`删除${board.title}`} onClick={()=>removeDraft(board.id)}><TrashIcon/></button></article>)}</div>:<div className="board-empty"><FilePlusIcon/><p>还没有本机草稿。新建后会自动保存在这台设备。</p></div>}
@@ -739,6 +740,7 @@ function BoardEditor({ initialBoard, migrationSource, legacyNeedsReview=false, b
     return frames.some(item=>item.paths.length)?prepared:{...prepared,frames:frames.slice(0,1).map(item=>({...item,duration:0}))};
   },[board]);
   const hasPlayablePath=playbackBoard.frames.some(item=>item.paths.length>0);
+  const boardIsEmpty=isBoardContentEmpty(board);
   const playbackFrameCount=hasPlayablePath?playbackBoard.frames.length:0;
   const totalDuration=getBoardDuration(playbackBoard),frame=board.frames[frameIndex]??board.frames[0];
   const selectedActor=selection?.kind==="actor"?board.actors.find(actor=>actor.id===selection.id):undefined;
@@ -825,6 +827,7 @@ function BoardEditor({ initialBoard, migrationSource, legacyNeedsReview=false, b
   const returnToEditing=()=>{setIsPlaying(false);const pose=getBoardPose(playbackBoard,elapsed),smart=getSmartBoardContinuation(board),resumeSmart=playbackResumeSmartRef.current&&!!smart;setViewMode("edit");setElapsed(0);if(resumeSmart&&smart){setFrameIndex(smart.frameIndex);setSelection({kind:"actor",id:smart.actorId});setTool(smart.phase);setNotice(`已回到第 ${smart.frameIndex+1} 拍继续编辑。`);}else{const returnIndex=board.frames.findIndex(item=>item.id===playbackReturnFrameIdRef.current),targetIndex=returnIndex>=0?returnIndex:pose.frameIndex;setFrameIndex(targetIndex);setTool("select");setSelection(null);setNotice(`已回到第 ${targetIndex+1} 拍编辑。`);}playbackReturnFrameIdRef.current=null;playbackResumeSmartRef.current=false;focusPlaybackExitRef.current=true;};
   const applyRename=()=>{try{commit(renameBoard(board,titleDraft));keyboard.hide();}catch(reason){setError(reason instanceof Error?reason.message:"无法重命名");}};
   const duplicateDraft=()=>{const copy=cloneBoard(board);const result=saveBoard(copy);if(result.ok){setError("");setNotice(`已保存副本「${result.value.title}」。`);window.dispatchEvent(new Event(BOARD_DRAFTS_EVENT));}else setError(result.error);};
+  const clearCurrentBoard=()=>{const current=committedBoardRef.current,next=clearBoardContent(current);setFilesOpen(false);keyboard.hide();restoreSheetFocus("canvas");if(next===current){setNotice("画板已经是空的。");return;}commit(next);resetTransientEditorState(next,false,next.frames[0]?.id);setNotice("画板已清空。可点撤销恢复刚才的全部内容。");};
   const exportJson=()=>saveDownload(new Blob([JSON.stringify(board,null,2)],{type:"application/json"}),safeFilename(board.title,"json"));
   const exportPng=async()=>{try{saveDownload(await exportBoardPng(board,frameIndex),safeFilename(`${board.title}-第${frameIndex+1}拍`,"png"));}catch(reason){setError(reason instanceof Error?reason.message:"无法导出图片");}};
   const clearMediaOutput=()=>{mediaAbortRef.current?.abort();mediaAbortRef.current=null;if(mediaUrlRef.current){URL.revokeObjectURL(mediaUrlRef.current);mediaUrlRef.current=null;}setMediaState({status:"idle"});};
@@ -857,9 +860,9 @@ function BoardEditor({ initialBoard, migrationSource, legacyNeedsReview=false, b
   };
   const importJson=async(file:File|undefined)=>{
     if(!file)return;const parsed=parseBoardJSON(await file.text());if(!parsed.ok){setError(parsed.error);return;}
-    const raw={...parsed.value,id:initialBoard.id,updatedAt:new Date().toISOString()},wasLegacy=raw.smartRally?.version===1,synchronized=prepareSynchronizedRallyBoard(raw),migrated=wasLegacy&&synchronized!==raw;
-    const imported=wasLegacy&&!migrated?setSmartRally(raw):synchronized;
-    if(migrated)commit(setSmartRally(raw));
+    const raw={...parsed.value,id:initialBoard.id,updatedAt:new Date().toISOString()},prepared=prepareBlankRallyBoard(raw),wasLegacy=prepared.smartRally?.version===1,synchronized=prepareSynchronizedRallyBoard(prepared),migrated=wasLegacy&&synchronized!==prepared;
+    const imported=wasLegacy&&!migrated?setSmartRally(prepared):synchronized;
+    if(migrated)commit(setSmartRally(prepared));
     commit(imported);setTitleDraft(imported.title);resetTransientEditorState(imported,true,imported.frames[0]?.id);setFrameLabel(imported.frames[0]?.label??"");setFrameDuration(String(imported.frames[0]?.duration??0));setFilesOpen(false);keyboard.hide();restoreSheetFocus("canvas");
     if(wasLegacy)setNotice(migrated?"已将导入的旧版跑位改为与来球同步；可撤销为手动时间线。":"导入的旧版时间线无法安全自动同步，已切换为手动编辑，请检查拍次。");
   };
@@ -993,7 +996,7 @@ function BoardEditor({ initialBoard, migrationSource, legacyNeedsReview=false, b
     </div></div></BottomSheet>
     <BottomSheet open={filesOpen} onOpenChange={open=>{setSheetVisibility(setFilesOpen,open);if(!open&&!shareOpen)restoreSheetFocus("opener");}} title="保存与分享" description="草稿留在本机；视频、GIF 和图片用于分享。" snap={.82}><div className="board-sheet"><button className="guide-close" aria-label="关闭保存与分享" onClick={()=>{setFilesOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}
       <label className="board-field"><span>画板名称</span><KeyboardInput value={titleDraft} maxLength={60} onChange={event=>setTitleDraft(event.currentTarget.value)}/></label><button className="sheet-done" onClick={applyRename}>更新名称</button>
-      <div className="board-file-actions"><button onClick={saveNow}><CheckCircledIcon/><span><strong>立即保存</strong><small>可继续编辑 · 仅本机</small></span></button><button onClick={duplicateDraft}><CopyIcon/><span><strong>保存副本</strong><small>保留独立草稿</small></span></button><button className="board-file-share" onClick={()=>{clearMediaOutput();setFilesOpen(false);setShareOpen(true);}}><Share2Icon/><span><strong>分享战术动画</strong><small>生成视频或循环 GIF · 不上传</small></span><ChevronRightIcon/></button><button onClick={()=>{setFilesOpen(false);setHistoryOpen(true);}}><ReaderIcon/><span><strong>拍次历史</strong><small>回看或精修任一拍</small></span></button><button onClick={()=>void exportPng()}><ImageIcon/><span><strong>当前拍 PNG</strong><small>静态图片 · 不含控制柄</small></span></button><button onClick={exportJson}><ArchiveIcon/><span><strong>完整 JSON</strong><small>备份后仍可编辑</small></span></button><button onClick={()=>importRef.current?.click()}><UploadIcon/><span><strong>导入 JSON</strong><small>替换当前内容</small></span></button><button onClick={()=>{const result=saveNow();if(result.ok){keyboard.hide();setFilesOpen(false);openLibrary();}}}><LayersIcon/><span><strong>草稿与模板</strong><small>也可新建纯空白</small></span></button></div>
+      <div className="board-file-actions"><button onClick={saveNow}><CheckCircledIcon/><span><strong>立即保存</strong><small>可继续编辑 · 仅本机</small></span></button><button onClick={duplicateDraft}><CopyIcon/><span><strong>保存副本</strong><small>保留独立草稿</small></span></button><button className="board-file-share" onClick={()=>{clearMediaOutput();setFilesOpen(false);setShareOpen(true);}}><Share2Icon/><span><strong>分享战术动画</strong><small>生成视频或循环 GIF · 不上传</small></span><ChevronRightIcon/></button><button onClick={()=>{setFilesOpen(false);setHistoryOpen(true);}}><ReaderIcon/><span><strong>拍次历史</strong><small>回看或精修任一拍</small></span></button><button onClick={()=>void exportPng()}><ImageIcon/><span><strong>当前拍 PNG</strong><small>静态图片 · 不含控制柄</small></span></button><button onClick={exportJson}><ArchiveIcon/><span><strong>完整 JSON</strong><small>备份后仍可编辑</small></span></button><button onClick={()=>importRef.current?.click()}><UploadIcon/><span><strong>导入 JSON</strong><small>替换当前内容</small></span></button><button onClick={()=>{const result=saveNow();if(result.ok){keyboard.hide();setFilesOpen(false);openLibrary();}}}><LayersIcon/><span><strong>草稿与模板</strong><small>查看已保存与训练模板</small></span></button><button className="board-clear-action" disabled={boardIsEmpty} onClick={clearCurrentBoard}><TrashIcon/><span><strong>一键清除</strong><small>{boardIsEmpty?"场上已经为空":"清空场上内容 · 可撤销"}</small></span></button></div>
       <input ref={importRef} className="board-hidden-file" hidden tabIndex={-1} aria-hidden="true" type="file" accept="application/json,.json" onChange={event=>{void importJson(event.currentTarget.files?.[0]);event.currentTarget.value="";}}/>
       {saveState==="error"&&<p className="board-export-warning">本机保存失败。请先导出 JSON，避免丢失本次编辑。</p>}
     </div></BottomSheet>

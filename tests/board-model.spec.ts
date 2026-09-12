@@ -4,6 +4,7 @@ import {
   addFrame,
   addMark,
   armBlankRally,
+  clearBoardContent,
   cloneBoard,
   createBlankBoard,
   createBlankRallyBoard,
@@ -15,6 +16,7 @@ import {
   getBoardPose,
   getFrameEnd,
   getFramePose,
+  isBoardContentEmpty,
   moveActor,
   newBoardId,
   prepareBlankRallyBoard,
@@ -105,6 +107,7 @@ function delayedReceiverBoard(version: 1 | 2 = 1) {
 test("starter board opens at the right-side serve positions", () => {
   const board = createStarterBoard("即用画板");
   expect(board.title).toBe("即用画板");
+  expect(board.authoringMode).toBe("blank-rally");
   expect(board.actors.filter((actor) => actor.kind === "player")).toHaveLength(2);
   expect(board.actors.filter((actor) => actor.kind === "ball")).toHaveLength(1);
   const me = board.actors.find((actor) => actor.label === "我方")!;
@@ -118,6 +121,72 @@ test("starter board opens at the right-side serve positions", () => {
   expect(ballPoint).toEqual([.64, .96]);
   expect(Math.hypot(mePoint[0] - ballPoint[0], mePoint[1] - ballPoint[1])).toBeCloseTo(.02);
   expect(validateBoardDocument(board)).toEqual({ ok: true, value: board });
+});
+
+test("clearing a starter keeps one board flow and can re-arm the guided rally", () => {
+  let starter = createStarterBoard("统一战术画板");
+  starter = { ...starter, sourceTacticId: "serve-wide", drillId: "serve-drill" };
+  const ball = starter.actors.find((actor) => actor.kind === "ball")!;
+  starter = setPath(starter, 0, {
+    id: "starter-shot",
+    kind: "shot",
+    actorId: ball.id,
+    from: starter.frames[0].poses[ball.id],
+    to: [.68, .24],
+  });
+  starter = addMark(starter, 0, {
+    id: "starter-target",
+    kind: "target",
+    position: [.5, .24],
+    size: [.3, .1],
+  });
+  starter = addFrame(starter, 0);
+  const receiver = starter.actors.find((actor) => actor.kind === "player" && actor.id !== starter.smartRally!.hitterId)!;
+  starter = setSmartRally(starter, {
+    version: 2,
+    frameId: starter.frames[1].id,
+    phase: "move",
+    hitterId: receiver.id,
+    actorId: receiver.id,
+  });
+  starter = addMark(starter, 1, {
+    id: "tail-cone",
+    kind: "cone",
+    position: [.42, .72],
+  });
+  const beforeClear = structuredClone(starter) as BoardDocument;
+
+  const cleared = clearBoardContent(starter);
+  expect(starter).toEqual(beforeClear);
+  expect(cleared.id).toBe(starter.id);
+  expect(cleared.title).toBe(starter.title);
+  expect(cleared.authoringMode).toBe("blank-rally");
+  expect(cleared.sourceTacticId).toBeUndefined();
+  expect(cleared.drillId).toBeUndefined();
+  expect(cleared.smartRally).toBeUndefined();
+  expect(cleared.actors).toEqual([]);
+  expect(cleared.frames).toHaveLength(1);
+  expect(cleared.frames[0]).toMatchObject({
+    label: "第 1 拍 · 起始站位",
+    poses: {},
+    paths: [],
+    marks: [],
+  });
+  expect(clearBoardContent(cleared)).toBe(cleared);
+
+  const withPlayers = addActor(
+    addActor(cleared, { id: "me", label: "我方", kind: "player" }, [.64, .98]),
+    { id: "opponent", label: "对手", kind: "player" },
+    [.30, .07],
+  );
+  const rebuilt = addActor(withPlayers, { id: "ball", label: "网球", kind: "ball" }, [.64, .96]);
+  expect(armBlankRally(rebuilt).smartRally).toEqual({
+    version: 2,
+    frameId: rebuilt.frames[0].id,
+    phase: "shot",
+    hitterId: "me",
+    actorId: "ball",
+  });
 });
 
 test("starter board serializes an explicit smart-rally cursor and legacy boards stay manual", () => {
@@ -209,6 +278,9 @@ test("prepares only recognizable legacy default blank drafts and repairs a missi
   const preparedEmpty = prepareBlankRallyBoard(empty);
   expect(preparedEmpty.authoringMode).toBe("blank-rally");
   expect(preparedEmpty.smartRally).toBeUndefined();
+  expect(preparedEmpty.frames[0].label).toBe("第 1 拍 · 起始站位");
+  expect(isBoardContentEmpty(preparedEmpty)).toBe(true);
+  expect(clearBoardContent(preparedEmpty)).toBe(preparedEmpty);
   expect(prepareBlankRallyBoard(preparedEmpty)).toBe(preparedEmpty);
 
   let setup = createBlankBoard("我的空白战术");
@@ -272,6 +344,28 @@ test("prepares only recognizable legacy default blank drafts and repairs a missi
   expect(prepareBlankRallyBoard(sourceBacked)).toBe(sourceBacked);
   const partial = addActor(empty, { id: "solo", label: "我方", kind: "player" }, [.5, .8]);
   expect(prepareBlankRallyBoard(partial)).toBe(partial);
+});
+
+test("provenance-marked manual routes never throw or re-arm when reopened", () => {
+  const starter = createStarterBoard("可安全重开的手动画板");
+  const opponent = starter.actors.find((actor) => actor.label === "对手")!;
+  let manual = setPath(starter, 0, {
+    id: "manual-opening-move",
+    kind: "move",
+    actorId: opponent.id,
+    from: starter.frames[0].poses[opponent.id],
+    to: [.48, .24],
+  });
+  manual = setSmartRally(manual);
+  expect(manual.authoringMode).toBe("blank-rally");
+  expect(manual.smartRally).toBeUndefined();
+  expect(() => prepareBlankRallyBoard(manual)).not.toThrow();
+  expect(prepareBlankRallyBoard(manual)).toBe(manual);
+
+  const emptyTail = addFrame(manual, 0);
+  expect(emptyTail.frames.at(-1)!.paths).toEqual([]);
+  expect(() => prepareBlankRallyBoard(emptyTail)).not.toThrow();
+  expect(prepareBlankRallyBoard(emptyTail)).toBe(emptyTail);
 });
 
 test("synchronizes a receiver move with the preceding shot and carries the end pose across the boundary", () => {
