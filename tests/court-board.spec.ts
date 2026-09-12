@@ -305,6 +305,141 @@ test("authors a smart rally as shot, receiver movement, then the next shot", asy
   expect(me.id).not.toBe(opponent.id);
 });
 
+test("adjusts the just-drawn shot curve without leaving the smart rally", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await openBoard(page);
+  const canvas = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  const ballStart = actorPoint(initial, "网球");
+  const receiverStart = actorPoint(initial, "对手");
+
+  await dragBoardPoint(page, canvas, ballStart, [.70, .25]);
+  let saved = await saveAndRead(page);
+  const originalShot = saved.frames[0].paths.find((path) => path.kind === "shot")!;
+  expect(originalShot.control).toBeDefined();
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+
+  await press(page.getByRole("button", { name: "调整上一条球路弧度" }));
+  await expect(page.locator(".board-interaction-guide")).toContainText(/调整上一条击球路线.*白色菱形/);
+  const adjustedControl: Point = [.34, .54];
+  await dragBoardPoint(page, canvas, originalShot.control!, adjustedControl);
+
+  saved = await saveAndRead(page);
+  const adjustedShot = saved.frames[0].paths.find((path) => path.id === originalShot.id)!;
+  expect(adjustedShot.from).toEqual(originalShot.from);
+  expect(adjustedShot.to).toEqual(originalShot.to);
+  expect(adjustedShot.control?.[0]).toBeCloseTo(adjustedControl[0], 1);
+  expect(adjustedShot.control?.[1]).toBeCloseTo(adjustedControl[1], 1);
+  expect(saved.frames[1].paths).toEqual([]);
+  expect(saved.smartRally).toMatchObject({ frameId: saved.frames[1].id, phase: "move" });
+
+  await press(page.getByRole("button", { name: "撤销", exact: true }));
+  saved = await saveAndRead(page);
+  expect(saved.frames[0].paths.find((path) => path.id === originalShot.id)?.control).toEqual(originalShot.control);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+
+  await press(page.getByRole("button", { name: "重做", exact: true }));
+  saved = await saveAndRead(page);
+  expect(saved.frames[0].paths.find((path) => path.id === originalShot.id)?.control?.[0]).toBeCloseTo(adjustedControl[0], 1);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+
+  await press(page.getByRole("button", { name: "调整上一条球路弧度" }));
+  await press(page.locator(".board-interaction-guide").getByRole("button", { name: "继续", exact: true }));
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+  await dragBoardPoint(page, canvas, receiverStart, [.66, .34]);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/从网球拖出下一拍/);
+  saved = await saveAndRead(page);
+  expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
+  expect(saved.frames[0].paths.find((path) => path.id === originalShot.id)?.control?.[0]).toBeCloseTo(adjustedControl[0], 1);
+});
+
+test("turns a straight completed shot into a curve by dragging its midpoint handle", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await openBoard(page);
+  const canvas = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  await dragBoardPoint(page, canvas, actorPoint(initial, "网球"), [.70, .25]);
+
+  await press(page.getByRole("button", { name: "调整上一条球路弧度" }));
+  await press(page.getByRole("button", { name: "精确调整击球路线" }));
+  const objectSheet = page.getByRole("dialog", { name: "击球路线" });
+  await press(objectSheet.getByRole("button", { name: "改为直线", exact: true }));
+  await press(objectSheet.getByRole("button", { name: "关闭对象调整" }));
+  await expect(objectSheet).toBeHidden();
+  let saved = await saveAndRead(page);
+  const straightShot = saved.frames[0].paths.find((path) => path.kind === "shot")!;
+  expect(straightShot.control).toBeUndefined();
+
+  const midpoint: Point = [
+    (straightShot.from[0] + straightShot.to[0]) / 2,
+    (straightShot.from[1] + straightShot.to[1]) / 2,
+  ];
+  const adjustedControl: Point = [midpoint[0] - .12, midpoint[1] - .07];
+  await dragBoardPoint(page, canvas, midpoint, adjustedControl);
+  saved = await saveAndRead(page);
+  const curvedShot = saved.frames[0].paths.find((path) => path.id === straightShot.id)!;
+  expect(curvedShot.control?.[0]).toBeCloseTo(adjustedControl[0], 1);
+  expect(curvedShot.control?.[1]).toBeCloseTo(adjustedControl[1], 1);
+  expect(saved.smartRally).toMatchObject({ frameId: saved.frames[1].id, phase: "move" });
+  await expect(page.locator(".board-interaction-guide")).toContainText(/调整上一条击球路线/);
+});
+
+test("deleting the just-completed shot returns to a ready serve gesture", async ({ page }) => {
+  await openBoard(page);
+  const canvas = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  await dragBoardPoint(page, canvas, actorPoint(initial, "网球"), [.70, .25]);
+  await press(page.getByRole("button", { name: "调整上一条球路弧度" }));
+  await press(page.getByRole("button", { name: "精确调整击球路线" }));
+  const objectSheet = page.getByRole("dialog", { name: "击球路线" });
+  await press(objectSheet.getByRole("button", { name: "仅从第 1 拍删除击球路线" }));
+  await expect(objectSheet).toBeHidden();
+
+  let saved = await saveAndRead(page);
+  const ball = saved.actors.find((actor) => actor.kind === "ball")!;
+  expect(saved.frames).toHaveLength(1);
+  expect(saved.frames[0].paths).toEqual([]);
+  expect(saved.smartRally).toMatchObject({ frameId: saved.frames[0].id, phase: "shot", actorId: ball.id });
+  await expect(page.locator(".board-interaction-guide")).toContainText(/拖出发球线路/);
+
+  await dragBoardPoint(page, canvas, saved.frames[0].poses[ball.id], [.32, .24]);
+  saved = await saveAndRead(page);
+  expect(saved.frames).toHaveLength(2);
+  expect(saved.frames[0].paths.find((path) => path.kind === "shot")?.to[0]).toBeCloseTo(.32, 1);
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+});
+
+test("places an added mark over the visible previous route without selecting that route", async ({ page }) => {
+  await openBoard(page);
+  const canvas = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  await dragBoardPoint(page, canvas, actorPoint(initial, "网球"), [.70, .25]);
+  const afterShot = await saveAndRead(page);
+  const shot = afterShot.frames[0].paths.find((path) => path.kind === "shot")!;
+  const onRoute = pointOnBoardPath(shot, .5);
+
+  const palette = await openAddPalette(page);
+  await press(palette.getByRole("button", { name: /^标记与器材/ }));
+  await press(palette.getByRole("button", { name: /^目标区/ }));
+  await expect(palette).toBeHidden();
+  await clickBoardPoint(page, canvas, onRoute);
+
+  const saved = await saveAndRead(page);
+  expect(saved.frames[0].paths).toEqual(afterShot.frames[0].paths);
+  expect(saved.frames[1].marks).toHaveLength(1);
+  expect(saved.frames[1].marks[0]).toMatchObject({ kind: "target" });
+  await expect(page.locator(".board-interaction-guide")).toContainText(/现在拖动对手跑位/);
+
+  await press(page.getByRole("button", { name: /打开我的战术板的文件选项/ }));
+  const files = page.getByTestId("bottom-sheet");
+  await press(files.getByRole("button", { name: /分享战术动画/ }));
+  const share = page.getByRole("dialog", { name: "分享战术动画" });
+  await expect(share.getByRole("button", { name: /视频.*推荐/ })).toContainText("3.0 秒");
+  await expect(share.getByRole("button", { name: /循环 GIF/ })).toContainText("3.0 秒");
+});
+
 test("keeps the armed actor draggable when the ball and receiver share a point", async ({ page }) => {
   await openBoard(page);
   const board = page.getByTestId("board-canvas");
@@ -916,7 +1051,7 @@ test("opens advanced frame history from files and edits a selected frame", async
   expect(saved.frames[1].paths).toEqual([]);
 
   const secondFrame = await openFrameEditor(page, 2);
-  await expect(secondFrame.locator('.board-field input[inputmode="decimal"]')).toHaveValue("1.5");
+  await expect(secondFrame.locator('.board-field input[inputmode="decimal"]')).toHaveValue("2.5");
   await press(secondFrame.getByRole("button", { name: "取消编辑拍次", exact: true }));
   await expect(secondFrame).toBeHidden();
 });
@@ -978,6 +1113,101 @@ test("board sheets stay keyboard-safe and restore focus to their opener", async 
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
   await expect(addButton(page)).toBeFocused();
+});
+
+test("keeps editable saves separate and creates local GIF and video share files", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: (data: ShareData) => !!data.files?.length });
+    Object.defineProperty(navigator, "share", { configurable: true, value: async (data: ShareData) => {
+      const file = data.files?.[0];
+      (window as typeof window & { __sharedMedia?: { name: string; type: string; size: number } }).__sharedMedia = file
+        ? { name: file.name, type: file.type, size: file.size }
+        : undefined;
+    } });
+  });
+  await page.reload();
+  await openBoard(page);
+  const canvas = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  await dragBoardPoint(page, canvas, actorPoint(initial, "网球"), [.70, .25]);
+  const authored = await saveAndRead(page);
+
+  await press(page.getByRole("button", { name: /打开我的战术板的文件选项/ }));
+  const sheet = page.getByTestId("bottom-sheet");
+  await expect(sheet.getByRole("heading", { name: "保存与分享", exact: true })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: /立即保存.*仅本机/ })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: /完整 JSON.*仍可编辑/ })).toBeVisible();
+  await press(sheet.getByRole("button", { name: /分享战术动画/ }));
+
+  const shareSheet = page.getByRole("dialog", { name: "分享战术动画" });
+  await expect(shareSheet).toBeVisible();
+  await expect(shareSheet).toContainText(/只在这台设备生成.*不会上传/);
+  const gifOption = shareSheet.getByRole("button", { name: /循环 GIF/ });
+  const videoOption = shareSheet.getByRole("button", { name: /视频.*推荐/ });
+  await expect(gifOption).toBeEnabled();
+  await expect(videoOption).toBeEnabled();
+
+  await press(gifOption);
+  const gifPreview = shareSheet.getByRole("img", { name: "战术 GIF 预览" });
+  await expect(gifPreview).toBeVisible({ timeout: 30_000 });
+  const gifBytes = await gifPreview.evaluate(async (image) => {
+    const response = await fetch((image as HTMLImageElement).src);
+    return Array.from(new Uint8Array(await response.arrayBuffer()).slice(0, 6));
+  });
+  expect(String.fromCharCode(...gifBytes)).toBe("GIF89a");
+  await press(shareSheet.getByRole("button", { name: "分享GIF", exact: true }));
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { __sharedMedia?: { name: string } }).__sharedMedia?.name)).toMatch(/\.gif$/);
+  await page.evaluate(() => Object.defineProperty(navigator, "share", { configurable: true, value: async () => { throw new DOMException("cancelled", "AbortError"); } }));
+  await press(shareSheet.getByRole("button", { name: "分享GIF", exact: true }));
+  await expect(shareSheet.getByRole("status")).toContainText(/已取消分享.*继续下载/);
+  await page.evaluate(() => Object.defineProperty(navigator, "share", { configurable: true, value: async () => { throw new Error("share failed"); } }));
+  await press(shareSheet.getByRole("button", { name: "分享GIF", exact: true }));
+  await expect(shareSheet.getByRole("alert")).toContainText("share failed");
+  const gifDownload = page.waitForEvent("download");
+  await press(shareSheet.getByRole("button", { name: "下载备份", exact: true }));
+  expect((await gifDownload).suggestedFilename()).toMatch(/\.gif$/);
+  await expect(shareSheet.getByRole("alert")).toHaveCount(0);
+  await expect(shareSheet.getByRole("status")).toContainText(/文件已下载/);
+
+  await press(shareSheet.getByRole("button", { name: "换一种格式", exact: true }));
+  await press(videoOption);
+  const videoPreview = shareSheet.locator("video");
+  await expect(videoPreview).toBeVisible({ timeout: 30_000 });
+  const videoFile = await videoPreview.evaluate(async (video) => {
+    const response = await fetch((video as HTMLVideoElement).src);
+    const blob = await response.blob();
+    return { size: blob.size, type: blob.type };
+  });
+  expect(videoFile.size).toBeGreaterThan(1_000);
+  expect(videoFile.type).toMatch(/^video\/(mp4|webm)/);
+
+  const afterExport = await readLatest(page);
+  expect(afterExport.frames).toEqual(authored.frames);
+  expect(afterExport.smartRally).toEqual(authored.smartRally);
+});
+
+test("disables media formats when an authored route has zero playback time", async ({ page }) => {
+  await openBoard(page);
+  const canvas = page.getByTestId("board-canvas");
+  const initial = await saveAndRead(page);
+  await dragBoardPoint(page, canvas, actorPoint(initial, "网球"), [.70, .25]);
+
+  const frameSheet = await openFrameEditor(page, 1);
+  const duration = frameSheet.locator('.board-field input[inputmode="decimal"]');
+  await duration.fill("0");
+  await press(frameSheet.getByRole("button", { name: "完成", exact: true }));
+  await expect(frameSheet).toBeHidden();
+
+  await press(page.getByRole("button", { name: /打开我的战术板的文件选项/ }));
+  const files = page.getByTestId("bottom-sheet");
+  await press(files.getByRole("button", { name: /分享战术动画/ }));
+  const share = page.getByRole("dialog", { name: "分享战术动画" });
+  const video = share.getByRole("button", { name: /视频.*推荐/ });
+  const gif = share.getByRole("button", { name: /循环 GIF/ });
+  await expect(video).toBeDisabled();
+  await expect(gif).toBeDisabled();
+  await expect(video).toContainText("时长需大于 0 秒");
+  await expect(gif).toContainText("时长需大于 0 秒");
 });
 
 test("shows validation failures inside the active sheet", async ({ page }) => {

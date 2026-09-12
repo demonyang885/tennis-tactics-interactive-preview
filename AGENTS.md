@@ -1,9 +1,35 @@
 # Mobile Prototype Agent Guide
 
+## Current Product Direction — 2026-09-12 Curve Editing and Local Sharing
+
+- A just-completed guided ball route must remain directly editable after the flow advances to receiver movement. Expose the immediately preceding visible route without sending the user through frame history: selecting it shows its endpoints and curve control, dragging the white diamond adjusts curvature, and one explicit `继续` action resumes the same smart-rally phase. Preserve the source frame, following poses, smart cursor, and one-gesture/one-undo contract.
+- The preceding beat remains read-only context by default; this narrow, explicit selection is the only exception. Do not duplicate the route into the empty editing tail or make every historical context object globally editable.
+- Separate durable work from share output. Editable drafts auto-save locally; JSON is the editable backup; PNG is a still; video and looping GIF are read-only share artifacts. The saving surface should explain this distinction instead of presenting all formats as equivalent saves.
+- Generate video and GIF entirely on the current device from the canonical board renderer and the same trimmed playback timeline. Never upload tactical content during export. Prefer video for clarity and publishing, GIF for short looping chat previews, and show an explicit duration limit rather than silently truncating or accelerating a tactic.
+- Generate first, then present an in-app preview and a fresh `分享` action so the Web Share API receives a new user gesture. Detect the actual MediaRecorder container and keep its file extension accurate; fall back to device download when file sharing is unavailable. Cancellation, encoding failure, or closing the sheet must not change the draft, playback state, undo history, or saved JSON.
+
+## Current Product Direction — 2026-09-11 Synchronized Rally Playback
+
+- Treat each beat as one shared contact-to-contact time window. During playback, the outgoing ball route and every player movement assigned to that beat start together, advance from the same global progress, and reach their endpoints together; movement must not wait for the ball route to finish.
+- Keep the guided editing gesture order `球路 → 接球方跑位 → 下一条球路`, but store the receiver movement in the preceding incoming-shot beat. The automatically generated current tail remains the start of the receiver's return, not a standalone movement segment.
+- Trim an empty guided tail from playback in both the movement and shot stages so authoring scaffolding never adds a stationary beat or extra duration.
+- Migrate only canonical documents carrying an explicit version-1 smart-rally cursor that points to the empty final authoring frame. Preserve a manualized pre-migration snapshot as the undo target. If the sequence, cursor, or destination is ambiguous, consume the old cursor, keep every authored route in place, switch permanently to manual editing, and explain that automatic synchronization was not safe. Never infer or rewrite manual, source-backed, template, or ambiguous boards.
+- Pause, scrub, speed changes, and frame stepping must continue to use one global playback time so the ball and players cannot drift out of sync. Preserve boundary continuity: the prior beat's end pose is the next beat's start pose.
+- If an edit, import, migration, or frame-limit edge case would break the synchronized-rally cursor, preserve every authored route, clear the cursor, and keep the board saveable in manual mode. A failed automatic continuation must never discard the just-drawn path.
+
+## Current Product Direction — 2026-09-11 Directional Score Motion
+
+- The approved scoring feedback is physical rather than gamified: a winning ball must visibly land, compress at contact, bounce, and continue away along its authored real-world direction before the point is treated as complete.
+- Do not use `+1`, check badges, confetti, trophies, stars, or another static reward as a substitute for that motion. A calm result sentence may appear only after the ball has flown beyond the opponent's playable reach.
+- Apply this only to explicitly authored scoring transitions. Ordinary tactical examples, rally continuations, excerpts, and board paths must not be guessed to be winners from coordinates alone.
+- The first approved authored example is the final shot in `打回头球`. Keep the effect reusable so later scoring transitions can opt into the same global motion language without duplicating renderer logic.
+
 ## Current Product Direction — 2026-09-11 Smart Rally Authoring
 
 - This direction supersedes the visible frame-rail and explicit `新增一拍` requirements in the submission-gate section below. Keep the underlying frame history, playback model, and advanced editing capability, but remove the always-visible row of frame cards from the normal authoring flow.
 - A ready starter board opens with exactly two players and one ball. Its first action is immediately ready to draw the serve from the ball; the user must not select `对象`、`添加`、`画球路`, or `新增一拍` first.
+- The ready starter board begins in a recognizable serve/return stance: server and ball at the near baseline, receiver at the opposite baseline. When the ball overlaps the server, the armed ball must still win hit testing so the opening drag remains the serve.
+- A newly created pure blank board explicitly records that provenance. After the user places exactly two players and one ball, arm the same guided rally so its first route persists and the second shot can continue. Conservatively migrate only the exact former default draft titled `我的空白战术`; arbitrary legacy drafts, renamed imports, source-backed boards, partial setups, and non-standard boards must remain manual.
 - Completing a ball route commits that shot, creates the next frame in the background, alternates the hitter, selects the receiving player, and arms player movement. Completing that movement selects the ball and arms the next shot. Continue this `球路 → 对方跑位 → 下一条球路` loop for two-player boards.
 - Smart progression is a default, not a lock. Directly selecting another actor must override the armed action, and advanced object/add/history controls must remain available as recovery paths. Existing non-standard boards, empty boards, and boards with more than two players fall back safely to manual editing.
 - Automatic stage changes must be announced in visible text and an accessible live region, identify the active actor without relying on color alone, and remain reversible. Undo/redo must restore both the board document and the inferred active authoring stage.

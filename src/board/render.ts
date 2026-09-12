@@ -1,15 +1,21 @@
 import { getFramePose, type BoardActor, type BoardDocument, type BoardFrame, type BoardMark, type BoardPath, type Point } from "./model";
 
-export type BoardSelection = { kind: "actor" | "element"; id: string };
-export type BoardHit = BoardSelection | { kind: "handle"; id: string; handle: "from" | "to" | "control" };
+export type BoardSelection = { kind: "actor"; id: string } | { kind: "element"; id: string; frameIndex?: number };
+export type BoardHit = BoardSelection | { kind: "handle"; id: string; handle: "from" | "to" | "control"; frameIndex?: number };
+export type BoardHitTestOptions = {
+  contextPaths?: BoardPath[];
+  contextFrameIndex?: number;
+};
 export type BoardRenderOptions = {
   progress?: number;
   playingProgress?: number;
   playing?: boolean;
   selection?: BoardSelection | null;
   showLegend?: boolean;
-  /** Read-only paths from the preceding beat that preserve the completed action while authoring. */
+  /** Paths from the preceding beat that preserve the completed action while authoring. */
   contextPaths?: BoardPath[];
+  /** Source frame for an editable preceding-beat selection. */
+  contextFrameIndex?: number;
 };
 
 const COLORS = {
@@ -146,6 +152,7 @@ function drawMark(ctx: CanvasRenderingContext2D, mark: BoardMark, geometry: Geom
 }
 
 function drawHandles(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry) {
+  const control: Point = path.control ?? [(path.from[0] + path.to[0]) / 2, (path.from[1] + path.to[1]) / 2];
   ctx.save(); ctx.setLineDash([3, 4]);
   if (path.control) {
     line(ctx, geometry.toCanvas(path.from), geometry.toCanvas(path.control), "rgba(255,255,255,.45)", 1);
@@ -154,10 +161,8 @@ function drawHandles(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: G
   ctx.setLineDash([]);
   circle(ctx, geometry.toCanvas(path.from), 6, COLORS.court, "#fff", 2.5);
   circle(ctx, geometry.toCanvas(path.to), 7, COLORS.shot, "#fff", 2.5);
-  if (path.control) {
-    const at = geometry.toCanvas(path.control); ctx.fillStyle = COLORS.court; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(at[0], at[1] - 7); ctx.lineTo(at[0] + 7, at[1]); ctx.lineTo(at[0], at[1] + 7); ctx.lineTo(at[0] - 7, at[1]); ctx.closePath(); ctx.fill(); ctx.stroke();
-  }
+  const at = geometry.toCanvas(control); ctx.fillStyle = COLORS.court; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(at[0], at[1] - 7); ctx.lineTo(at[0] + 7, at[1]); ctx.lineTo(at[0], at[1] + 7); ctx.lineTo(at[0] - 7, at[1]); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
 }
 
@@ -183,7 +188,9 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
   for (const path of options.contextPaths ?? []) {
     // The preceding beat must remain legible on a small court. Movement stays
     // slightly quieter so the newest ball route remains the primary signal.
-    drawPath(ctx, path, geometry, 1, false, false, path.kind === "move" ? .82 : .94);
+    const isSelected = selected?.kind === "element" && selected.id === path.id
+      && (selected.frameIndex === undefined || selected.frameIndex === options.contextFrameIndex);
+    drawPath(ctx, path, geometry, 1, false, isSelected, path.kind === "move" ? .82 : .94);
   }
   for (const mark of frame.marks) drawMark(ctx, mark, geometry, selected?.kind === "element" && selected.id === mark.id);
   for (const path of frame.paths) drawPath(ctx, path, geometry, progress, !!options.playing, selected?.kind === "element" && selected.id === path.id);
@@ -199,7 +206,11 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
     }
   }
   if (selected?.kind === "element") {
-    const path = frame.paths.find(item => item.id === selected.id); if (path) drawHandles(ctx, path, geometry);
+    const path = frame.paths.find(item => item.id === selected.id)
+      ?? (selected.frameIndex === undefined || selected.frameIndex === options.contextFrameIndex
+        ? options.contextPaths?.find(item => item.id === selected.id)
+        : undefined);
+    if (path) drawHandles(ctx, path, geometry);
   }
   if (options.showLegend !== false) drawLegend(ctx, width, height, frame.paths.some(path => path.kind === "feed") || !!options.contextPaths?.some(path => path.kind === "feed"));
   ctx.restore();
@@ -218,14 +229,33 @@ function distanceToPath(point: Point, path: BoardPath, geometry: Geometry) {
 }
 
 /** Selection handles take priority, then actors, then visible objects and routes. */
-export function hitTestBoard(pixel: Point, width: number, height: number, frame: BoardFrame, actors: BoardActor[], selection?: BoardSelection | null): BoardHit | null {
+export function hitTestBoard(
+  pixel: Point,
+  width: number,
+  height: number,
+  frame: BoardFrame,
+  actors: BoardActor[],
+  selection?: BoardSelection | null,
+  options: BoardHitTestOptions = {},
+): BoardHit | null {
+  const { contextPaths = [], contextFrameIndex } = options;
   const geometry = getBoardGeometry(width, height);
   const minimumTouchRadius = 22;
   if (selection?.kind === "element") {
-    const path = frame.paths.find(item => item.id === selection.id);
+    const path = frame.paths.find(item => item.id === selection.id)
+      ?? (selection.frameIndex === undefined || selection.frameIndex === contextFrameIndex
+        ? contextPaths.find(item => item.id === selection.id)
+        : undefined);
     if (path) {
-      const handles = (["from", "to", "control"] as const).flatMap(handle => path[handle] ? [{ handle, distance: distance(pixel, geometry.toCanvas(path[handle]!)) }] : []).sort((a, b) => a.distance - b.distance);
-      if (handles[0] && handles[0].distance <= 24) return { kind: "handle", id: path.id, handle: handles[0].handle };
+      const midpoint: Point = [(path.from[0] + path.to[0]) / 2, (path.from[1] + path.to[1]) / 2];
+      const handlePoints = { from: path.from, to: path.to, control: path.control ?? midpoint };
+      const handles = (["from", "to", "control"] as const).map(handle => ({ handle, distance: distance(pixel, geometry.toCanvas(handlePoints[handle])) })).sort((a, b) => a.distance - b.distance);
+      if (handles[0] && handles[0].distance <= 24) return {
+        kind: "handle",
+        id: path.id,
+        handle: handles[0].handle,
+        ...(frame.paths.includes(path) || contextFrameIndex === undefined ? {} : { frameIndex: contextFrameIndex }),
+      };
     }
   }
   const actorHit = actors.flatMap(actor => frame.poses[actor.id] ? [{ actor, distance: distance(pixel, geometry.toCanvas(frame.poses[actor.id])) }] : [])
@@ -244,7 +274,10 @@ export function hitTestBoard(pixel: Point, width: number, height: number, frame:
     if (hit) return { kind: "element", id: mark.id };
   }
   const pathHit = frame.paths.map(path => ({ path, distance: distanceToPath(pixel, path, geometry) })).filter(item => item.distance <= minimumTouchRadius).sort((a, b) => a.distance - b.distance)[0];
-  return pathHit ? { kind: "element", id: pathHit.path.id } : null;
+  if (pathHit) return { kind: "element", id: pathHit.path.id };
+  // Previous-beat paths are visual context only. Their handles become
+  // interactive after the explicit "调弧度" action supplies a selection.
+  return null;
 }
 
 function wrappedText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, width: number, lineHeight: number, maxLines = 2) {

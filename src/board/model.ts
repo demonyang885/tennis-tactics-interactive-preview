@@ -69,7 +69,7 @@ export const BOARD_COORDINATE_MAX = 1.15;
 export const BOARD_MAX_FRAMES = 60;
 
 const DEFAULT_TITLE = "未命名戰術";
-const DEFAULT_FRAME_DURATION = 1.5;
+export const BOARD_DEFAULT_FRAME_DURATION = 1.5;
 const MAX_ACTORS = 24;
 const MAX_MARKS_PER_FRAME = 100;
 const MAX_FREEHAND_POINTS = 2_000;
@@ -327,7 +327,7 @@ export function createBlankBoard(title = DEFAULT_TITLE): BoardDocument {
     frames: [{
       id: newBoardId("frame"),
       label: "起始站位",
-      duration: DEFAULT_FRAME_DURATION,
+      duration: BOARD_DEFAULT_FRAME_DURATION,
       poses: {},
       paths: [],
       marks: [],
@@ -473,6 +473,25 @@ export function getFrameEnd(frame: BoardFrame): Record<string, Point> {
   const poses = copyPoses(frame.poses);
   for (const path of frame.paths) poses[path.actorId] = copyPoint(path.to);
   return poses;
+}
+
+/** Whether the final v2 frame is still the untouched smart-authoring scaffold. */
+export function isUntouchedSmartTail(board: BoardDocument): boolean {
+  if (board.frames.length < 2 || board.smartRally?.version !== 2) return false;
+  const tail = board.frames.at(-1)!;
+  const previous = board.frames.at(-2)!;
+  if (board.smartRally.frameId !== tail.id
+    || tail.paths.length > 0
+    || tail.marks.length > 0
+    || tail.label !== `第 ${board.frames.length} 拍`
+    || tail.duration !== (previous.duration || BOARD_DEFAULT_FRAME_DURATION)) return false;
+  const expectedPoses = getFrameEnd(previous);
+  const actualKeys = Object.keys(tail.poses);
+  const expectedKeys = Object.keys(expectedPoses);
+  return actualKeys.length === expectedKeys.length && actualKeys.every(actorId => {
+    const actual = tail.poses[actorId], expected = expectedPoses[actorId];
+    return !!actual && !!expected && actual[0] === expected[0] && actual[1] === expected[1];
+  });
 }
 
 export function getFramePose(frame: BoardFrame, progress01: number): Record<string, Point> {
@@ -707,7 +726,7 @@ export function addFrame(board: BoardDocument, afterIndex: number, duplicate = f
   const frame: BoardFrame = {
     id: newBoardId("frame"),
     label: duplicate ? defaultCopyFrameLabel(source.label) : `第 ${afterIndex + 2} 拍`,
-    duration: source.duration || DEFAULT_FRAME_DURATION,
+    duration: source.duration || BOARD_DEFAULT_FRAME_DURATION,
     poses,
     // Routes are outgoing actions. A copied stage begins at the prior end but
     // deliberately does not replay the source action.
@@ -740,8 +759,14 @@ export function updateFrame(
   if (patch.duration !== undefined) assertDuration(patch.duration);
   if (patch.label !== undefined && !patch.label.trim()) throw new Error("拍次名稱不能留空");
   if (patch.label !== undefined && patch.label.length > MAX_LABEL_LENGTH) throw new RangeError(`拍次名稱最多 ${MAX_LABEL_LENGTH} 字`);
+  const shouldCarryDurationIntoSmartTail = patch.duration !== undefined
+    && frameIndex === board.frames.length - 2
+    && isUntouchedSmartTail(board);
   const frames = board.frames.slice();
   frames[frameIndex] = { ...frames[frameIndex], ...patch };
+  if (shouldCarryDurationIntoSmartTail) {
+    frames[frameIndex + 1] = { ...frames[frameIndex + 1], duration: patch.duration || BOARD_DEFAULT_FRAME_DURATION };
+  }
   return touch(board, { frames });
 }
 
