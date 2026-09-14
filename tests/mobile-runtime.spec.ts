@@ -1,10 +1,17 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-async function drag(page: Page, locator: Locator, deltaX: number, deltaY: number, steps = 8) {
+async function drag(
+  page: Page,
+  locator: Locator,
+  deltaX: number,
+  deltaY: number,
+  steps = 8,
+  startOffset?: { x: number; y: number },
+) {
   const box = await locator.boundingBox();
   if (!box) throw new Error("Drag target has no bounding box");
-  const startX = box.x + box.width / 2;
-  const startY = box.y + box.height / 2;
+  const startX = box.x + (startOffset?.x ?? box.width / 2);
+  const startY = box.y + (startOffset?.y ?? box.height / 2);
 
   await page.mouse.move(startX, startY);
   await page.mouse.down();
@@ -91,7 +98,8 @@ test("BottomSheet remains mounted while its default exit animation plays", async
   await page.locator(".sheet-trigger").click();
   await expect(page.getByTestId("bottom-sheet")).toBeVisible();
 
-  await page.getByTestId("sheet-overlay").click({ position: { x: 8, y: 8 } });
+  // Stay inside the rounded device screen while still clicking above the sheet.
+  await page.getByTestId("sheet-overlay").click({ position: { x: 80, y: 80 } });
   await expect(page.getByTestId("bottom-sheet")).toHaveCount(1);
   await page.waitForTimeout(500);
   await expect(page.getByTestId("bottom-sheet")).toHaveCount(0);
@@ -105,7 +113,21 @@ test("keyboard and its attached footer dismiss on the same transition", async ({
 
   await input.click();
   await expect(keyboard).toHaveAttribute("data-visible", "true");
-  await drag(page, footer, 0, 120, 5);
+  await expect.poll(async () => {
+    const keyboardHeight = Number.parseFloat(await keyboard.evaluate((element) => element.style.height));
+    const footerBottom = Number.parseFloat(await footer.evaluate((element) => getComputedStyle(element).bottom));
+    return Math.abs(keyboardHeight - footerBottom);
+  }).toBeLessThan(1);
+  // Derive a point from the rendered input bounds so the drag starts in the
+  // footer's top padding on every OS/font layout. Interactive controls
+  // intentionally do not begin keyboard-dismiss drags.
+  const footerBox = await footer.boundingBox();
+  const inputBox = await input.boundingBox();
+  if (!footerBox || !inputBox) throw new Error("Keyboard footer has no bounding box");
+  await drag(page, footer, 0, 120, 5, {
+    x: footerBox.width / 2,
+    y: Math.max(1, (inputBox.y - footerBox.y) / 2),
+  });
   await expect(keyboard).toHaveAttribute("data-visible", "false");
 
   await page.waitForTimeout(100);
@@ -126,14 +148,52 @@ test("keyboard and its attached footer dismiss on the same transition", async ({
   expect(await footer.evaluate((element) => getComputedStyle(element).bottom)).toBe("34px");
 });
 
-test("switching to Pixel keeps the composer above Android navigation", async ({ page }) => {
+test("keeps the composer safe in direct iPhone mode and the legacy Pixel preview", async ({ page }) => {
   await page.goto("/tests/runtime-fixture.html?fixture=keyboard");
   const input = page.getByLabel("Message");
   await input.evaluate((element: HTMLInputElement) => {
     element.value = "Draft message";
   });
 
-  await page.getByTestId("device-picker").click();
+  const devicePicker = page.getByTestId("device-picker");
+  if (await devicePicker.count() === 0) {
+    const frame = page.getByTestId("phone-frame");
+    const screen = page.getByTestId("device-screen");
+    const footer = page.getByTestId("flow-fixed-footer");
+    await expect(frame).toHaveClass(/phone-stage-frameless/);
+    await expect(screen).toHaveAttribute("data-device", "iphone");
+    await expect(page.locator(".phone-bezel")).toHaveCount(0);
+    await expect(input).toHaveValue("Draft message");
+    expect((await screen.boundingBox())?.width).toBeCloseTo(393, 0);
+
+    await input.click();
+    const keyboard = page.getByTestId("keyboard-dock");
+    await expect(keyboard).toHaveAttribute("data-visible", "true");
+    await page.waitForTimeout(300);
+    const directLayout = await page.evaluate(() => {
+      const screenElement = document.querySelector<HTMLElement>('[data-testid="device-screen"]')!;
+      const viewportElement = document.querySelector<HTMLElement>('[data-testid="mobile-app-viewport"]')!;
+      const scrollElement = document.querySelector<HTMLElement>('[data-testid="mobile-scroll"]')!;
+      const footerElement = document.querySelector<HTMLElement>('[data-testid="flow-fixed-footer"]')!;
+      const keyboardElement = document.querySelector<HTMLElement>('[data-testid="keyboard-dock"]')!;
+      return {
+        screenBottom: screenElement.getBoundingClientRect().bottom,
+        viewportBottom: viewportElement.getBoundingClientRect().bottom,
+        scrollBottom: scrollElement.getBoundingClientRect().bottom,
+        footerBottom: footerElement.getBoundingClientRect().bottom,
+        keyboardTop: keyboardElement.getBoundingClientRect().top,
+        keyboardBottom: keyboardElement.getBoundingClientRect().bottom,
+      };
+    });
+    expect(directLayout.viewportBottom).toBeCloseTo(directLayout.screenBottom, 0);
+    expect(Math.abs(directLayout.keyboardBottom - directLayout.screenBottom)).toBeLessThanOrEqual(1);
+    expect(Math.abs(directLayout.scrollBottom - directLayout.keyboardTop)).toBeLessThanOrEqual(1);
+    expect(Math.abs(directLayout.footerBottom - directLayout.keyboardTop)).toBeLessThanOrEqual(1);
+    expect(await footer.evaluate((element) => getComputedStyle(element).bottom)).not.toBe("0px");
+    return;
+  }
+
+  await devicePicker.click();
   await page.getByTestId("device-option-pixel-10").click();
 
   const frame = page.getByTestId("phone-frame");

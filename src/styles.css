@@ -64,6 +64,13 @@ button {
   padding: 24px;
 }
 
+.phone-stage-frameless {
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  background: #fbfcf9;
+}
+
 .device-menu-bar {
   position: absolute;
   z-index: 100;
@@ -184,6 +191,24 @@ button {
   z-index: 1;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.device-screen-frameless {
+  position: relative;
+  inset: auto;
+  width: min(100%, 393px);
+  height: 100%;
+  margin: 0 auto;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: auto;
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+.device-screen-frameless,
+.device-screen-frameless * {
+  cursor: auto !important;
 }
 
 .device-camera {

@@ -34,7 +34,17 @@ export function validateTennisLibrary(
         assert(point.every((value) => value >= 0 && value <= 1), `${tactic.id} ${label} coordinate is outside the court`);
       }
       assert(moment.caption.trim().length >= 6, `${tactic.id} frame ${index + 1} needs a useful caption`);
+      if (moment.ballMotion) {
+        assert(moment.ballMotion.kind === "score-bounce", `${tactic.id} frame ${index + 1} has an unsupported ball motion`);
+        assert(index === tactic.frames.length - 1, `${tactic.id} score bounce must be the final transition`);
+        if (moment.ballMotion.direction) {
+          const [x, y] = moment.ballMotion.direction;
+          assert(Number.isFinite(x) && Number.isFinite(y) && Math.hypot(x, y) > .0001, `${tactic.id} score bounce direction must be finite and non-zero`);
+        }
+      }
     });
+
+    assert(tactic.frames.filter((moment) => moment.ballMotion?.kind === "score-bounce").length <= 1, `${tactic.id} can only have one score bounce`);
 
     const guide = guides[tactic.id];
     assert(guide, `${tactic.id} has no tactical guide`);

@@ -2,7 +2,9 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - preview/court-canvas-cad0d5f
   workflow_dispatch:
 
 permissions:
@@ -27,6 +29,10 @@ jobs:
         uses: actions/configure-pages@v5
       - name: Install
         run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test runtime, board model, and UI
+        run: npm run test:runtime
       - name: Build
         run: npm run build
       - name: Prepare project Pages paths
