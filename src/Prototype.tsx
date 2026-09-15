@@ -75,11 +75,14 @@ import {
   updateFrame,
   updateMark,
   updatePath,
+  BOARD_PURPOSE_LABELS,
+  getBoardPurpose,
   type BoardActor,
   type BoardDocument,
   type BoardFrame,
   type BoardMark,
   type BoardPath,
+  type BoardPurpose,
   type Point as BoardPoint,
 } from "./board/model";
 import { exportBoardPng, getBoardGeometry, hitTestBoard, renderBoard, type BoardHit, type BoardSelection } from "./board/render";
@@ -507,13 +510,35 @@ function curveControl(from:BoardPoint,to:BoardPoint,bendRight=true):BoardPoint {
 
 type HomeDraftsStatus = "loading" | "ready" | "error";
 
-function BoardHome({ openBoard, openKnowledge }:{openBoard:(board:BoardDocument,persisted?:boolean,intent?:"review")=>void;openKnowledge:(mode:"tactics"|"combinations",category?:CategoryFilter)=>void}) {
+const HOME_BOARD_PURPOSES:BoardPurpose[]=["tactic","practice","review"];
+const HOME_BOARD_PURPOSE_TITLES:Record<BoardPurpose,string>={
+  tactic:"我的战术板",
+  practice:"练习球路",
+  review:"刚才那一分",
+};
+const HOME_BOARD_PURPOSE_ACTIONS:Record<BoardPurpose,string>={
+  tactic:"画一条新球路",
+  practice:"画练习球路",
+  review:"记下一分",
+};
+
+function homeBoardDate(updatedAt:string) {
+  return new Date(updatedAt).toLocaleDateString("zh-CN",{month:"numeric",day:"numeric"});
+}
+
+function BoardHome({ openBoard, openKnowledge, openLibrary }:{openBoard:(board:BoardDocument,persisted?:boolean,intent?:"review")=>void;openKnowledge:(mode:"tactics"|"combinations",category?:CategoryFilter)=>void;openLibrary:()=>void}) {
   const [drafts,setDrafts]=useState<BoardDocument[]>([]),[draftsStatus,setDraftsStatus]=useState<HomeDraftsStatus>("loading"),[storageError,setStorageError]=useState("");
-  const refresh=useCallback(()=>{const result=readBoards();if(result.ok){setDrafts(result.value);setDraftsStatus("ready");setStorageError("");}else{setDraftsStatus("error");setStorageError("暂时读不到此浏览器里的画板，请重试");}},[]);
+  const [activePurpose,setActivePurpose]=useState<BoardPurpose>("tactic"),[historyRevealed,setHistoryRevealed]=useState(false);
+  const historyHubRef=useRef<HTMLElement|null>(null),purposeTouchedRef=useRef(false);
+  const refresh=useCallback(()=>{const result=readBoards();if(result.ok){setDrafts(result.value);setDraftsStatus("ready");setStorageError("");if(!purposeTouchedRef.current&&result.value[0])setActivePurpose(getBoardPurpose(result.value[0]));}else{setDraftsStatus("error");setStorageError("暂时读不到此浏览器里的画板，请重试");}},[]);
   useEffect(()=>{refresh();window.addEventListener(BOARD_DRAFTS_EVENT,refresh);return()=>window.removeEventListener(BOARD_DRAFTS_EVENT,refresh);},[refresh]);
+  useEffect(()=>{const scroll=historyHubRef.current?.closest<HTMLElement>(".mobile-scroll");if(!scroll)return;const reveal=()=>{if(scroll.scrollTop>24)setHistoryRevealed(true);};scroll.addEventListener("scroll",reveal,{passive:true});reveal();return()=>scroll.removeEventListener("scroll",reveal);},[]);
   const latestPlayableBoard=useMemo(()=>findLatestPlayableBoard(drafts),[drafts]);
+  const visibleHistory=useMemo(()=>drafts.filter(board=>getBoardPurpose(board)===activePurpose).slice(0,4),[activePurpose,drafts]);
   const draftsPending=drafts.length===0&&draftsStatus!=="ready";
-  const openLatestBoard=()=>{if(draftsPending&&draftsStatus==="error"){refresh();return;}if(draftsPending)return;openBoard(latestPlayableBoard??createStarterBoard("我的战术板"),Boolean(latestPlayableBoard));};
+  const openLatestBoard=()=>{if(draftsPending&&draftsStatus==="error"){refresh();return;}if(draftsPending)return;openBoard(latestPlayableBoard??{...createStarterBoard("我的战术板"),purpose:"tactic"},Boolean(latestPlayableBoard));};
+  const openNewBoard=(purpose:BoardPurpose)=>{const board={...createStarterBoard(HOME_BOARD_PURPOSE_TITLES[purpose]),purpose};openBoard(board,false,purpose==="review"?"review":undefined);};
+  const revealHistory=()=>{setHistoryRevealed(true);historyHubRef.current?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});};
   const latestBoardAction=latestPlayableBoard?"接着画":"画第一拍";
   return <MobileScroll className="board-home-scroll"><main className="board-home board-home-portrait">
     <section className="home-primary-screen" aria-label="画板快捷入口">
@@ -524,8 +549,20 @@ function BoardHome({ openBoard, openKnowledge }:{openBoard:(board:BoardDocument,
       </div>
       {!draftsPending&&<button className="home-plan-primary" aria-label={latestPlayableBoard?`接着画${latestPlayableBoard.title}`:"画第一拍"} onClick={openLatestBoard}><strong>{latestBoardAction}</strong></button>}
       <div className="home-intent-actions" aria-label="开始画板">
-        <button onClick={()=>openBoard(createStarterBoard("我的战术板"))}><Pencil2Icon/><span>想下一分</span></button>
-        <button onClick={()=>openBoard(createStarterBoard("刚才那一分"),false,"review")}><ReaderIcon/><span>记下刚才一分</span></button>
+        <button onClick={()=>openNewBoard("tactic")}><Pencil2Icon/><span>想下一分</span></button>
+        <button onClick={()=>openNewBoard("review")}><ReaderIcon/><span>记下刚才一分</span></button>
+      </div>
+      <button className={`home-scroll-cue${historyRevealed?" is-revealed":""}`} data-testid="home-scroll-cue" aria-label="上滑查看画板历史" aria-controls="home-history-hub" onClick={revealHistory}><span>上滑看我的画板</span><ChevronDownIcon aria-hidden="true"/></button>
+    </section>
+    <section ref={historyHubRef} id="home-history-hub" className="home-history-hub" data-testid="home-history-hub" aria-labelledby="home-history-title">
+      <div className="home-history-heading"><h2 id="home-history-title">我的画板</h2>{draftsStatus==="ready"&&<span>{drafts.length} 份</span>}</div>
+      <div className="home-purpose-filters" aria-label="按用途找画板">
+        {HOME_BOARD_PURPOSES.map(purpose=><button key={purpose} aria-pressed={activePurpose===purpose} onClick={()=>{purposeTouchedRef.current=true;setActivePurpose(purpose);}}><span>{BOARD_PURPOSE_LABELS[purpose]}</span></button>)}
+      </div>
+      {draftsStatus==="loading"&&drafts.length===0?<div className="home-history-empty" role="status">正在打开你的画板…</div>:draftsStatus==="error"&&drafts.length===0?<div className="home-history-empty"><span>画板暂时打不开</span><button onClick={refresh}>重试</button></div>:visibleHistory.length?<div className="home-history-list">{visibleHistory.map(board=>{const purpose=getBoardPurpose(board);return <button key={board.id} data-testid="home-history-board" data-board-id={board.id} onClick={()=>openBoard(board,true)}><span className={`home-history-purpose is-${purpose}`}>{BOARD_PURPOSE_LABELS[purpose]}</span><span className="home-history-copy"><strong>{board.title}</strong><small>{board.frames.length} 拍 · {homeBoardDate(board.updatedAt)}</small></span><ChevronRightIcon aria-hidden="true"/></button>;})}</div>:<div className="home-history-empty">还没有{BOARD_PURPOSE_LABELS[activePurpose]}画板</div>}
+      <div className="home-history-actions">
+        <button className="home-history-new" onClick={()=>openNewBoard(activePurpose)}><PlusIcon/><span>{HOME_BOARD_PURPOSE_ACTIONS[activePurpose]}</span></button>
+        {drafts.length>0&&<button className="home-history-all" onClick={openLibrary}><span>全部画板</span><ChevronRightIcon/></button>}
       </div>
     </section>
     <section className="home-knowledge-section" aria-label="战术知识库入口">
@@ -1404,7 +1441,8 @@ export default function Prototype() {
     };
   }
   function makeBoard(board:BoardDocument,initialPersisted=false,entryIntent?:"review",entryNotice?:string):FlowScreen {
-    const blankPrepared=prepareBlankRallyBoard(board);
+    const categorized=board.purpose?board:{...board,purpose:getBoardPurpose(board)};
+    const blankPrepared=prepareBlankRallyBoard(categorized);
     const synchronized=prepareSynchronizedRallyBoard(blankPrepared);
     const wasLegacy=blankPrepared.smartRally?.version===1;
     const migrated=wasLegacy&&synchronized!==blankPrepared;
@@ -1423,7 +1461,7 @@ export default function Prototype() {
   function makeCombination(combination:Combination):FlowScreen {return {id:`${combination.id}-plan`,title:combination.name,headerHeight:62,header:flow=><AppHeader title={`${combination.name} · 思路`} back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><CombinationDetail combination={combination} openTactic={(tactic,contextLabel)=>flow.push(makeDetail(tactic,contextLabel))} openBoard={()=>flow.push(makeBoard(boardFromTactics(combination.stages.map(stage=>combinationExample(stage.tacticId,stage.excerpt)),combination.name)))}/>};}
   function makeInteractive(combination:Combination):FlowScreen {return {id:`${combination.id}-rally`,title:combination.name,headerHeight:62,header:flow=><AppHeader title={combination.name} back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><InteractiveCombinationPlayer combination={combination} openPlan={()=>flow.push(makeCombination(combination))}/>};}
   function makeKnowledge(initialMode:"tactics"|"combinations"="tactics",initialCategory:CategoryFilter="全部"):FlowScreen {return {id:`knowledge-${initialMode}-${initialCategory}`,title:"战术知识库",headerHeight:62,header:flow=><AppHeader title="战术知识库" back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><TacticsList initialMode={initialMode} initialCategory={initialCategory} openTactic={tactic=>flow.push(makeDetail(tactic))} openCombination={combination=>flow.push(makeInteractive(combination))}/>};}
-  function makeHome():FlowScreen {return {id:"home",title:"COURT CANVAS",headerHeight:62,header:()=> <HomeHeader menu={()=>setInfo(true)}/>,render:flow=><BoardHome openBoard={(board,persisted,intent)=>flow.push(makeBoard(board,persisted,intent))} openKnowledge={(mode,category)=>flow.push(makeKnowledge(mode,category))}/>};}
+  function makeHome():FlowScreen {return {id:"home",title:"COURT CANVAS",headerHeight:62,header:()=> <HomeHeader menu={()=>setInfo(true)}/>,render:flow=><BoardHome openBoard={(board,persisted,intent)=>flow.push(makeBoard(board,persisted,intent))} openKnowledge={(mode,category)=>flow.push(makeKnowledge(mode,category))} openLibrary={()=>flow.push(makeBoardLibrary(""))}/>};}
   const initial:FlowScreen=makeHome();
   return <div className="tennis-app"><FlowStack initial={initial}/><BottomSheet open={info} onOpenChange={setInfo} title="网球战术演示" description="用球路和跑位，看懂青少年单打战术。" snap={.56}><div className="about-demo"><p><strong>{libraryStats.tactics} 个单项战术、{libraryStats.combinations} 组互动对打、{libraryStats.variants} 种应变</strong>。单项打法聚焦一招；组合打法会在每段球路后让你选择下一拍，并继续这一分。</p><p>“发球后抢先手”可以在同一个场面试不同打法：先看来球、自己和对手，再看这样打会换来什么、要留意什么。</p><p>蓝色是我方，红色是对手，黄色是网球；亮线为当前一拍，淡线为已完成球路，圆环提示下一落点。</p><p className="about-note">内容适合已能进行全场对打的青少年。若仍使用红、橙或绿球，请按球场大小和实际能力调整目标；战术示意不保证得分，也不能替代教练现场判断。</p><p className="about-source">教学原则参考 ITF、LTA 和 USTA 公开资料；战术组合与练习为教学化编排。</p><button className="sheet-done" onClick={()=>setInfo(false)}>知道了</button></div></BottomSheet></div>;
 }

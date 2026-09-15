@@ -35,6 +35,7 @@ const second: Tactic = {
 };
 
 const single = boardFromTactic(first);
+assert(single.purpose === "tactic", "single tactic boards should be categorized as tactics");
 assert(single.sourceTacticId === first.id, "single board should retain source tactic id");
 assert(single.frames.length === first.frames.length, "all source moments should remain editable frames");
 assert(single.frames.map((frame) => frame.label).join("|") === first.frames.map((frame) => frame.caption).join("|"), "captions should be preserved");
@@ -52,6 +53,7 @@ single.frames[0].poses.ball[0] = .99;
 assert(first.frames[0].ball[0] === .5, "adapter output must not alias source coordinates");
 
 const combined = boardFromTactics([first, second], "連續戰術");
+assert(combined.purpose === "tactic", "composed tactic boards should be categorized as tactics");
 assert(combined.title === "連續戰術", "requested composition title should be used");
 assert(combined.sourceTacticId === undefined, "a composite should not claim one source tactic");
 assert(combined.frames.length === first.frames.length + second.frames.length, "composition should preserve every source frame");
@@ -67,6 +69,7 @@ for (let index = 0; index < combined.frames.length - 1; index += 1) {
 }
 
 const blank = boardFromTactics([], "空白練習");
+assert(blank.purpose === "tactic", "an empty tactic composition should retain tactic context");
 assert(blank.title === "空白練習" && blank.frames.length === 1, "empty composition should safely create a blank board");
 assert(validateBoardDocument(blank).ok, "empty composition should produce a valid blank board");
 

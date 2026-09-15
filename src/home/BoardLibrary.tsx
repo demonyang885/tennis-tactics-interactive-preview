@@ -8,7 +8,13 @@ import {
   UploadIcon,
 } from "@radix-ui/react-icons";
 
-import { cloneBoard, createStarterBoard, type BoardDocument } from "../board/model";
+import {
+  BOARD_PURPOSE_LABELS,
+  cloneBoard,
+  createStarterBoard,
+  getBoardPurpose,
+  type BoardDocument,
+} from "../board/model";
 import { BOARD_STORAGE_KEY, deleteBoard, readBoards, saveBoard } from "../board/storage";
 import { parseBoardJSON } from "../board/validate";
 import { MobileScroll } from "../mobile";
@@ -115,7 +121,10 @@ export function BoardLibrary({
         setStorageFailure({ kind: "import", message: "这个备份打不开，请换一个文件重试" });
         return;
       }
-      const imported = cloneBoard(parsed.value, importedTitle(parsed.value.title));
+      const categorized = parsed.value.purpose
+        ? parsed.value
+        : { ...parsed.value, purpose: getBoardPurpose(parsed.value) };
+      const imported = cloneBoard(categorized, importedTitle(parsed.value.title));
       const saved = saveBoard(imported);
       if (!saved.ok) {
         setStorageStatus("");
@@ -160,7 +169,7 @@ export function BoardLibrary({
           <h2>打开一份画板</h2>
           <p>打开本机草稿，或从发球站位画一条新球路。</p>
           <div className="board-home-primary board-library-primary">
-            <button onClick={() => openBoard(createStarterBoard("我的战术板"), false)}>
+            <button onClick={() => openBoard({ ...createStarterBoard("我的战术板"), purpose: "tactic" }, false)}>
               <PlusIcon />画一条新球路
             </button>
             <button onClick={() => importRef.current?.click()}>
@@ -205,15 +214,16 @@ export function BoardLibrary({
             </div>
           ) : drafts.length > 0 ? (
             <div className="board-draft-list">
-              {drafts.map((board) => (
-                <article key={board.id}>
+              {drafts.map((board) => {
+                const purpose = getBoardPurpose(board);
+                return <article key={board.id}>
                   <button
                     className="board-draft-open"
                     onClick={() => openBoard(board, true)}
                   >
                     <span className="board-draft-icon"><LayersIcon /></span>
                     <span>
-                      <strong>{board.title}</strong>
+                      <span className="board-draft-title"><strong>{board.title}</strong><em className={`board-purpose-badge is-${purpose}`}>{BOARD_PURPOSE_LABELS[purpose]}</em></span>
                       <small>{board.frames.length} 拍 · {boardDate(board.updatedAt)}</small>
                     </span>
                     <ChevronRightIcon />
@@ -226,14 +236,14 @@ export function BoardLibrary({
                   >
                     <TrashIcon />
                   </button>
-                </article>
-              ))}
+                </article>;
+              })}
             </div>
           ) : (
             <div className="board-empty">
               <FilePlusIcon />
               <p>这里还没有画板。画出第一条球路后，会保存在此浏览器。</p>
-              <button onClick={() => openBoard(createStarterBoard("我的战术板"), false)}>画第一拍</button>
+              <button onClick={() => openBoard({ ...createStarterBoard("我的战术板"), purpose: "tactic" }, false)}>画第一拍</button>
             </div>
           )}
         </section>
