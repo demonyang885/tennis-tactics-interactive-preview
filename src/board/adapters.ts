@@ -120,6 +120,7 @@ export function boardFromTactic(tactic: Tactic): BoardDocument {
     version: 1,
     id: newBoardId("board"),
     title: tactic.name,
+    purpose: "tactic",
     sourceTacticId: tactic.id,
     updatedAt: new Date().toISOString(),
     actors: BOARD_ACTORS.map((actor) => ({ ...actor })),
@@ -134,7 +135,7 @@ export function boardFromTactic(tactic: Tactic): BoardDocument {
  * keeping every following frame continuous without changing source timings.
  */
 export function boardFromTactics(tactics: Tactic[], title?: string): BoardDocument {
-  if (!tactics.length) return createBlankBoard(composedTitle(tactics, title));
+  if (!tactics.length) return { ...createBlankBoard(composedTitle(tactics, title)), purpose: "tactic" };
 
   const frameCount = tactics.reduce((total, tactic) => total + tactic.frames.length, 0);
   if (frameCount > BOARD_MAX_FRAMES) throw new Error(`戰術畫板最多支援 ${BOARD_MAX_FRAMES} 個拍次`);
@@ -153,6 +154,7 @@ export function boardFromTactics(tactics: Tactic[], title?: string): BoardDocume
     version: 1,
     id: newBoardId("board"),
     title: composedTitle(tactics, title),
+    purpose: "tactic",
     updatedAt: new Date().toISOString(),
     actors: BOARD_ACTORS.map((actor) => ({ ...actor })),
     frames,

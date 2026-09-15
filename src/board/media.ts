@@ -108,7 +108,7 @@ function reportProgress(callback: BoardMediaExportOptions["onProgress"], progres
 
 function safeFileStem(title: string) {
   const stem = title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-").replace(/\s+/g, " ").trim().slice(0, 80);
-  return stem || "网球战术";
+  return stem || "RallyPath-战术";
 }
 
 function mediaName(board: BoardDocument, extension: BoardMediaExport["extension"]) {

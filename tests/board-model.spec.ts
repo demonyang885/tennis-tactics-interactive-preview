@@ -13,6 +13,7 @@ import {
   deleteFrame,
   deletePath,
   getBoardDuration,
+  getBoardPurpose,
   getBoardPose,
   getFrameEnd,
   getFramePose,
@@ -29,6 +30,7 @@ import {
   updateFrame,
   updateMark,
   updatePath,
+  BOARD_PURPOSE_LABELS,
   type BoardDocument,
   type Point,
 } from "../src/board/model";
@@ -106,6 +108,33 @@ function delayedReceiverBoard(version: 1 | 2 = 1) {
   return { board, ball, receiver };
 }
 
+test("board purposes validate explicitly and legacy drafts are inferred conservatively", () => {
+  expect(BOARD_PURPOSE_LABELS).toEqual({
+    tactic: "战术",
+    practice: "练习",
+    review: "比赛回顾",
+  });
+
+  const legacy = createBlankBoard("旧画板");
+  expect(validateBoardDocument(legacy)).toEqual({ ok: true, value: legacy });
+  expect(getBoardPurpose(legacy)).toBe("tactic");
+  expect(getBoardPurpose({ ...legacy, drillId: "linked-drill" })).toBe("tactic");
+  expect(getBoardPurpose({ ...legacy, title: "刚才那一分" })).toBe("review");
+  expect(getBoardPurpose({ ...legacy, title: "剛才那一分" })).toBe("review");
+  expect(getBoardPurpose({ ...legacy, title: "刚才那一分（已修改）" })).toBe("tactic");
+
+  for (const purpose of ["tactic", "practice", "review"] as const) {
+    const board = { ...legacy, purpose };
+    expect(validateBoardDocument(board)).toEqual({ ok: true, value: board });
+    expect(getBoardPurpose(board)).toBe(purpose);
+  }
+
+  expect(validateBoardDocument({ ...legacy, purpose: "training" })).toMatchObject({
+    ok: false,
+    error: "畫板用途不支援",
+  });
+});
+
 test("starter board opens at the right-side serve positions", () => {
   const board = createStarterBoard("即用画板");
   expect(board.title).toBe("即用画板");
@@ -170,6 +199,7 @@ test("restoring a worked board preserves its draft identity and rebuilds the can
   worked = addFrame(worked, 0);
   worked = {
     ...worked,
+    purpose: "review",
     sourceTacticId: "serve-wide",
     drillId: "serve-drill",
     updatedAt: "2000-01-01T00:00:00.000Z",
@@ -182,6 +212,7 @@ test("restoring a worked board preserves its draft identity and rebuilds the can
   expect(restored).not.toBe(worked);
   expect(restored.id).toBe(originalId);
   expect(restored.title).toBe("保留这个名称");
+  expect(restored.purpose).toBe("review");
   expect(restored.updatedAt).not.toBe(worked.updatedAt);
   expect(restored.sourceTacticId).toBeUndefined();
   expect(restored.drillId).toBeUndefined();
@@ -216,7 +247,7 @@ test("restoring an unchanged starter is idempotent", () => {
 
 test("clearing a starter keeps one board flow and can re-arm the guided rally", () => {
   let starter = createStarterBoard("统一战术画板");
-  starter = { ...starter, sourceTacticId: "serve-wide", drillId: "serve-drill" };
+  starter = { ...starter, purpose: "practice", sourceTacticId: "serve-wide", drillId: "serve-drill" };
   const ball = starter.actors.find((actor) => actor.kind === "ball")!;
   starter = setPath(starter, 0, {
     id: "starter-shot",
@@ -251,6 +282,7 @@ test("clearing a starter keeps one board flow and can re-arm the guided rally", 
   expect(starter).toEqual(beforeClear);
   expect(cleared.id).toBe(starter.id);
   expect(cleared.title).toBe(starter.title);
+  expect(cleared.purpose).toBe("practice");
   expect(cleared.authoringMode).toBe("blank-rally");
   expect(cleared.sourceTacticId).toBeUndefined();
   expect(cleared.drillId).toBeUndefined();

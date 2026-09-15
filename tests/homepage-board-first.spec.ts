@@ -66,7 +66,7 @@ async function openCleanHomepage(page: Page) {
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
   await expect(page.getByRole("heading", { name: "下一分，怎么打？", exact: true })).toBeVisible();
-  await expect(page.getByText("COURT CANVAS", { exact: true })).toBeVisible();
+  await expect(page.getByText("RallyPath", { exact: true })).toBeVisible();
 }
 
 async function storedBoards(page: Page): Promise<BoardDocument[]> {
@@ -137,7 +137,7 @@ test("opens the content explanation from the quiet top-right help control", asyn
   await expect(help.locator("svg")).toHaveCount(1);
   await press(help);
 
-  const dialog = page.getByRole("dialog", { name: "网球战术演示", exact: true });
+  const dialog = page.getByRole("dialog", { name: "关于 RallyPath", exact: true });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("用球路和跑位，看懂青少年单打战术。");
   await expect(dialog).toContainText("蓝色是我方，红色是对手，黄色是网球");
@@ -159,7 +159,7 @@ test("keeps the homepage visible with a real draft and opens the board shown in 
   }, { key: STORAGE_KEY, board: recentDraft });
   await page.reload();
 
-  await expect(page.getByText("COURT CANVAS", { exact: true })).toBeVisible();
+  await expect(page.getByText("RallyPath", { exact: true })).toBeVisible();
   await expect(page.getByTestId("home-board-playback")).toHaveAttribute("data-board-id", recentDraft.id);
   await expect(page.getByRole("button", { name: `接着画${recentDraft.title}`, exact: true })).toBeVisible();
   await expect(page.locator(".home-preview-heading,.home-board-playback-replay")).toHaveCount(0);
