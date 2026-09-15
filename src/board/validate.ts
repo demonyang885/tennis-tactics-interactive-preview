@@ -8,6 +8,7 @@ import {
   type BoardFrame,
   type BoardMark,
   type BoardPath,
+  type BoardPurpose,
   type BoardSmartRally,
   type Point,
 } from "./model";
@@ -33,6 +34,7 @@ const PATH_KINDS = new Set(["shot", "move", "feed"]);
 const MARK_KINDS = new Set(["target", "cone", "basket", "text", "freehand"]);
 const SMART_RALLY_PHASES = new Set(["shot", "move"]);
 const AUTHORING_MODES = new Set(["blank-rally"]);
+const BOARD_PURPOSES = new Set<BoardPurpose>(["tactic", "practice", "review"]);
 
 class BoardValidationError extends Error {}
 
@@ -305,11 +307,16 @@ function validate(value: unknown): BoardDocument {
   if (authoringMode !== undefined && (typeof authoringMode !== "string" || !AUTHORING_MODES.has(authoringMode))) {
     invalid("畫板編排模式不支援");
   }
+  const purpose = source.purpose;
+  if (purpose !== undefined && (typeof purpose !== "string" || !BOARD_PURPOSES.has(purpose as BoardPurpose))) {
+    invalid("畫板用途不支援");
+  }
 
   return {
     version: 1,
     id: id(source.id, "畫板 ID"),
     title: requiredString(source.title, "畫板名稱", MAX_TITLE_LENGTH),
+    ...(purpose === undefined ? {} : { purpose: purpose as BoardPurpose }),
     ...(source.sourceTacticId === undefined
       ? {}
       : { sourceTacticId: optionalString(source.sourceTacticId, "來源戰術 ID", MAX_ID_LENGTH) }),

@@ -45,10 +45,19 @@ export type BoardSmartRally = {
 
 export type BoardAuthoringMode = "blank-rally";
 
+export type BoardPurpose = "tactic" | "practice" | "review";
+
+export const BOARD_PURPOSE_LABELS = {
+  tactic: "战术",
+  practice: "练习",
+  review: "比赛回顾",
+} as const satisfies Record<BoardPurpose, string>;
+
 export type BoardDocument = {
   version: 1;
   id: string;
   title: string;
+  purpose?: BoardPurpose;
   sourceTacticId?: string;
   updatedAt: string;
   actors: BoardActor[];
@@ -57,6 +66,18 @@ export type BoardDocument = {
   authoringMode?: BoardAuthoringMode;
   smartRally?: BoardSmartRally;
 };
+
+const LEGACY_REVIEW_TITLES = new Set(["刚才那一分", "剛才那一分"]);
+
+/**
+ * Resolve the homepage category without rewriting legacy documents. A linked
+ * drill alone is deliberately not treated as practice because tactic library
+ * boards may also carry a drill suggestion.
+ */
+export function getBoardPurpose(board: Pick<BoardDocument, "purpose" | "title">): BoardPurpose {
+  if (board.purpose) return board.purpose;
+  return LEGACY_REVIEW_TITLES.has(board.title.trim()) ? "review" : "tactic";
+}
 
 export type BoardPlaybackPose = {
   frameIndex: number;
@@ -380,6 +401,7 @@ export function clearBoardContent(board: BoardDocument): BoardDocument {
   return {
     ...empty,
     id: board.id,
+    ...(board.purpose ? { purpose: board.purpose } : {}),
     updatedAt: nowIso(),
   };
 }
@@ -447,6 +469,7 @@ export function restoreStarterBoard(board: BoardDocument): BoardDocument {
   return {
     ...starter,
     id: board.id,
+    ...(board.purpose ? { purpose: board.purpose } : {}),
     updatedAt: nowIso(),
   };
 }

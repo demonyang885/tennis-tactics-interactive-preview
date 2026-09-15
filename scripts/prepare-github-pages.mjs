@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const scriptFile = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(scriptFile), "..");
 
-export function normalizeBasePath(value = "/tennis-tactics/") {
+export function normalizeBasePath(value = "/tennis-tactics-interactive-preview/") {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "/") return "/";
   return `/${trimmed.replace(/^\/+|\/+$/g, "")}/`;
@@ -31,6 +31,7 @@ export async function prepareGitHubPages({
   sourceDirectory = path.join(projectRoot, "dist", "client"),
   outputDirectory = path.join(projectRoot, "dist", "github-pages"),
 } = {}) {
+  const packageMetadata = JSON.parse(await readFile(path.join(projectRoot, "package.json"), "utf8"));
   const indexPath = path.join(sourceDirectory, "index.html");
   await stat(indexPath);
   await rm(outputDirectory, { recursive: true, force: true });
@@ -54,6 +55,8 @@ export async function prepareGitHubPages({
   await writeFile(path.join(outputDirectory, "404.html"), deployedIndex);
   await writeFile(path.join(outputDirectory, ".nojekyll"), "");
   await writeFile(path.join(outputDirectory, "version.json"), `${JSON.stringify({
+    product: "RallyPath",
+    version: packageMetadata.version,
     commit: process.env.GITHUB_SHA || "local",
     builtAt: new Date().toISOString(),
     basePath,

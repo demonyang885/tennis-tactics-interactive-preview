@@ -36,7 +36,7 @@ async function captureScoreEvidence(screen: Locator, testInfo: TestInfo, filenam
 async function brightIncomingLineSamples(court: Locator) {
   return court.locator("canvas").evaluate((canvas) => {
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("Court canvas has no 2D context");
+    if (!context) throw new Error("RallyPath canvas has no 2D context");
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
     const scaleX = canvas.width / width;

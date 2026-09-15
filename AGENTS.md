@@ -1,5 +1,15 @@
 # Mobile Prototype Agent Guide
 
+## Current Home History Direction — 2026-09-15
+
+- Keep the live portrait board, primary action, and two intent actions as the entire first-screen focus. Do not place board-history rows or knowledge content in that initial viewport.
+- Add one quiet first-screen cue, “上滑看我的画板”, so young players can discover content below. It may scroll to the history area when tapped and should disappear after the user starts scrolling.
+- The second screen of the same vertical homepage is the board-history hub. Do not add a tab bar or another navigation level.
+- Every saved board has one user-facing purpose label: “战术”, “练习”, or “比赛回顾”. Assign the purpose from the entry context and preserve it through rename, duplicate, clear, restore, export, import, and later edits.
+- Existing unlabelled boards remain compatible. Infer only an unmistakable old review starter as “比赛回顾”; otherwise default old boards to “战术”. Do not infer “练习” from `drillId`, because a tactic can merely have related practice guidance.
+- The homepage history hub must let the user filter by those three purposes, open the exact saved board, start a board in the selected purpose, and reach the full board library. Keep “找个打法” below the history hub.
+- Opening a template or a new purpose entry must still not create a saved draft until the user makes a real committed edit. Storage remains local to the current browser.
+
 ## Current Product Direction — 2026-09-08
 
 - The user now asks for an appropriate original UI; external mini-program UI references are deferred. Use the existing prototype as the working starting point, not as a strict visual clone.
