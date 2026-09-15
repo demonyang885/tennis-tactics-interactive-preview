@@ -29,7 +29,7 @@ const bound = (v: number, min: number, max: number) => Math.max(min, Math.min(ma
 const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 export function getBoardGeometry(width: number, height: number) {
-  // CourtCanvas-style tactical boards intentionally compress the regulation
+  // RallyPath tactical boards intentionally compress the regulation
   // aspect ratio so the court and its touch targets remain legible on phones.
   // Coordinates and service-line placement stay normalized and deterministic.
   const ratio = 1.66;

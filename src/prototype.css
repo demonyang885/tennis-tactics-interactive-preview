@@ -254,7 +254,7 @@
 .about-demo .about-source { color:#5f7062; font-size:12px; }
 @media(prefers-reduced-motion:reduce) { .tactic-card, .variant-trigger svg, .guide-section svg, .rally-progress i { transition:none; } }
 
-/* Court Canvas — Theme 1 / Coach Green */
+/* RallyPath — Coach Green */
 .tennis-app .catalogue-board-entry { display:flex; align-items:center; justify-content:space-between; flex:none; min-height:64px; margin:10px 16px 8px; padding:10px 13px; border:1px solid #cdddc6; border-radius:16px; background:linear-gradient(135deg,#eef5df,#e6efda); color:#244c34; text-align:left; box-shadow:0 7px 20px rgb(35 77 51 / 7%); }
 .catalogue-board-entry > span { display:grid; grid-template-columns:34px auto; grid-template-rows:auto auto; align-items:center; column-gap:9px; min-width:0; }
 .catalogue-board-entry > span > svg { grid-row:1/3; width:21px; height:21px; justify-self:center; }

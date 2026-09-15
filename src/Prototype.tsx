@@ -117,7 +117,7 @@ function AppHeader({ title, back, menu }: { title: string; back?: () => void; me
 }
 function HomeHeader({ menu }: { menu: () => void }) {
   return <div className="home-header">
-    <strong>COURT CANVAS</strong>
+    <strong>RallyPath</strong>
     <button aria-label="打开内容说明" onClick={menu}><InfoCircledIcon/></button>
   </div>;
 }
@@ -1261,7 +1261,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
     setError("");
     const result=mediaState.result,file=new File([result.blob],result.name,{type:result.mimeType.split(";")[0]});
     try{
-      if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:board.title,text:"网球战术动画"});setNotice("分享已完成。");}
+      if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:board.title,text:"RallyPath 战术动画"});setNotice("分享已完成。");}
       else downloadMedia();
     }catch(reason){if(reason instanceof DOMException&&reason.name==="AbortError"){setNotice("已取消分享，文件还可以下载");return;}setError("这次没有分享成功，请重试或下载到设备");}
   };
@@ -1461,7 +1461,7 @@ export default function Prototype() {
   function makeCombination(combination:Combination):FlowScreen {return {id:`${combination.id}-plan`,title:combination.name,headerHeight:62,header:flow=><AppHeader title={`${combination.name} · 思路`} back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><CombinationDetail combination={combination} openTactic={(tactic,contextLabel)=>flow.push(makeDetail(tactic,contextLabel))} openBoard={()=>flow.push(makeBoard(boardFromTactics(combination.stages.map(stage=>combinationExample(stage.tacticId,stage.excerpt)),combination.name)))}/>};}
   function makeInteractive(combination:Combination):FlowScreen {return {id:`${combination.id}-rally`,title:combination.name,headerHeight:62,header:flow=><AppHeader title={combination.name} back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><InteractiveCombinationPlayer combination={combination} openPlan={()=>flow.push(makeCombination(combination))}/>};}
   function makeKnowledge(initialMode:"tactics"|"combinations"="tactics",initialCategory:CategoryFilter="全部"):FlowScreen {return {id:`knowledge-${initialMode}-${initialCategory}`,title:"战术知识库",headerHeight:62,header:flow=><AppHeader title="战术知识库" back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><TacticsList initialMode={initialMode} initialCategory={initialCategory} openTactic={tactic=>flow.push(makeDetail(tactic))} openCombination={combination=>flow.push(makeInteractive(combination))}/>};}
-  function makeHome():FlowScreen {return {id:"home",title:"COURT CANVAS",headerHeight:62,header:()=> <HomeHeader menu={()=>setInfo(true)}/>,render:flow=><BoardHome openBoard={(board,persisted,intent)=>flow.push(makeBoard(board,persisted,intent))} openKnowledge={(mode,category)=>flow.push(makeKnowledge(mode,category))} openLibrary={()=>flow.push(makeBoardLibrary(""))}/>};}
+  function makeHome():FlowScreen {return {id:"home",title:"RallyPath",headerHeight:62,header:()=> <HomeHeader menu={()=>setInfo(true)}/>,render:flow=><BoardHome openBoard={(board,persisted,intent)=>flow.push(makeBoard(board,persisted,intent))} openKnowledge={(mode,category)=>flow.push(makeKnowledge(mode,category))} openLibrary={()=>flow.push(makeBoardLibrary(""))}/>};}
   const initial:FlowScreen=makeHome();
-  return <div className="tennis-app"><FlowStack initial={initial}/><BottomSheet open={info} onOpenChange={setInfo} title="网球战术演示" description="用球路和跑位，看懂青少年单打战术。" snap={.56}><div className="about-demo"><p><strong>{libraryStats.tactics} 个单项战术、{libraryStats.combinations} 组互动对打、{libraryStats.variants} 种应变</strong>。单项打法聚焦一招；组合打法会在每段球路后让你选择下一拍，并继续这一分。</p><p>“发球后抢先手”可以在同一个场面试不同打法：先看来球、自己和对手，再看这样打会换来什么、要留意什么。</p><p>蓝色是我方，红色是对手，黄色是网球；亮线为当前一拍，淡线为已完成球路，圆环提示下一落点。</p><p className="about-note">内容适合已能进行全场对打的青少年。若仍使用红、橙或绿球，请按球场大小和实际能力调整目标；战术示意不保证得分，也不能替代教练现场判断。</p><p className="about-source">教学原则参考 ITF、LTA 和 USTA 公开资料；战术组合与练习为教学化编排。</p><button className="sheet-done" onClick={()=>setInfo(false)}>知道了</button></div></BottomSheet></div>;
+  return <div className="tennis-app"><FlowStack initial={initial}/><BottomSheet open={info} onOpenChange={setInfo} title="关于 RallyPath" description="用球路和跑位，看懂青少年单打战术。" snap={.56}><div className="about-demo"><p><strong>{libraryStats.tactics} 个单项战术、{libraryStats.combinations} 组互动对打、{libraryStats.variants} 种应变</strong>。单项打法聚焦一招；组合打法会在每段球路后让你选择下一拍，并继续这一分。</p><p>“发球后抢先手”可以在同一个场面试不同打法：先看来球、自己和对手，再看这样打会换来什么、要留意什么。</p><p>蓝色是我方，红色是对手，黄色是网球；亮线为当前一拍，淡线为已完成球路，圆环提示下一落点。</p><p className="about-note">内容适合已能进行全场对打的青少年。若仍使用红、橙或绿球，请按球场大小和实际能力调整目标；战术示意不保证得分，也不能替代教练现场判断。</p><p className="about-source">教学原则参考 ITF、LTA 和 USTA 公开资料；战术组合与练习为教学化编排。</p><button className="sheet-done" onClick={()=>setInfo(false)}>知道了</button></div></BottomSheet></div>;
 }
