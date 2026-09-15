@@ -589,11 +589,27 @@ test("places an added mark over the visible previous route without selecting tha
   await expect(palette).toBeHidden();
   await clickBoardPoint(page, canvas, onRoute);
 
-  const saved = await saveAndRead(page);
+  let saved = await saveAndRead(page);
   expect(saved.frames[0].paths).toEqual(afterShot.frames[0].paths);
   expect(saved.frames[1].marks).toHaveLength(1);
   expect(saved.frames[1].marks[0]).toMatchObject({ kind: "target" });
   await expect(currentBoardGuide(page)).toContainText(/拖动接球球员.*画出跑位/);
+
+  await press(objectButton(page));
+  const objects = page.getByTestId("bottom-sheet");
+  await press(objects.getByRole("button", { name: "选择目标区", exact: true }));
+  await press(page.getByRole("button", { name: "调整目标区", exact: true }));
+  const objectSheet = page.getByRole("dialog", { name: "目标区", exact: true });
+  const text = objectSheet.getByRole("textbox", { name: "显示文字", exact: true });
+  await text.focus();
+  await expect(text).toBeFocused();
+  await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
+  await text.fill("发到外角");
+  await press(objectSheet.getByRole("button", { name: "更新文字", exact: true }));
+  await expect(objectSheet).toBeHidden();
+  expect(await page.evaluate(() => document.activeElement?.matches('input, textarea, [contenteditable="true"]') ?? false)).toBe(false);
+  saved = await saveAndRead(page);
+  expect(saved.frames[1].marks[0]).toMatchObject({ kind: "target", text: "发到外角" });
 
   await press(page.getByRole("button", { name: /打开我的战术板的画板菜单/ }));
   const files = page.getByTestId("bottom-sheet");
@@ -1289,13 +1305,23 @@ test("opens frame history directly from the visible beat control and edits a sel
   await expect(page.locator(".board-frame-rail")).toHaveCount(0);
 
   const sheet = await openFrameEditor(page, 1);
+  const label = sheet.locator(".board-field").filter({ hasText: "拍次口令" }).locator("input");
   const duration = sheet.locator('.board-field input[inputmode="decimal"]');
+  await label.focus();
+  await expect(label).toBeFocused();
+  await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
+  await label.fill("第 1 拍 · 外角发球");
   await expect(duration).toHaveValue("1.5");
+  await duration.focus();
+  await expect(duration).toBeFocused();
+  await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
   await duration.fill("2.5");
   await press(sheet.getByRole("button", { name: "完成", exact: true }));
   await expect(sheet).toBeHidden();
+  expect(await page.evaluate(() => document.activeElement?.matches('input, textarea, [contenteditable="true"]') ?? false)).toBe(false);
 
   const saved = await saveAndRead(page);
+  expect(saved.frames[0].label).toBe("第 1 拍 · 外角发球");
   expect(saved.frames[0].duration).toBe(2.5);
   expect(saved.frames[1].paths).toEqual([]);
 
@@ -1358,11 +1384,11 @@ test("renames in a dedicated keyboard-safe layer and restores focus to its opene
   await expect(title).toBeFocused();
   const fontSize = await title.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
   expect(fontSize).toBeGreaterThanOrEqual(16);
-  await expect(page.getByTestId("keyboard-dock")).toHaveAttribute("data-visible", "true");
+  await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
   await title.fill("键盘安全名称");
   await page.keyboard.press("Escape");
   await expect(rename).toBeHidden();
-  await expect(page.getByTestId("keyboard-dock")).toHaveAttribute("data-visible", "false");
+  await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
   await expect(menuTrigger).toBeFocused();
   await expect(page.locator(".phone-stage")).toHaveCSS("transform", stageTransform);
 

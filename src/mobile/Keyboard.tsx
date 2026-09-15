@@ -10,8 +10,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { motion } from "motion/react";
-import { mobileAssets } from "./assets";
 import { useMobileDevice } from "./Device";
 
 type KeyboardContextValue = {
@@ -35,41 +33,34 @@ type KeyboardInputProps = InputHTMLAttributes<HTMLInputElement> & {
 const KeyboardContext = createContext<KeyboardContextValue | null>(null);
 
 export function KeyboardProvider({ children }: PropsWithChildren) {
-  const { device } = useMobileDevice();
-  const [visible, setVisible] = useState(false);
-  const [dragOffset, setRawDragOffset] = useState(0);
-  const [isDragging, setDragging] = useState(false);
   const [focusedElement, setFocusedElement] = useState<HTMLElement | null>(null);
-  const fullHeight = device.geometry.keyboard.height;
-  const setDragOffset = (offset: number) => {
-    setRawDragOffset(Math.max(0, Math.min(fullHeight, offset)));
-  };
 
   const value = useMemo<KeyboardContextValue>(
     () => ({
-      visible,
-      height: visible ? Math.max(0, fullHeight - dragOffset) : 0,
-      fullHeight,
-      dragOffset,
-      isDragging,
-      progress: visible ? 1 : 0,
+      visible: false,
+      height: 0,
+      fullHeight: 0,
+      dragOffset: 0,
+      isDragging: false,
+      progress: 0,
       focusedElement,
-      setDragOffset,
-      setDragging,
+      setDragOffset: () => undefined,
+      setDragging: () => undefined,
       show: (element) => {
-        setRawDragOffset(0);
-        setDragging(false);
         setFocusedElement(element ?? null);
-        setVisible(true);
       },
       hide: () => {
-        focusedElement?.blur();
-        setDragging(false);
+        const activeElement = typeof document === "undefined" ? null : document.activeElement;
+        const activeInput = activeElement instanceof HTMLElement && activeElement.matches(
+          'input, textarea, [contenteditable="true"]',
+        )
+          ? activeElement
+          : null;
+        (activeInput ?? focusedElement)?.blur();
         setFocusedElement(null);
-        setVisible(false);
       },
     }),
-    [dragOffset, focusedElement, fullHeight, isDragging, visible],
+    [focusedElement],
   );
 
   return <KeyboardContext.Provider value={value}>{children}</KeyboardContext.Provider>;
@@ -209,33 +200,7 @@ export function KeyboardTextarea(props: TextareaHTMLAttributes<HTMLTextAreaEleme
 }
 
 export function KeyboardDock() {
-  const keyboard = useKeyboard();
-  const { device } = useMobileDevice();
-  const dismissDrag = useKeyboardDismissDrag();
-  const keyboardTransition = keyboard.isDragging
-    ? { duration: 0 }
-    : { duration: 0.26, ease: [0.2, 0.8, 0.2, 1] as [number, number, number, number] };
-
-  return (
-    <motion.div
-      className="keyboard-dock"
-      data-platform={device.platform}
-      data-testid="keyboard-dock"
-      data-visible={keyboard.visible ? "true" : "false"}
-      initial={{ y: keyboard.fullHeight }}
-      animate={{ y: keyboard.visible ? keyboard.dragOffset : keyboard.fullHeight }}
-      aria-hidden={keyboard.visible ? undefined : "true"}
-      style={{ height: keyboard.fullHeight }}
-      transition={keyboardTransition}
-      {...dismissDrag}
-    >
-      <img
-        className="keyboard-asset"
-        src={device.platform === "android" ? mobileAssets.androidKeyboard : mobileAssets.iphoneKeyboard}
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-      />
-    </motion.div>
-  );
+  // RallyPath runs inside a real browser. The operating system owns the only
+  // visible keyboard; this export remains for compatibility with the runtime.
+  return null;
 }

@@ -260,16 +260,17 @@ test.describe("immersive tactical-board menu", () => {
     await expect(input).toBeFocused();
     const inputFontSize = await input.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
     expect(inputFontSize).toBeGreaterThanOrEqual(16);
-    await expect(page.getByTestId("keyboard-dock")).toHaveAttribute("data-visible", "true");
+    await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
+    await expect(page.locator(".keyboard-asset")).toHaveCount(0);
     expectBoxClose(await layer.boundingBox(), screenBefore!);
     await expect.poll(async () => layer.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     expect(await page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1);
-    await capture(screen, testInfo, "05-rename-with-simulator-keyboard.png");
+    await capture(screen, testInfo, "05-rename-with-native-input.png");
 
     await input.fill("不会缩放的名称");
     await press(layer.getByRole("button", { name: "取消", exact: true }));
     await expect(layer).toBeHidden();
-    await expect(page.getByTestId("keyboard-dock")).toHaveAttribute("data-visible", "false");
+    await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
     await expect(menuTrigger).toBeFocused();
     await expect(page.getByRole("toolbar", { name: "战术板操作" })).toContainText("沉浸测试画板");
     expectBoxClose(await screen.boundingBox(), screenBefore!);
@@ -319,7 +320,8 @@ test.describe("real-mobile rename viewport", () => {
     await expect(layer).toBeVisible();
     await expect(input).toBeFocused();
     expect(await input.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
-    await expect(page.getByTestId("keyboard-dock")).toHaveAttribute("data-visible", "false");
+    await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
+    await expect(page.locator(".keyboard-asset")).toHaveCount(0);
     expectBoxClose(await layer.boundingBox(), screenBefore!);
 
     const viewportMetrics = await page.evaluate(() => ({
@@ -340,6 +342,7 @@ test.describe("real-mobile rename viewport", () => {
     await input.fill("移动端原生名称");
     await press(layer.getByRole("button", { name: "完成", exact: true }));
     await expect(layer).toBeHidden();
+    expect(await page.evaluate(() => document.activeElement?.matches('input, textarea, [contenteditable="true"]') ?? false)).toBe(false);
     await expect(toolbar).toContainText("移动端原生名称");
     await expect(toolbar.getByRole("button", { name: "打开移动端原生名称的画板菜单", exact: true })).toBeVisible();
     expectBoxClose(await screen.boundingBox(), screenBefore!);

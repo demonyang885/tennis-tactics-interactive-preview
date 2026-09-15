@@ -776,8 +776,6 @@ function BoardRenameLayer({open,value,error,onChange,onCancel,onSubmit}:{open:bo
   const {screenRef}=useScreenPortal();
   const {device}=useMobileDevice();
   const inputRef=useRef<HTMLInputElement>(null);
-  const [useNativeInput,setUseNativeInput]=useState(()=>typeof window!=="undefined"&&window.matchMedia("(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 600px)").matches);
-  useEffect(()=>{const query=window.matchMedia("(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 600px)"),sync=()=>setUseNativeInput(query.matches);query.addEventListener?.("change",sync);return()=>query.removeEventListener?.("change",sync);},[]);
   const cancel=()=>{inputRef.current?.blur();onCancel();};
   const submit=()=>{inputRef.current?.blur();onSubmit();};
   return <Dialog.Root open={open} onOpenChange={next=>{if(!next)onCancel();}}>
@@ -789,7 +787,7 @@ function BoardRenameLayer({open,value,error,onChange,onCancel,onSubmit}:{open:bo
           <button className="is-primary" onClick={submit}>完成</button>
         </header>
         <div className="board-rename-content">
-          <div className="board-rename-field"><label htmlFor="board-rename-title">画板名称</label><div className="board-rename-input-wrap">{useNativeInput?<input id="board-rename-title" ref={inputRef} value={value} maxLength={60} autoComplete="off" enterKeyHint="done" onChange={event=>onChange(event.currentTarget.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.nativeEvent.isComposing){event.preventDefault();submit();}}}/>:<KeyboardInput id="board-rename-title" ref={inputRef} value={value} maxLength={60} autoComplete="off" enterKeyHint="done" onChange={event=>onChange(event.currentTarget.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.nativeEvent.isComposing){event.preventDefault();submit();}}}/>}<button type="button" aria-label="清空画板名称" disabled={!value} onPointerDown={event=>event.preventDefault()} onClick={()=>{onChange("");inputRef.current?.focus();}}><CrossCircledIcon/></button></div><small>1–60 个字</small></div>
+          <div className="board-rename-field"><label htmlFor="board-rename-title">画板名称</label><div className="board-rename-input-wrap"><KeyboardInput id="board-rename-title" ref={inputRef} value={value} maxLength={60} autoComplete="off" enterKeyHint="done" onChange={event=>onChange(event.currentTarget.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.nativeEvent.isComposing){event.preventDefault();submit();}}}/><button type="button" aria-label="清空画板名称" disabled={!value} onPointerDown={event=>event.preventDefault()} onClick={()=>{onChange("");inputRef.current?.focus();}}><CrossCircledIcon/></button></div><small>1–60 个字</small></div>
           {error&&<p className="board-rename-error" role="alert">{error}</p>}
           <Dialog.Description className="board-sr-only">独立修改画板名称；键盘出现时画板不会缩放。</Dialog.Description>
         </div>

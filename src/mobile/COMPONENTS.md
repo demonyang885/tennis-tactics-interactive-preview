@@ -22,9 +22,9 @@ The runtime resolves nested gestures by axis. Horizontal intent stays with `Caro
 
 Do not use `data-scroll-drag="ignore"` for carousels or ordinary rails. It is a hard opt-out that prevents parent scrolling in every direction. Do not layer CSS scroll snapping over the runtime's JavaScript momentum. If snapping is added later, it should be a component option so one system owns release motion.
 
-## Keyboard-linked surfaces
+## Native input surfaces
 
-Use `KeyboardInput`, `KeyboardTextarea`, or `MobileTextField` for all text entry. Position a composer, search surface, or other keyboard-linked UI from `useKeyboardInsets().bottomInset`. The inset is relative to the app viewport: Android's closed-keyboard viewport already ends above its navigation bar, while iOS still needs its overlaid home-indicator inset; both platforms return the keyboard height while the keyboard is open. Never pin those surfaces to only `keyboardHeight`. When that surface closes, call `keyboard.hide()` in the same event before updating its own open state.
+Use `KeyboardInput`, `KeyboardTextarea`, or `MobileTextField` for text entry. These are native browser fields; they track focus so shared close actions can call `keyboard.hide()` and blur the active field. They never render a simulated keyboard or add a keyboard-height inset. Let the browser's visual viewport handle the system keyboard. When an input surface closes, call `keyboard.hide()` before updating its open state.
 
 ## BottomSheet
 
