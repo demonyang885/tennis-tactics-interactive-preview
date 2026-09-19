@@ -76,7 +76,7 @@ git switch -c feature/next-iteration origin/main
 - 發布驗證：`npm run verify:release`。實機分享與觸控仍需相應設備驗收。
 - 合併前確認當次 PR 的 CI，而非沿用 9/15 的成功紀錄；合併後確認 deploy 與線上 version.json。
 - 每次交接記錄 repository、branch、完整 HEAD、工作區是否乾淨、PR、測試結果、部署 run 與 URL；若只本機預覽，明確記錄其 checkout 與 SHA。
-- 舊 `demonyang885/tennis-tactics` 僅供歷史查閱，不接收新功能。舊 Pages URL 不再代表最新產品。
+- 舊 `demonyang885/tennis-tactics` 僅供歷史查閱，不接收新功能；[redirect PR #1](https://github.com/demonyang885/tennis-tactics/pull/1) 已在 README 與 AGENTS 開頭加入唯一來源提示。舊 Pages URL 不再代表最新產品。
 - v0.2.0 已發布；不要從 `release/rallypath-v0.2.0`、舊 preview 或舊 feature 分支續作，也不要為整理歷史而改寫提交或改變使用者本機存檔。
 - 審核時兩邊 main 的 branches API 均回報 `protected:false`。保護規則／rulesets 未完整查核；本文件是工作約定，不代表 GitHub 已強制執行。後續可由管理員核對並設定 required CI 與禁止直接推送。
 

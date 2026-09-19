@@ -39,6 +39,6 @@ GitHub Releases 沒有獨立 release object；本版本以 tag、main 提交、�
 ## 交接狀態
 
 - README、產品規格、唯一來源及收斂記錄已改為發布後事實。
-- 舊 `demonyang885/tennis-tactics` 只作歷史查閱，不接收新功能。
+- 舊 `demonyang885/tennis-tactics` 的 redirect PR #1 已合併為 `3532d99`；README 與 AGENTS 已明示該庫只作歷史查閱，不接收新功能。
 - 遠端狀態不能證明 Mac mini 本機 checkout 是否乾淨；再次使用前必須先做 `remote / branch / HEAD / status` 唯讀核對。
 - 審核時 main 未啟用 branch protection。若管理權限允許，應要求 PR 與 `Test and deploy RallyPath / build` 通過後才可合併。
