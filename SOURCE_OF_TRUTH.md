@@ -19,7 +19,7 @@
 v0.2.0 的程式發布提交為 `9158a2beef25c3fd346326f3fb9eece9c0100229`；package 為 0.2.0，帶註解標籤 `v0.2.0` 指向同一提交。
 [Actions run 35445469313](https://github.com/demonyang885/tennis-tactics-interactive-preview/actions/runs/35445469313) 的 build 與 deploy 均成功；首次 v0.2.0 正式部署的 `version.json` 回報 product `RallyPath`、version `0.2.0`、commit `9158a2beef25c3fd346326f3fb9eece9c0100229`，builtAt `2026-09-19T13:27:00.430Z`。
 
-這是 v0.2.0 的程式發布基準，不是永久的 main HEAD。下次開發仍須重新 fetch main；其後純文件提交亦會觸發 Pages，可能改變線上 `version.json` 的 source commit，而產品版本仍為 0.2.0。GitHub Releases 查詢仍為空；本版本以 Git tag、發布提交、成功 Pages 部署及線上產品版本共同識別。
+這是 v0.2.0 的程式發布基準，不是永久的 main HEAD。下次開發仍須重新 fetch main；其後純文件提交亦會觸發 Pages，可能改變線上 `version.json` 的 source commit，而產品版本仍為 0.2.0。GitHub Releases 查詢仍為空；本版本以 Git tag、發布提交、成功 Pages 部署及線上產品版本共同識別。Tag annotation 在正式部署前建立，內文的「not yet deployed」只描述建立當刻；保留不可變發布標記，以成功部署與本文件補正後續狀態。
 v0.2.0 沒有獨立發布 PR；提交在未受保護的 main 上完成整合後觸發 CI 並成功部署。這是歷史事實，不應被寫成經 PR 合併。後續變更仍按本文件要求走短期分支與 PR。
 
 ## 每次開工的身份檢查
