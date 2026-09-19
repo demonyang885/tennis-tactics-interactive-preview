@@ -149,7 +149,7 @@ test.describe("immersive tactical-board menu", () => {
     await seedAndOpenBoard(page);
   });
 
-  test("opens directly as an app-level immersive board with compact history and no fullscreen switch", async ({ page }, testInfo) => {
+  test("opens directly as an icon-only immersive board with edit, help, and history controls", async ({ page }, testInfo) => {
     const screen = page.getByTestId("device-screen");
     const stage = page.locator(".phone-stage");
     const editor = page.locator(".board-editor");
@@ -164,11 +164,18 @@ test.describe("immersive tactical-board menu", () => {
 
     const toolbar = page.getByRole("toolbar", { name: "战术板操作", exact: true });
     const back = toolbar.getByRole("button", { name: "返回上一页", exact: true });
-    const history = toolbar.getByRole("button", { name: "打开拍次历史，当前第 1 拍，共 1 拍", exact: true });
+    const redo = toolbar.getByRole("button", { name: "重做", exact: true });
+    const help = toolbar.getByRole("button", { name: "查看画板操作说明", exact: true });
+    const history = page.getByRole("navigation", { name: "画板编辑工具", exact: true })
+      .getByRole("button", { name: "打开拍次，当前第 1 拍", exact: true });
     await expect(back).toBeVisible();
+    await expect(redo).toBeVisible();
+    await expect(toolbar.getByRole("button", { name: "选择球场主题", exact: true })).toHaveCount(0);
+    await expect(help).toBeVisible();
     await expect(history).toBeVisible();
     await expect(history.locator("svg")).toHaveCount(1);
-    await expect(history.locator("span")).toHaveText("1");
+    await expect(toolbar).toHaveText("");
+    await expect(page.getByRole("navigation", { name: "画板编辑工具", exact: true })).toHaveText("");
     const historyBox = await history.boundingBox();
     expect(historyBox).not.toBeNull();
     expect(historyBox!.width).toBeGreaterThanOrEqual(44);
@@ -182,6 +189,28 @@ test.describe("immersive tactical-board menu", () => {
     await press(historySheet.getByRole("button", { name: "关闭拍次", exact: true }));
     await expect(historySheet).toBeHidden();
     await expect(history).toBeFocused();
+
+    const menuTrigger = toolbar.getByRole("button", { name: "打开沉浸测试画板的画板菜单", exact: true });
+    await press(menuTrigger);
+    const rootMenu = page.getByRole("dialog", { name: "画板菜单", exact: true });
+    await waitForSheetSettled(page, rootMenu);
+    const hard = rootMenu.getByRole("button", { name: "硬地", exact: true });
+    const clay = rootMenu.getByRole("button", { name: "红土", exact: true });
+    await expect(hard).toHaveAttribute("aria-pressed", "true");
+    await press(clay);
+    await expect(clay).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("sheet-overlay").click({ position: { x: 20, y: 20 } });
+    await expect(rootMenu).toBeHidden();
+
+    await press(help);
+    const helpSheet = page.getByRole("dialog", { name: "画板操作", exact: true });
+    await waitForSheetSettled(page, helpSheet);
+    await expect(helpSheet).toContainText("Control、Drive、Put away");
+    await expect(helpSheet).toContainText("我方球员");
+    await expect(helpSheet).toContainText("喂球路线");
+    await expect(helpSheet).toContainText("自由笔");
+    await press(helpSheet.getByRole("button", { name: "关闭画板操作说明", exact: true }));
+    await expect(helpSheet).toBeHidden();
   });
 
   test("keeps menu and share actions available without leaving immersive mode", async ({ page }, testInfo) => {
@@ -193,7 +222,13 @@ test.describe("immersive tactical-board menu", () => {
     await press(menuTrigger);
     const rootMenu = page.getByRole("dialog", { name: "画板菜单", exact: true });
     await waitForSheetSettled(page, rootMenu);
-    await expect(rootMenu.locator(".board-menu-list > button")).toHaveCount(4);
+    await expect(rootMenu.locator(".board-menu-list > button")).toHaveCount(6);
+    const zones = rootMenu.getByRole("button", { name: /站位分区/ });
+    const labels = rootMenu.getByRole("button", { name: /区域名称/ });
+    await expect(zones).toHaveAttribute("aria-pressed", "true");
+    await expect(labels).toHaveAttribute("aria-pressed", "false");
+    await press(labels);
+    await expect(labels).toHaveAttribute("aria-pressed", "true");
     await expect(rootMenu.getByRole("button", { name: /^修改名称/ })).toBeVisible();
     await expect(rootMenu.getByRole("button", { name: "一键还原发球站位，可撤销", exact: true })).toBeEnabled();
     await expect(rootMenu.getByRole("button", { name: /^保存与分享/ })).toBeVisible();
@@ -272,7 +307,8 @@ test.describe("immersive tactical-board menu", () => {
     await expect(layer).toBeHidden();
     await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
     await expect(menuTrigger).toBeFocused();
-    await expect(page.getByRole("toolbar", { name: "战术板操作" })).toContainText("沉浸测试画板");
+    await expect(page.getByRole("toolbar", { name: "战术板操作" })).toHaveText("");
+    await expect(menuTrigger).toHaveAccessibleName("打开沉浸测试画板的画板菜单");
     expectBoxClose(await screen.boundingBox(), screenBefore!);
     await expect(page.getByTestId("phone-frame")).toHaveCSS("transform", phoneTransformBefore);
   });
@@ -295,17 +331,14 @@ test.describe("real-mobile rename viewport", () => {
     await expect(page.getByRole("button", { name: /^(进入|退出)全屏战术板$/ })).toHaveCount(0);
 
     const toolbar = page.getByRole("toolbar", { name: "战术板操作", exact: true });
-    const history = toolbar.getByRole("button", { name: "打开拍次历史，当前第 1 拍，共 1 拍", exact: true });
-    const [historyBounds, guideBounds] = await Promise.all([
-      history.boundingBox(),
-      page.locator(".board-interaction-guide").boundingBox(),
-    ]);
+    const history = page.getByRole("navigation", { name: "画板编辑工具", exact: true })
+      .getByRole("button", { name: "打开拍次，当前第 1 拍", exact: true });
+    const historyBounds = await history.boundingBox();
     expect(historyBounds).not.toBeNull();
     expect(historyBounds!.width).toBeGreaterThanOrEqual(44);
     expect(historyBounds!.height).toBeGreaterThanOrEqual(44);
-    expect(guideBounds).not.toBeNull();
-    expect(guideBounds!.height).toBeGreaterThanOrEqual(44);
-    expect(guideBounds!.height).toBeLessThanOrEqual(48);
+    await expect(page.locator(".board-interaction-guide")).toHaveCount(0);
+    await expect(toolbar).toHaveText("");
     await capture(screen, testInfo, "immersive-board-390x844.png");
 
     const menuTrigger = toolbar.getByRole("button", { name: "打开沉浸测试画板的画板菜单", exact: true });
@@ -343,7 +376,7 @@ test.describe("real-mobile rename viewport", () => {
     await press(layer.getByRole("button", { name: "完成", exact: true }));
     await expect(layer).toBeHidden();
     expect(await page.evaluate(() => document.activeElement?.matches('input, textarea, [contenteditable="true"]') ?? false)).toBe(false);
-    await expect(toolbar).toContainText("移动端原生名称");
+    await expect(toolbar).toHaveText("");
     await expect(toolbar.getByRole("button", { name: "打开移动端原生名称的画板菜单", exact: true })).toBeVisible();
     expectBoxClose(await screen.boundingBox(), screenBefore!);
   });

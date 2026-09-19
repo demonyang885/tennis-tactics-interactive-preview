@@ -7,6 +7,8 @@ export type BoardActor = {
   color?: string;
 };
 
+export type BoardShotPace = "control" | "drive" | "put-away";
+
 export type BoardPath = {
   id: string;
   kind: "shot" | "move" | "feed";
@@ -14,6 +16,8 @@ export type BoardPath = {
   from: Point;
   to: Point;
   control?: Point;
+  /** Optional for backward compatibility; frame.duration remains playback truth. */
+  pace?: BoardShotPace;
 };
 
 export type BoardMark = {
@@ -91,6 +95,21 @@ export const BOARD_MAX_FRAMES = 60;
 
 const DEFAULT_TITLE = "未命名戰術";
 export const BOARD_DEFAULT_FRAME_DURATION = 1.5;
+export const BOARD_SHOT_PACE_HOLD_MS = {
+  drive: 250,
+  putAway: 700,
+} as const;
+export const BOARD_SHOT_PACE_REFERENCE_DURATION = {
+  control: 2.2,
+  drive: 1.5,
+  "put-away": .9,
+} as const satisfies Record<BoardShotPace, number>;
+const BOARD_COURT_WIDTH_METERS = 10.97;
+const BOARD_COURT_LENGTH_METERS = 23.77;
+const BOARD_SHOT_REFERENCE_DISTANCE_METERS = 18;
+const BOARD_SHOT_MIN_DURATION = .3;
+const BOARD_SHOT_MAX_DURATION = 8;
+const BOARD_SHOT_LENGTH_SEGMENTS = 32;
 const MAX_ACTORS = 24;
 const MAX_MARKS_PER_FRAME = 100;
 const MAX_FREEHAND_POINTS = 2_000;
@@ -100,6 +119,7 @@ const MAX_LABEL_LENGTH = 160;
 const MAX_TITLE_LENGTH = 120;
 const MAX_ID_LENGTH = 128;
 const FORBIDDEN_IDS = new Set(["__proto__", "prototype", "constructor"]);
+const BOARD_SHOT_PACES = new Set<BoardShotPace>(["control", "drive", "put-away"]);
 
 const copyPoint = (point: Point): Point => [point[0], point[1]];
 
@@ -226,6 +246,77 @@ function assertDuration(duration: number) {
   if (!Number.isFinite(duration) || duration < 0 || duration > 120) {
     throw new RangeError("拍次時長必須介於 0 至 120 秒");
   }
+}
+
+function assertShotPace(pace: BoardShotPace) {
+  if (!BOARD_SHOT_PACES.has(pace)) throw new Error("不支援的球速檔位");
+}
+
+function assertPathPace(path: Pick<BoardPath, "kind" | "pace">) {
+  if (path.pace === undefined) return;
+  assertShotPace(path.pace);
+  if (path.kind === "move") throw new Error("跑位路線不能設定球速檔位");
+}
+
+/** Resolve the single-direction charge gesture. Put away is a cap, not a loop. */
+export function getShotPaceForHold(holdMilliseconds: number): BoardShotPace {
+  const held = holdMilliseconds === Infinity
+    ? Infinity
+    : Number.isFinite(holdMilliseconds) ? Math.max(0, holdMilliseconds) : 0;
+  if (held >= BOARD_SHOT_PACE_HOLD_MS.putAway) return "put-away";
+  if (held >= BOARD_SHOT_PACE_HOLD_MS.drive) return "drive";
+  return "control";
+}
+
+function pointOnQuadraticPath(path: Pick<BoardPath, "from" | "to" | "control">, progress: number): Point {
+  const remaining = 1 - progress;
+  if (!path.control) return [
+    path.from[0] * remaining + path.to[0] * progress,
+    path.from[1] * remaining + path.to[1] * progress,
+  ];
+  return [
+    remaining * remaining * path.from[0]
+      + 2 * remaining * progress * path.control[0]
+      + progress * progress * path.to[0],
+    remaining * remaining * path.from[1]
+      + 2 * remaining * progress * path.control[1]
+      + progress * progress * path.to[1],
+  ];
+}
+
+/** Approximate route length in real court metres so all render sizes share timing. */
+export function getBoardPathLengthMeters(path: Pick<BoardPath, "from" | "to" | "control">) {
+  assertPoint(path.from, "路線起點");
+  assertPoint(path.to, "路線終點");
+  if (path.control) assertPoint(path.control, "曲線控制點");
+  let length = 0;
+  let previous = pointOnQuadraticPath(path, 0);
+  for (let index = 1; index <= BOARD_SHOT_LENGTH_SEGMENTS; index += 1) {
+    const current = pointOnQuadraticPath(path, index / BOARD_SHOT_LENGTH_SEGMENTS);
+    length += Math.hypot(
+      (current[0] - previous[0]) * BOARD_COURT_WIDTH_METERS,
+      (current[1] - previous[1]) * BOARD_COURT_LENGTH_METERS,
+    );
+    previous = current;
+  }
+  return length;
+}
+
+/**
+ * Convert a semantic pace and authored route into the stored frame duration.
+ * Reference values are calibrated for an 18 m rally ball; the result is
+ * rounded for stable JSON and bounded away from zero for playable animation.
+ */
+export function getShotDurationForPace(
+  path: Pick<BoardPath, "kind" | "from" | "to" | "control">,
+  pace: BoardShotPace,
+) {
+  assertShotPace(pace);
+  if (path.kind === "move") throw new Error("跑位路線不能設定球速檔位");
+  const scaled = BOARD_SHOT_PACE_REFERENCE_DURATION[pace]
+    * getBoardPathLengthMeters(path)
+    / BOARD_SHOT_REFERENCE_DISTANCE_METERS;
+  return Math.round(bounded(scaled, BOARD_SHOT_MIN_DURATION, BOARD_SHOT_MAX_DURATION) * 100) / 100;
 }
 
 function assertSmartRally(board: BoardDocument, smartRally: BoardSmartRally) {
@@ -775,6 +866,7 @@ export function setPath(board: BoardDocument, frameIndex: number, path: BoardPat
   if (path.control) assertPoint(path.control, "曲線控制點");
   assertIdValue(path.id, "路線 ID");
   if (!(["shot", "move", "feed"] as const).includes(path.kind)) throw new Error("不支援的路線類型");
+  assertPathPace(path);
   if (board.frames.some((item, index) => index !== frameIndex
     && (item.paths.some((candidate) => candidate.id === path.id) || item.marks.some((candidate) => candidate.id === path.id)))) {
     throw new Error("路線 ID 已存在");
@@ -826,6 +918,7 @@ export function updatePath(
     to: copyPoint(patch.to ?? original.to),
   };
   if (updated.control) updated.control = copyPoint(updated.control);
+  assertPathPace(updated);
   const paths = frame.paths
     .filter((path) => path.id === pathId || path.actorId !== actorId)
     .map((path) => path.id === pathId ? updated : path);
@@ -896,6 +989,32 @@ export function updateFrame(
     frames[frameIndex + 1] = { ...frames[frameIndex + 1], duration: patch.duration || BOARD_DEFAULT_FRAME_DURATION };
   }
   return touch(board, { frames });
+}
+
+/**
+ * Save a ball route's semantic pace and its playback duration as one immutable
+ * document update. Legacy routes without pace remain untouched until the user
+ * explicitly assigns one.
+ */
+export function applyShotPace(
+  board: BoardDocument,
+  frameIndex: number,
+  pathId: string,
+  pace: BoardShotPace,
+): BoardDocument {
+  assertFrameIndex(board, frameIndex);
+  assertShotPace(pace);
+  const path = board.frames[frameIndex].paths.find((candidate) => candidate.id === pathId);
+  if (!path) throw new Error("找不到指定球路");
+  if (path.kind === "move") throw new Error("跑位路線不能設定球速檔位");
+  const actor = board.actors.find((candidate) => candidate.id === path.actorId);
+  if (actor?.kind !== "ball") throw new Error("球速檔位只能用於網球路線");
+
+  const pacedBoard = updatePath(board, frameIndex, pathId, { pace });
+  const pacedPath = pacedBoard.frames[frameIndex].paths.find((candidate) => candidate.id === pathId)!;
+  return updateFrame(pacedBoard, frameIndex, {
+    duration: getShotDurationForPace(pacedPath, pace),
+  });
 }
 
 export function addMark(board: BoardDocument, frameIndex: number, mark: BoardMark): BoardDocument {

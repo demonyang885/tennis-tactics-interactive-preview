@@ -9,6 +9,7 @@ import {
   type BoardMark,
   type BoardPath,
   type BoardPurpose,
+  type BoardShotPace,
   type BoardSmartRally,
   type Point,
 } from "./model";
@@ -31,6 +32,7 @@ const COORDINATE_EPSILON = 1e-8;
 const FORBIDDEN_IDS = new Set(["__proto__", "prototype", "constructor"]);
 const ACTOR_KINDS = new Set(["player", "ball"]);
 const PATH_KINDS = new Set(["shot", "move", "feed"]);
+const SHOT_PACES = new Set<BoardShotPace>(["control", "drive", "put-away"]);
 const MARK_KINDS = new Set(["target", "cone", "basket", "text", "freehand"]);
 const SMART_RALLY_PHASES = new Set(["shot", "move"]);
 const AUTHORING_MODES = new Set(["blank-rally"]);
@@ -133,6 +135,11 @@ function parsePath(
   const from = point(source.from, `${label}起點`);
   const pose = poses[actorId];
   if (!pose || !samePoint(from, pose)) invalid(`${label}起點沒有連接角色站位`);
+  const pace = source.pace;
+  if (pace !== undefined) {
+    if (kind === "move") invalid(`${label}跑位路線不能設定球速檔位`);
+    if (typeof pace !== "string" || !SHOT_PACES.has(pace as BoardShotPace)) invalid(`${label}球速檔位不支援`);
+  }
   return {
     id: id(source.id, `${label} ID`),
     kind: kind as BoardPath["kind"],
@@ -140,6 +147,7 @@ function parsePath(
     from,
     to: point(source.to, `${label}終點`),
     ...(source.control === undefined ? {} : { control: point(source.control, `${label}控制點`) }),
+    ...(pace === undefined ? {} : { pace: pace as BoardShotPace }),
   };
 }
 

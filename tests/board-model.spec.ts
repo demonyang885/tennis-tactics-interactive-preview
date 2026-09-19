@@ -3,6 +3,7 @@ import {
   addActor,
   addFrame,
   addMark,
+  applyShotPace,
   armBlankRally,
   clearBoardContent,
   cloneBoard,
@@ -13,10 +14,13 @@ import {
   deleteFrame,
   deletePath,
   getBoardDuration,
+  getBoardPathLengthMeters,
   getBoardPurpose,
   getBoardPose,
   getFrameEnd,
   getFramePose,
+  getShotDurationForPace,
+  getShotPaceForHold,
   isBoardContentEmpty,
   isStarterBoardState,
   moveActor,
@@ -32,6 +36,7 @@ import {
   updatePath,
   BOARD_PURPOSE_LABELS,
   type BoardDocument,
+  type BoardShotPace,
   type Point,
 } from "../src/board/model";
 import { BOARD_STORAGE_KEY, deleteBoard, readBoards, saveBoard, type BoardStorage } from "../src/board/storage";
@@ -107,6 +112,107 @@ function delayedReceiverBoard(version: 1 | 2 = 1) {
   });
   return { board, ball, receiver };
 }
+
+test("maps a stationary hold monotonically from Control to Drive to Put away", () => {
+  expect(getShotPaceForHold(Number.NaN)).toBe("control");
+  expect(getShotPaceForHold(-50)).toBe("control");
+  expect(getShotPaceForHold(249)).toBe("control");
+  expect(getShotPaceForHold(250)).toBe("drive");
+  expect(getShotPaceForHold(699)).toBe("drive");
+  expect(getShotPaceForHold(700)).toBe("put-away");
+  expect(getShotPaceForHold(Infinity)).toBe("put-away");
+});
+
+test("converts path distance and pace into deterministic frame durations", () => {
+  const short = {
+    kind: "shot" as const,
+    from: [.5, .8] as Point,
+    to: [.5, .55] as Point,
+  };
+  const long = {
+    ...short,
+    to: [.2, .08] as Point,
+  };
+  const paces: BoardShotPace[] = ["control", "drive", "put-away"];
+  const durations = paces.map((pace) => getShotDurationForPace(long, pace));
+
+  expect(durations[0]).toBeGreaterThan(durations[1]);
+  expect(durations[1]).toBeGreaterThan(durations[2]);
+  expect(getBoardPathLengthMeters(long)).toBeGreaterThan(getBoardPathLengthMeters(short));
+  expect(getShotDurationForPace(long, "drive")).toBeGreaterThan(getShotDurationForPace(short, "drive"));
+  expect(() => getShotDurationForPace({ ...long, kind: "move" }, "drive")).toThrow(/跑位路线|跑位路線/);
+});
+
+test("applies ball pace and duration atomically while carrying an untouched smart tail", () => {
+  let board = createStarterBoard("球速测试");
+  const ball = board.actors.find((actor) => actor.kind === "ball")!;
+  const receiver = board.actors.find((actor) => actor.label === "对手")!;
+  board = setPath(board, 0, {
+    id: "paced-serve",
+    kind: "shot",
+    actorId: ball.id,
+    from: board.frames[0].poses[ball.id],
+    to: [.72, .2],
+    control: [.78, .55],
+  });
+  board = addFrame(board, 0);
+  board = setSmartRally(board, {
+    version: 2,
+    frameId: board.frames[1].id,
+    phase: "move",
+    hitterId: receiver.id,
+    actorId: receiver.id,
+  });
+  const originalJson = JSON.stringify(board);
+
+  const paced = applyShotPace(board, 0, "paced-serve", "put-away");
+  const shot = paced.frames[0].paths.find((path) => path.id === "paced-serve")!;
+  expect(JSON.stringify(board)).toBe(originalJson);
+  expect(shot.pace).toBe("put-away");
+  expect(paced.frames[0].duration).toBe(getShotDurationForPace(shot, "put-away"));
+  expect(paced.frames[1].duration).toBe(paced.frames[0].duration);
+  expect(paced.smartRally).toEqual(board.smartRally);
+  expect(validateBoardDocument(paced)).toEqual({ ok: true, value: paced });
+
+  const longerCurve = updatePath(paced, 0, shot.id, { control: [.12, .48] });
+  const retimed = applyShotPace(longerCurve, 0, shot.id, "put-away");
+  expect(retimed.frames[0].duration).toBeGreaterThan(paced.frames[0].duration);
+  expect(retimed.frames[1].duration).toBe(retimed.frames[0].duration);
+});
+
+test("round-trips optional pace while preserving legacy durations without inference", () => {
+  const legacy = updateFrame(playableBoard(), 0, { duration: 2.37 });
+  const parsedLegacy = parseBoardJSON(JSON.stringify(legacy));
+  expect(parsedLegacy).toEqual({ ok: true, value: legacy });
+  if (parsedLegacy.ok) {
+    expect(parsedLegacy.value.frames[0].duration).toBe(2.37);
+    expect(parsedLegacy.value.frames[0].paths[0].pace).toBeUndefined();
+  }
+
+  const paced = applyShotPace(legacy, 0, "shot-1", "drive");
+  const parsedPaced = parseBoardJSON(JSON.stringify(paced));
+  expect(parsedPaced).toEqual({ ok: true, value: paced });
+  const storage = new MemoryStorage();
+  expect(saveBoard(paced, storage).ok).toBe(true);
+  const reread = readBoards(storage);
+  expect(reread.ok).toBe(true);
+  if (reread.ok) expect(reread.value[0].frames[0].paths[0].pace).toBe("drive");
+
+  const unsupported = structuredClone(paced) as BoardDocument;
+  (unsupported.frames[0].paths[0] as BoardDocument["frames"][number]["paths"][number] & { pace: string }).pace = "smash";
+  expect(validateBoardDocument(unsupported)).toMatchObject({ ok: false });
+
+  const pacedMove = structuredClone(paced);
+  pacedMove.frames[0].paths.push({
+    id: "paced-move",
+    kind: "move",
+    actorId: "me",
+    from: pacedMove.frames[0].poses.me,
+    to: [.3, .7],
+    pace: "control",
+  });
+  expect(validateBoardDocument(pacedMove)).toMatchObject({ ok: false });
+});
 
 test("board purposes validate explicitly and legacy drafts are inferred conservatively", () => {
   expect(BOARD_PURPOSE_LABELS).toEqual({

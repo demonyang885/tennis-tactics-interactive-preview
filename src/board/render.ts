@@ -1,4 +1,5 @@
-import { getFramePose, type BoardActor, type BoardDocument, type BoardFrame, type BoardMark, type BoardPath, type Point } from "./model";
+import { getBoardDisplayPreferences, type BoardSurface } from "./display";
+import { getFramePose, type BoardActor, type BoardDocument, type BoardFrame, type BoardMark, type BoardPath, type BoardShotPace, type Point } from "./model";
 
 export type BoardSelection = { kind: "actor"; id: string } | { kind: "element"; id: string; frameIndex?: number };
 export type BoardHit = BoardSelection | { kind: "handle"; id: string; handle: "from" | "to" | "control"; frameIndex?: number };
@@ -18,28 +19,71 @@ export type BoardRenderOptions = {
   contextPaths?: BoardPath[];
   /** Source frame for an editable preceding-beat selection. */
   contextFrameIndex?: number;
+  /** Visual surface only. It never changes timing or coordinates. */
+  surface?: BoardSurface;
+  /** Mirrored positioning bands below the regulation lines. */
+  showZones?: boolean;
+  /** Optional learning labels for the positioning bands. */
+  showZoneLabels?: boolean;
+  /** Actor names are independent from authored text marks. */
+  showActorLabels?: boolean;
+  /** Temporary endpoint feedback while a ball route is charging. */
+  charge?: { point: Point; pace: BoardShotPace; progress: number; frame: number } | null;
+};
+
+type SurfacePalette = {
+  surround: string;
+  court: string;
+  courtAccent: string;
+  line: string;
+  net: string;
+  handle: string;
+};
+
+export const BOARD_SURFACE_PALETTES: Record<BoardSurface, SurfacePalette> = {
+  hard: { surround: "#08442f", court: "#28684b", courtAccent: "rgba(38,111,88,.28)", line: "#f1f5ed", net: "#b8c8bd", handle: "#235d45" },
+  clay: { surround: "#713b2d", court: "#b86647", courtAccent: "rgba(128,62,42,.22)", line: "#fff4e9", net: "#d8c5b9", handle: "#8e4b37" },
+  grass: { surround: "#1c472b", court: "#4f7b3f", courtAccent: "rgba(32,88,46,.25)", line: "#f3f5e9", net: "#c3d0be", handle: "#396431" },
 };
 
 const COLORS = {
-  surround: "#153e2e", court: "#28684b", line: "#f0f5e9", shot: "#d8ef72",
-  feed: "#f5d693", move: "#b7d9ed", selected: "#ffffff", text: "#edf5df",
+  shot: "#d8ef72", feed: "#f5d693", move: "#9fc9ef", selected: "#ffffff", text: "#eef5ea",
+};
+const ZONES = {
+  defense: "rgba(48,124,168,.26)",
+  rally: "rgba(32,151,158,.30)",
+  angle: "rgba(3,67,64,.36)",
+  pressure: "rgba(151,205,80,.34)",
+  attack: "rgba(226,170,67,.38)",
+  net: "rgba(222,108,97,.42)",
 };
 const FONT = '-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif';
 const bound = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 export function getBoardGeometry(width: number, height: number) {
-  // RallyPath tactical boards intentionally compress the regulation
-  // aspect ratio so the court and its touch targets remain legible on phones.
-  // Coordinates and service-line placement stay normalized and deterministic.
-  const ratio = 1.66;
-  const topInset = 30, bottomInset = 30;
+  // Fit the full tactical range, including the run-off areas behind both
+  // baselines. The regulation rectangle stays normalized to 0...1 so every
+  // existing board keeps the same coordinates.
+  const ratio = 1.93;
+  // Keep a small playable run-off behind each baseline without letting the
+  // defensive band consume the portrait board. This gives the regulation
+  // court more of the available screen while preserving off-court movement.
+  const runOff = .08;
+  const topInset = 8, bottomInset = 8;
   const availableHeight = Math.max(1, height - topInset - bottomInset);
-  const courtHeight = Math.max(1, Math.min(availableHeight, (width - 40) * ratio));
+  const courtHeight = Math.max(1, Math.min(availableHeight / (1 + runOff * 2), (width - 28) * ratio));
   const courtWidth = courtHeight / ratio;
-  const court = { x: (width - courtWidth) / 2, y: topInset + (availableHeight - courtHeight) / 2, width: courtWidth, height: courtHeight };
+  const tacticalHeight = courtHeight * (1 + runOff * 2);
+  const court = {
+    x: (width - courtWidth) / 2,
+    y: topInset + (availableHeight - tacticalHeight) / 2 + courtHeight * runOff,
+    width: courtWidth,
+    height: courtHeight,
+  };
   return {
     court,
+    runOff,
     toCanvas: (point: Point): Point => [court.x + point[0] * court.width, court.y + point[1] * court.height],
     fromCanvas: (point: Point): Point => [(point[0] - court.x) / court.width, (point[1] - court.y) / court.height],
     clampPoint: (point: Point): Point => [bound(point[0], -.15, 1.15), bound(point[1], -.15, 1.15)],
@@ -63,27 +107,107 @@ function circle(ctx: CanvasRenderingContext2D, at: Point, radius: number, fill: 
   if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth; ctx.stroke(); }
 }
 
-function label(ctx: CanvasRenderingContext2D, text: string, at: Point, size = 12, align: CanvasTextAlign = "center") {
+function label(ctx: CanvasRenderingContext2D, text: string, at: Point, size = 12, align: CanvasTextAlign = "center", stroke = "#153e2e") {
   ctx.save(); ctx.font = `600 ${size}px ${FONT}`; ctx.textAlign = align; ctx.textBaseline = "middle";
-  ctx.lineJoin = "round"; ctx.lineWidth = 3; ctx.strokeStyle = COLORS.surround; ctx.strokeText(text, ...at);
+  ctx.lineJoin = "round"; ctx.lineWidth = 3; ctx.strokeStyle = stroke; ctx.strokeText(text, ...at);
   ctx.fillStyle = COLORS.text; ctx.fillText(text, ...at); ctx.restore();
 }
 
-function drawCourt(ctx: CanvasRenderingContext2D, geometry: Geometry) {
+function fillBand(ctx: CanvasRenderingContext2D, geometry: Geometry, from: number, to: number, color: string) {
+  const single = (10.97 - 8.23) / (2 * 10.97);
+  const [left, top] = geometry.toCanvas([single, from]);
+  const [right, bottom] = geometry.toCanvas([1 - single, to]);
+  ctx.fillStyle = color;
+  ctx.fillRect(left, top, right - left, bottom - top);
+}
+
+function zoneDivider(ctx: CanvasRenderingContext2D, geometry: Geometry, y: number, color: string) {
+  const single = (10.97 - 8.23) / (2 * 10.97);
+  ctx.save(); ctx.setLineDash([6, 5]);
+  line(ctx, geometry.toCanvas([single, y]), geometry.toCanvas([1 - single, y]), color, 1.15);
+  ctx.restore();
+}
+
+function drawPositioningZones(ctx: CanvasRenderingContext2D, geometry: Geometry, showLabels: boolean, palette: SurfacePalette) {
+  const single = (10.97 - 8.23) / (2 * 10.97);
+  const service = (23.77 / 2 - 6.4) / 23.77;
+  const rallyEnd = .16;
+  const attackEnd = .39;
+  const mirror = (value: number) => 1 - value;
+  const drawHalf = (top: boolean) => {
+    const y = (value: number) => top ? value : mirror(value);
+    const defenseStart = -geometry.runOff;
+    fillBand(ctx, geometry, Math.min(y(defenseStart), y(0)), Math.max(y(defenseStart), y(0)), ZONES.defense);
+    fillBand(ctx, geometry, Math.min(y(0), y(rallyEnd)), Math.max(y(0), y(rallyEnd)), ZONES.rally);
+    fillBand(ctx, geometry, Math.min(y(rallyEnd), y(service)), Math.max(y(rallyEnd), y(service)), ZONES.pressure);
+    fillBand(ctx, geometry, Math.min(y(service), y(attackEnd)), Math.max(y(service), y(attackEnd)), ZONES.attack);
+    fillBand(ctx, geometry, Math.min(y(attackEnd), y(.5)), Math.max(y(attackEnd), y(.5)), ZONES.net);
+
+    const leftBase = geometry.toCanvas([single, y(0)]), leftInner = geometry.toCanvas([.31, y(rallyEnd)]), leftOuter = geometry.toCanvas([single, y(rallyEnd)]);
+    const rightBase = geometry.toCanvas([1 - single, y(0)]), rightInner = geometry.toCanvas([.69, y(rallyEnd)]), rightOuter = geometry.toCanvas([1 - single, y(rallyEnd)]);
+    ctx.fillStyle = ZONES.angle;
+    ctx.beginPath(); ctx.moveTo(...leftBase); ctx.lineTo(...leftInner); ctx.lineTo(...leftOuter); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(...rightBase); ctx.lineTo(...rightInner); ctx.lineTo(...rightOuter); ctx.closePath(); ctx.fill();
+    ctx.save(); ctx.setLineDash([5, 5]);
+    line(ctx, leftBase, leftInner, "rgba(191,224,232,.72)", 1.15);
+    line(ctx, rightBase, rightInner, "rgba(191,224,232,.72)", 1.15);
+    ctx.restore();
+
+    zoneDivider(ctx, geometry, y(rallyEnd), "rgba(212,236,91,.72)");
+    zoneDivider(ctx, geometry, y(attackEnd), "rgba(245,151,73,.72)");
+
+    if (!showLabels) return;
+    const zoneLabel = (text: string, point: Point, size = 10) => label(ctx, text, geometry.toCanvas(point), size, "center", palette.surround);
+    zoneLabel("DEFENSE", [.5, y(defenseStart / 2)], 10);
+    zoneLabel("RALLY", [.5, y(.082)], 10);
+    zoneLabel("ANGLE", [.19, y(.09)], 8.5);
+    zoneLabel("ANGLE", [.81, y(.09)], 8.5);
+    zoneLabel("PRESSURE", [.5, y((rallyEnd + service) / 2)], 9.5);
+    zoneLabel("ATTACK", [.5, y((service + attackEnd) / 2)], 9.5);
+    zoneLabel("NET / FINISH", [.5, y((attackEnd + .5) / 2)], 9.2);
+  };
+  drawHalf(true);
+  drawHalf(false);
+}
+
+function drawSurfaceTexture(ctx: CanvasRenderingContext2D, geometry: Geometry, surface: BoardSurface, palette: SurfacePalette) {
+  const { court } = geometry;
+  ctx.save(); ctx.beginPath(); ctx.rect(court.x, court.y, court.width, court.height); ctx.clip();
+  ctx.strokeStyle = palette.courtAccent;
+  if (surface === "grass") {
+    const stripe = Math.max(12, court.height / 20);
+    ctx.lineWidth = stripe;
+    for (let y = court.y + stripe / 2, index = 0; y < court.y + court.height; y += stripe, index += 1) {
+      if (index % 2 === 0) line(ctx, [court.x, y], [court.x + court.width, y], palette.courtAccent, stripe);
+    }
+  } else {
+    ctx.lineWidth = .7;
+    const gap = surface === "clay" ? 13 : 21;
+    for (let y = court.y + gap; y < court.y + court.height; y += gap) {
+      line(ctx, [court.x, y], [court.x + court.width, y], palette.courtAccent, .7);
+    }
+  }
+  ctx.restore();
+}
+
+function drawCourt(ctx: CanvasRenderingContext2D, geometry: Geometry, surface: BoardSurface, showZones: boolean, showZoneLabels: boolean) {
   const { court, toCanvas: px } = geometry;
-  ctx.fillStyle = COLORS.court; ctx.fillRect(court.x, court.y, court.width, court.height);
-  ctx.strokeStyle = COLORS.line; ctx.lineWidth = 1.65; ctx.strokeRect(court.x, court.y, court.width, court.height);
+  const palette = BOARD_SURFACE_PALETTES[surface];
+  ctx.fillStyle = palette.court; ctx.fillRect(court.x, court.y, court.width, court.height);
+  drawSurfaceTexture(ctx, geometry, surface, palette);
+  if (showZones) drawPositioningZones(ctx, geometry, showZoneLabels, palette);
+  ctx.strokeStyle = palette.line; ctx.lineWidth = 1.65; ctx.strokeRect(court.x, court.y, court.width, court.height);
   const single = (10.97 - 8.23) / (2 * 10.97), service = (23.77 / 2 - 6.4) / 23.77;
-  line(ctx, px([single, 0]), px([single, 1]), COLORS.line);
-  line(ctx, px([1 - single, 0]), px([1 - single, 1]), COLORS.line);
-  line(ctx, px([single, service]), px([1 - single, service]), COLORS.line);
-  line(ctx, px([single, 1 - service]), px([1 - single, 1 - service]), COLORS.line);
-  line(ctx, px([.5, service]), px([.5, 1 - service]), COLORS.line);
-  line(ctx, px([.5, 0]), px([.5, .015]), COLORS.line);
-  line(ctx, px([.5, .985]), px([.5, 1]), COLORS.line);
-  line(ctx, px([-.045, .5]), px([1.045, .5]), "#a9beb0", 3.5);
-  line(ctx, px([-.045, .487]), px([-.045, .513]), "#d3dfd3", 3.5);
-  line(ctx, px([1.045, .487]), px([1.045, .513]), "#d3dfd3", 3.5);
+  line(ctx, px([single, 0]), px([single, 1]), palette.line);
+  line(ctx, px([1 - single, 0]), px([1 - single, 1]), palette.line);
+  line(ctx, px([single, service]), px([1 - single, service]), palette.line);
+  line(ctx, px([single, 1 - service]), px([1 - single, 1 - service]), palette.line);
+  line(ctx, px([.5, service]), px([.5, 1 - service]), palette.line);
+  line(ctx, px([.5, 0]), px([.5, .015]), palette.line);
+  line(ctx, px([.5, .985]), px([.5, 1]), palette.line);
+  line(ctx, px([-.045, .5]), px([1.045, .5]), palette.net, 3.5);
+  line(ctx, px([-.045, .487]), px([-.045, .513]), palette.line, 3.5);
+  line(ctx, px([1.045, .487]), px([1.045, .513]), palette.line, 3.5);
 }
 
 function drawArrow(ctx: CanvasRenderingContext2D, tip: Point, tangent: Point, color: string, size = 8) {
@@ -101,8 +225,9 @@ function tracePath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geo
 
 function drawPath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress: number, playing: boolean, selected: boolean, opacity = 1) {
   const color = path.kind === "move" ? COLORS.move : path.kind === "feed" ? COLORS.feed : COLORS.shot;
+  const paceWidth = path.pace === "put-away" ? 3.7 : path.pace === "drive" ? 3.2 : 2.8;
   ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = color;
-  ctx.setLineDash(path.kind === "move" ? [5, 5] : []); ctx.lineWidth = path.kind === "move" ? 2.2 : 2.8;
+  ctx.setLineDash(path.kind === "move" ? [5, 5] : []); ctx.lineWidth = path.kind === "move" ? 2.2 : paceWidth;
   if (selected) { ctx.save(); ctx.globalAlpha = .24 * opacity; ctx.lineWidth = 9; tracePath(ctx, path, geometry); ctx.stroke(); ctx.restore(); }
   ctx.globalAlpha = (playing ? .2 : .9) * opacity; tracePath(ctx, path, geometry); ctx.stroke();
   if (playing && progress > 0) { ctx.globalAlpha = 1; tracePath(ctx, path, geometry, progress); ctx.stroke(); }
@@ -156,7 +281,7 @@ function drawMark(ctx: CanvasRenderingContext2D, mark: BoardMark, geometry: Geom
   ctx.restore();
 }
 
-function drawHandles(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry) {
+function drawHandles(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, palette: SurfacePalette) {
   const control: Point = path.control ?? [(path.from[0] + path.to[0]) / 2, (path.from[1] + path.to[1]) / 2];
   ctx.save(); ctx.setLineDash([3, 4]);
   if (path.control) {
@@ -164,10 +289,50 @@ function drawHandles(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: G
     line(ctx, geometry.toCanvas(path.control), geometry.toCanvas(path.to), "rgba(255,255,255,.45)", 1);
   }
   ctx.setLineDash([]);
-  circle(ctx, geometry.toCanvas(path.from), 6, COLORS.court, "#fff", 2.5);
+  circle(ctx, geometry.toCanvas(path.from), 6, palette.handle, "#fff", 2.5);
   circle(ctx, geometry.toCanvas(path.to), 7, COLORS.shot, "#fff", 2.5);
-  const at = geometry.toCanvas(control); ctx.fillStyle = COLORS.court; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+  const at = geometry.toCanvas(control); ctx.fillStyle = palette.handle; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(at[0], at[1] - 7); ctx.lineTo(at[0] + 7, at[1]); ctx.lineTo(at[0], at[1] + 7); ctx.lineTo(at[0] - 7, at[1]); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+function drawChargeFeedback(
+  ctx: CanvasRenderingContext2D,
+  geometry: Geometry,
+  charge: NonNullable<BoardRenderOptions["charge"]>,
+  width: number,
+) {
+  const at = geometry.toCanvas(charge.point);
+  const names: Record<BoardShotPace, string> = { control: "Control", drive: "Drive", "put-away": "Put away" };
+  ctx.save();
+  ctx.lineCap = "round";
+  circle(ctx, at, 7 + charge.progress * 2, "rgba(216,239,114,.18)", "rgba(255,255,255,.92)", 1.5);
+
+  // Keep a slim meter in the top-right margin. Only the bar and one fixed
+  // status label are drawn, so the court and route remain unobstructed.
+  const meterWidth = 14, meterHeight = 68, meterX = Math.max(8, width - meterWidth - 20), meterTop = 12;
+  ctx.fillStyle = "rgba(255,255,255,.18)";
+  ctx.fillRect(meterX, meterTop, meterWidth, meterHeight);
+  const visualProgress=Math.min(1,Math.max(0,charge.frame/29));
+  const gradient=ctx.createLinearGradient(0,meterTop+meterHeight,0,meterTop);
+  gradient.addColorStop(0,"#45c987");
+  gradient.addColorStop(.52,"#f0d84c");
+  gradient.addColorStop(1,"#ee5b4c");
+  if(visualProgress>0){
+    ctx.save();
+    ctx.shadowColor="rgba(240,216,76,.55)";
+    ctx.shadowBlur=8;
+    ctx.fillStyle=gradient;
+    ctx.fillRect(meterX,meterTop+meterHeight*(1-visualProgress),meterWidth,meterHeight*visualProgress);
+    ctx.restore();
+  }
+  ctx.strokeStyle="rgba(255,255,255,.62)";
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(meterX-4,meterTop+meterHeight*(1-250/700));ctx.lineTo(meterX+meterWidth+4,meterTop+meterHeight*(1-250/700));
+  ctx.moveTo(meterX-4,meterTop);ctx.lineTo(meterX+meterWidth+4,meterTop);
+  ctx.stroke();
+  label(ctx,names[charge.pace],[meterX+meterWidth/2,meterTop+meterHeight+16],9,"center","rgba(4,32,23,.95)");
   ctx.restore();
 }
 
@@ -186,10 +351,15 @@ function drawLegend(ctx: CanvasRenderingContext2D, width: number, height: number
 /** Draw in CSS pixels; the caller owns the backing-store DPR transform. */
 export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height: number, frame: BoardFrame, actors: BoardActor[], options: BoardRenderOptions = {}) {
   if (width <= 0 || height <= 0) return;
+  const preferences = getBoardDisplayPreferences();
+  const surface = options.surface ?? preferences.surface;
+  const palette = BOARD_SURFACE_PALETTES[surface];
+  const showZones = options.showZones ?? preferences.showZones;
+  const showZoneLabels = options.showZoneLabels ?? preferences.showZoneLabels;
   const geometry = getBoardGeometry(width, height), progress = bound(options.progress ?? options.playingProgress ?? 0, 0, 1);
   const selected = options.playing ? null : options.selection;
-  ctx.save(); ctx.clearRect(0, 0, width, height); ctx.fillStyle = COLORS.surround; ctx.fillRect(0, 0, width, height);
-  drawCourt(ctx, geometry);
+  ctx.save(); ctx.clearRect(0, 0, width, height); ctx.fillStyle = palette.surround; ctx.fillRect(0, 0, width, height);
+  drawCourt(ctx, geometry, surface, showZones, showZoneLabels);
   for (const path of options.contextPaths ?? []) {
     // The preceding beat must remain legible on a small court. Movement stays
     // slightly quieter so the newest ball route remains the primary signal.
@@ -204,10 +374,10 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
     const pose = poses[actor.id]; if (!pose) continue;
     const at = geometry.toCanvas(pose), isBall = actor.kind === "ball", radius = isBall ? 5.5 : 10.5;
     if (selected?.kind === "actor" && selected.id === actor.id) circle(ctx, at, radius + 6, "rgba(255,255,255,.13)", "rgba(255,255,255,.85)", 1.5);
-    circle(ctx, at, radius, actor.color ?? (isBall ? COLORS.shot : "#58a5ec"), COLORS.line, isBall ? 1.7 : 2.2);
-    if (!isBall && options.showLabels !== false && actor.label) {
+    circle(ctx, at, radius, actor.color ?? (isBall ? COLORS.shot : "#58a5ec"), palette.line, isBall ? 1.7 : 2.2);
+    if (!isBall && (options.showActorLabels ?? options.showLabels !== false) && actor.label) {
       const dy = pose[1] < .5 ? 26 : -31;
-      label(ctx, actor.label, [at[0], bound(at[1] + dy, 12, height - 38)], 13);
+      label(ctx, actor.label, [at[0], bound(at[1] + dy, 12, height - 38)], 13, "center", palette.surround);
     }
   }
   if (selected?.kind === "element") {
@@ -215,8 +385,9 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
       ?? (selected.frameIndex === undefined || selected.frameIndex === options.contextFrameIndex
         ? options.contextPaths?.find(item => item.id === selected.id)
         : undefined);
-    if (path) drawHandles(ctx, path, geometry);
+    if (path) drawHandles(ctx, path, geometry, palette);
   }
+  if (options.charge) drawChargeFeedback(ctx, geometry, options.charge, width);
   if (options.showLegend !== false) drawLegend(ctx, width, height, frame.paths.some(path => path.kind === "feed") || !!options.contextPaths?.some(path => path.kind === "feed"));
   ctx.restore();
 }
@@ -280,8 +451,12 @@ export function hitTestBoard(
   }
   const pathHit = frame.paths.map(path => ({ path, distance: distanceToPath(pixel, path, geometry) })).filter(item => item.distance <= minimumTouchRadius).sort((a, b) => a.distance - b.distance)[0];
   if (pathHit) return { kind: "element", id: pathHit.path.id };
-  // Previous-beat paths are visual context only. Their handles become
-  // interactive after the explicit "调弧度" action supplies a selection.
+  const contextPathHit = contextFrameIndex === undefined
+    ? null
+    : contextPaths.map(path => ({ path, distance: distanceToPath(pixel, path, geometry) }))
+      .filter(item => item.distance <= minimumTouchRadius)
+      .sort((a, b) => a.distance - b.distance)[0];
+  if (contextPathHit) return { kind: "element", id: contextPathHit.path.id, frameIndex: contextFrameIndex };
   return null;
 }
 

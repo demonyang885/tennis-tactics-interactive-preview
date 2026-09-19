@@ -1,5 +1,18 @@
 # Mobile Prototype Agent Guide
 
+## Current Pace And Court Display Direction — 2026-09-16
+
+- The selected ball-speed interaction is the landing-point segmented charge ring from visual direction 1. Do not reopen the three-choice popup during normal line drawing.
+- A single continuous gesture draws and sets pace: drag from the tennis ball to the landing point, let the endpoint become stable, keep holding to charge, and release to commit. The order is `Control` at minimum charge, `Drive` after charging, and `Put away` at maximum charge. The sequence stops at `Put away` and never loops.
+- Pace feedback on the court uses only the English labels `Control`, `Drive`, and `Put away`. Do not add Chinese translations, seconds, speed values, sliders, or gauges to the primary gesture.
+- Preserve internal frame duration as the playback source of truth. A released gesture must commit route geometry, pace, and duration as one undoable edit, then resume the existing synchronized receiver-movement flow.
+- Remove the manual per-frame duration field from the product UI. Duration remains in the board model for playback, legacy compatibility, home preview, video, and GIF output, and is now derived from route length plus the selected pace.
+- Hard, Clay, and Grass are visual-only, device-level display preferences. Select them directly on the board through a compact icon control; do not bury theme selection in the overflow menu or serialize it as tactic content. Themes must never silently change ball speed, frame duration, bounce, or player movement.
+- The positioning layer follows mirrored tennis positioning bands—Defense, Rally, Pressure, Attack, and Net—with translucent, theme-aware colors. Keep it below court lines and all tactical objects, and show the colored regions by default. Region names are hidden by default; the overflow menu may independently toggle region colors and region-name visibility. These are device display preferences, not tactic content.
+- Keep the board's permanent top and bottom controls icon-only. The top bar exposes back, undo, direct court-theme selection, help, and overflow; the bottom dock exposes only the context-relevant edit, play, history, or delete icons. The help icon opens the complete operation and icon guide, so explanatory copy does not occupy the court during normal use.
+- Pace, court themes, and tactical-zone display are part of the current implementation scope, not deferred future-version work.
+- `PRODUCT_VNEXT.md` is the source of truth for the detailed scope, menu logic, exclusions, and acceptance criteria.
+
 ## Current Input Direction — 2026-09-15
 
 - RallyPath is now used directly in a phone or desktop browser. Do not render the simulated iOS or Android keyboard in any product flow.
@@ -20,7 +33,7 @@
 
 - The user now asks for an appropriate original UI; external mini-program UI references are deferred. Use the existing prototype as the working starting point, not as a strict visual clone.
 - Keep one core journey: select a match situation, open a tactic, watch the animation, and expand explanations as needed.
-- Prioritize readable tactic names and purposes, an unobstructed court, labelled playback controls, and concise progressive explanations. Do not reintroduce course routes, multiple difficulty filters, accounts, or scoring workflows.
+- Prioritize readable tactic names and purposes outside the immersive editor, an unobstructed court, intuitive icon-only board controls, and explanations available from the help button. Do not reintroduce course routes, multiple difficulty filters, accounts, or scoring workflows.
 - Preserve the current 22 tactics, 8 combinations, and 16 opponent-response variants while adding individual context, decisions, alternatives, and practice guidance for young players who can already rally on a full court.
 - Treat useful content and its presentation as the product core. Keep single-tactic displays synchronized around the ball path, current decision, memory cue, and full guide. Build combination displays around an explicit match path, execution cue, transition signal, and opponent-response variants.
 - Add new content through `src/content/next.ts`, follow `src/content/TACTIC_AUTHORING.md`, and keep the automated content validation enabled in the production build.

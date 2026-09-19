@@ -98,15 +98,18 @@ async function expectBoardEditor(page: Page) {
   const current = page.getByTestId("flow-current");
   await expect(current.getByTestId("board-canvas")).toBeVisible();
   await waitForFlowSettled(page);
-  await expect(current.getByRole("button", { name: "对象", exact: true })).toBeVisible();
-  await expect(current.getByRole("button", { name: "添加", exact: true })).toBeVisible();
+  const dock = current.getByRole("navigation", { name: "画板编辑工具", exact: true });
+  await expect(dock.getByRole("button")).toHaveCount(3);
+  await expect(dock.getByRole("button").nth(0)).toHaveAccessibleName(/^(添加对象|调整)/);
+  await expect(dock.getByRole("button").nth(2)).toHaveAccessibleName(/^(打开拍次|删除)/);
+  await expect(dock).toHaveText("");
 }
 
 async function expectBoardEditorTitle(page: Page, title: string) {
   const toolbar = page.getByTestId("flow-current").getByRole("toolbar", { name: "战术板操作", exact: true });
   await expect(toolbar).toBeVisible();
-  await expect(toolbar.locator("strong")).toHaveText(title);
   await expect(toolbar.getByRole("button", { name: `打开${title}的画板菜单`, exact: true })).toBeVisible();
+  await expect(toolbar).toHaveText("");
 }
 
 async function openCurrentBoardLibrary(page: Page) {
@@ -149,7 +152,15 @@ test("opens a canonical ready-to-serve board without creating a draft before edi
   await press(page.getByRole("button", { name: "想下一分", exact: true }));
   await expectBoardEditor(page);
   await expectBoardEditorTitle(page, "我的战术板");
-  await expect(page.getByTestId("flow-current").locator(".board-interaction-guide")).toContainText(/从网球拖出去.*发球路线/);
+  await expect(page.getByTestId("flow-current").locator(".board-interaction-guide")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "查看画板操作说明", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "选择球场主题", exact: true })).toHaveCount(0);
+  const toolbar = page.getByTestId("flow-current").getByRole("toolbar", { name: "战术板操作", exact: true });
+  await press(toolbar.getByRole("button", { name: "打开我的战术板的画板菜单", exact: true }));
+  const menu = page.getByRole("dialog", { name: "画板菜单", exact: true });
+  await expect(menu.getByRole("button", { name: "硬地", exact: true })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "红土", exact: true })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "草地", exact: true })).toBeVisible();
   await expect.poll(async () => (await storedBoards(page)).length).toBe(0);
 });
 
@@ -327,7 +338,7 @@ test("opens the full tactical knowledge library from the short first-action entr
   await expect(page.getByRole("button", { name: /^小球\+挑高，10秒/ })).toHaveCount(0);
 });
 
-test("keeps training guidance contextual to a tactic instead of duplicating it on home", async ({ page }) => {
+test("keeps the board focused and does not reintroduce an unfinished training CTA", async ({ page }) => {
   await press(page.getByRole("button", { name: "找个打法", exact: true }));
   await waitForFlowSettled(page);
   await press(page.getByRole("button", { name: "先稳住", exact: true }));
@@ -336,11 +347,8 @@ test("keeps training guidance contextual to a tactic instead of duplicating it o
   await press(page.getByRole("button", { name: "改成我的打法", exact: true }));
   await expectBoardEditor(page);
   await expectBoardEditorTitle(page, "防守高深回中");
-  await expect(page.getByRole("button", { name: "看怎么练", exact: true })).toBeVisible();
   await expect.poll(async () => (await storedBoards(page)).length).toBe(0);
-  await press(page.getByRole("button", { name: "看怎么练", exact: true }));
-  await expect(page.getByRole("heading", { name: "受压回深，回位再接一拍", exact: true })).toBeVisible();
-  await expect(page.getByText("开始前，准备这些", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "看怎么练", exact: true })).toHaveCount(0);
 });
 
 test("preserves a multi-frame single tactic and saves it only after an explicit edit", async ({ page }) => {

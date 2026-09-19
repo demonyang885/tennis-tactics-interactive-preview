@@ -13,7 +13,7 @@ test("selected route handles win hit testing when a handle overlaps its actor", 
   expect(hit).toEqual({ kind: "handle", id: pathId, handle: "from" });
 });
 
-test("preceding-beat routes stay read-only until explicitly selected", () => {
+test("preceding-beat routes can be selected directly from the visible route", () => {
   let board = createStarterBoard();
   const ball = board.actors.find((actor) => actor.kind === "ball")!;
   const from = board.frames[0].poses[ball.id];
@@ -29,7 +29,7 @@ test("preceding-beat routes stay read-only until explicitly selected", () => {
     contextFrameIndex: 0,
   });
 
-  expect(hit).toBeNull();
+  expect(hit).toEqual({ kind: "element", id: pathId, frameIndex: 0 });
 });
 
 test("selected preceding-beat handles win hit testing over continuation actors", () => {
