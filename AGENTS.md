@@ -18,6 +18,17 @@
 - RallyPath is now used directly in a phone or desktop browser. Do not render the simulated iOS or Android keyboard in any product flow.
 - Text and numeric fields must use the browser and device's native input behavior. On phones this means the system keyboard; on computers it means direct physical-keyboard input.
 - Keep `KeyboardInput`, `KeyboardTextarea`, and the keyboard context as compatibility wrappers for shared focus cleanup, but keep `KeyboardDock` visually disabled and all simulated keyboard height/inset values at zero.
+## 唯一開發來源 — 2026-09-19
+
+- **唯一倉庫：`demonyang885/tennis-tactics-interactive-preview`；唯一整合／發布分支：`main`。** 名稱中的 interactive-preview 是歷史命名，現在承載正式 RallyPath。
+- 新工作從該倉庫最新 `origin/main` 建立短期分支，PR 只合回同一個 `main`。不要從舊 feature、preview 或 release 分支續作。
+- 先讀 [SOURCE_OF_TRUTH.md](./SOURCE_OF_TRUTH.md)，核對 remote、分支、HEAD、工作區狀態；資料夾名稱、埠號及舊 Mac mini 路徑不能證明版本。
+- `24fa57112728cad53e1792fe6df15999964f6e94` 是本次核查的 v0.1.0 發布基準，不是要求將未來 main 重設回此提交。
+- 下方 9/8 產品方向、`PRODUCT_VNEXT.md` 及歷史 QA 是功能背景；畫板優先首頁、用途分類與已發布程式／測試是目前基準。不要把歷史分支描述當作待合併工作。
+- 已發布的 `PhoneFrame.tsx` 是 frameless 容器，並已有沉浸畫板及行動裝置原生輸入適配。下方較早模板中要求恢復 device picker／bezel 的文字不適用於已發布外觀；保留目前受 lock 保護的 runtime，不要為符合舊文字回退它。
+- [分支審核](./docs/maintenance/BRANCH_AUDIT_2026-09-19.md) 記錄保留、取代與待考慮內容；`docs/archive/` 是歷史證據，內含的舊發布／交接命令均不可當作現行指令。
+
+
 ## Current Home History Direction — 2026-09-15
 
 - Keep the live portrait board, primary action, and two intent actions as the entire first-screen focus. Do not place board-history rows or knowledge content in that initial viewport.
