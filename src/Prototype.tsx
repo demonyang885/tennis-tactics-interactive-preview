@@ -980,8 +980,10 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
     setImmersive(false);
     if(!ownsSession)return;
     if(afterExit){
-      if(stage)delete stage.dataset.boardImmersive;
       afterExit();
+      // Keep the viewport geometry in immersive mode for the same paint as the
+      // stack pop. Releasing it before the pop exposes a one-frame right edge.
+      if(stage)window.requestAnimationFrame(()=>window.requestAnimationFrame(()=>{delete stage.dataset.boardImmersive;}));
       return;
     }
     window.requestAnimationFrame(()=>{
