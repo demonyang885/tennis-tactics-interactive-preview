@@ -53,6 +53,7 @@ export const BOARD_SURFACE_PALETTES: Record<BoardSurface, SurfacePalette> = {
 const COLORS = {
   shot: "#d8ef72", feed: "#f5d693", move: "#9fc9ef", selected: "#ffffff", text: "#eef5ea",
 };
+const PACE_LABELS: Record<BoardShotPace, string> = { control: "Control", drive: "Drive", "put-away": "Put away" };
 const ZONES = {
   defense: "rgba(48,124,168,.26)",
   rally: "rgba(32,151,158,.30)",
@@ -287,6 +288,11 @@ function drawPaceDot(
   ctx.fill();
   circle(ctx, at, radius, color, "rgba(255,255,255,.95)", 1.6);
   ctx.restore();
+
+  // The pace label sits just before the route arrow. It replaces the old
+  // right-side energy meter and keeps the court itself readable.
+  const statusPoint = geometry.toCanvas(pointOnBoardPath(path, .82));
+  label(ctx, PACE_LABELS[path.pace ?? "control"], [statusPoint[0], statusPoint[1] - 13], 8.5, "center", "rgba(4,32,23,.95)");
 }
 
 function markBounds(mark: BoardMark, geometry: Geometry) {
@@ -353,39 +359,12 @@ function drawChargeFeedback(
   ctx: CanvasRenderingContext2D,
   geometry: Geometry,
   charge: NonNullable<BoardRenderOptions["charge"]>,
-  width: number,
 ) {
   const at = geometry.toCanvas(charge.point);
-  const names: Record<BoardShotPace, string> = { control: "Control", drive: "Drive", "put-away": "Put away" };
   ctx.save();
   ctx.lineCap = "round";
   circle(ctx, at, 7 + charge.progress * 2, "rgba(216,239,114,.18)", "rgba(255,255,255,.92)", 1.5);
-
-  // Keep a slim meter in the top-right margin. Only the bar and one fixed
-  // status label are drawn, so the court and route remain unobstructed.
-  const meterWidth = 14, meterHeight = 68, meterX = Math.max(8, width - meterWidth - 20), meterTop = 12;
-  ctx.fillStyle = "rgba(255,255,255,.18)";
-  ctx.fillRect(meterX, meterTop, meterWidth, meterHeight);
-  const visualProgress=Math.min(1,Math.max(0,charge.frame/29));
-  const gradient=ctx.createLinearGradient(0,meterTop+meterHeight,0,meterTop);
-  gradient.addColorStop(0,"#45c987");
-  gradient.addColorStop(.52,"#f0d84c");
-  gradient.addColorStop(1,"#ee5b4c");
-  if(visualProgress>0){
-    ctx.save();
-    ctx.shadowColor="rgba(240,216,76,.55)";
-    ctx.shadowBlur=8;
-    ctx.fillStyle=gradient;
-    ctx.fillRect(meterX,meterTop+meterHeight*(1-visualProgress),meterWidth,meterHeight*visualProgress);
-    ctx.restore();
-  }
-  ctx.strokeStyle="rgba(255,255,255,.62)";
-  ctx.lineWidth=1;
-  ctx.beginPath();
-  ctx.moveTo(meterX-4,meterTop+meterHeight*(1-250/700));ctx.lineTo(meterX+meterWidth+4,meterTop+meterHeight*(1-250/700));
-  ctx.moveTo(meterX-4,meterTop);ctx.lineTo(meterX+meterWidth+4,meterTop);
-  ctx.stroke();
-  label(ctx,names[charge.pace],[meterX+meterWidth/2,meterTop+meterHeight+16],9,"center","rgba(4,32,23,.95)");
+  label(ctx, PACE_LABELS[charge.pace], [at[0], at[1] - 17], 8.5, "center", "rgba(4,32,23,.95)");
   ctx.restore();
 }
 
@@ -446,7 +425,7 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
         : undefined);
     if (path) drawHandles(ctx, path, geometry, palette);
   }
-  if (options.charge) drawChargeFeedback(ctx, geometry, options.charge, width);
+  if (options.charge) drawChargeFeedback(ctx, geometry, options.charge);
   if (options.showLegend !== false) drawLegend(ctx, width, height, frame.paths.some(path => path.kind === "feed") || !!options.contextPaths?.some(path => path.kind === "feed"));
   ctx.restore();
 }

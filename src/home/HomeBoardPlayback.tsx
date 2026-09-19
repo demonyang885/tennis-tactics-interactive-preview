@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { ResetIcon } from "@radix-ui/react-icons";
 
 import { prepareBoardForMedia } from "../board/media";
-import { applyShotPace, createStarterBoard, getBoardDuration, getBoardPose, newBoardId, setPath, type BoardDocument } from "../board/model";
+import { createStarterBoard, getBoardDuration, getBoardPose, type BoardDocument } from "../board/model";
 import { renderBoard } from "../board/render";
 
 const AUTO_PLAY_DELAY_MS = 400;
@@ -66,24 +66,6 @@ function prefersReducedMotion() {
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-/** A non-persisted route keeps the isolated LAN experiment visibly testable. */
-function createPaceDemoBoard() {
-  const starter = createStarterBoard("光点速度示例");
-  const ball = starter.actors.find((actor) => actor.kind === "ball");
-  const from = ball ? starter.frames[0].poses[ball.id] : undefined;
-  if (!ball || !from) return starter;
-  const pathId = newBoardId("pace-demo-path");
-  const routed = setPath(starter, 0, {
-    id: pathId,
-    kind: "shot",
-    actorId: ball.id,
-    from,
-    to: [.30, .10],
-    control: [.86, .48],
-  });
-  return applyShotPace(routed, 0, pathId, "drive");
-}
-
 export function HomeBoardPlayback({ board, active, onOpenBoard, showReplay = true, className = "" }: HomeBoardPlaybackProps) {
   const fallbackBoard = useMemo(() => createStarterBoard("我的战术板"), []);
   const paceExperiment = useMemo(() => {
@@ -98,12 +80,11 @@ export function HomeBoardPlayback({ board, active, onOpenBoard, showReplay = tru
   }, []);
   const savedPlaybackBoard = useMemo(() => board ? prepareBoardForMedia(board) : null, [board]);
   const isSavedBoard = !!savedPlaybackBoard && hasPlayablePath(savedPlaybackBoard);
-  const paceDemoBoard = useMemo(() => paceExperiment.dots && !isSavedBoard ? createPaceDemoBoard() : null, [isSavedBoard, paceExperiment.dots]);
-  const sourceBoard = isSavedBoard && board ? board : paceDemoBoard ?? fallbackBoard;
-  const playbackBoard = isSavedBoard && savedPlaybackBoard ? savedPlaybackBoard : paceDemoBoard ?? fallbackBoard;
+  const sourceBoard = isSavedBoard && board ? board : fallbackBoard;
+  const playbackBoard = isSavedBoard && savedPlaybackBoard ? savedPlaybackBoard : fallbackBoard;
   const duration = useMemo(() => getBoardDuration(playbackBoard), [playbackBoard]);
   const playbackRate = duration > MAX_HOME_PREVIEW_SECONDS ? duration / MAX_HOME_PREVIEW_SECONDS : 1;
-  const canPlay = (isSavedBoard || !!paceDemoBoard) && duration > 0;
+  const canPlay = isSavedBoard && duration > 0;
   const boardKey = isSavedBoard && board ? `${board.id}:${board.updatedAt}` : "starter";
   const actorsWithoutLabels = useMemo(
     () => playbackBoard.actors.map((actor) => ({ ...actor, label: "" })),
@@ -314,8 +295,8 @@ export function HomeBoardPlayback({ board, active, onOpenBoard, showReplay = tru
       if (runRef.current !== run || !mountedRef.current) return;
       waitingRef.current = false;
       const startedAt = performance.now();
-      let cycleStartedAt = startedAt;
-      let cycleInitialElapsed = elapsedRef.current;
+      const cycleStartedAt = startedAt;
+      const cycleInitialElapsed = elapsedRef.current;
       let lastDrawnAt = Number.NEGATIVE_INFINITY;
       publishPlaybackState("playing");
 
@@ -327,14 +308,6 @@ export function HomeBoardPlayback({ board, active, onOpenBoard, showReplay = tru
           drawAt(elapsed);
           lastDrawnAt = now;
           if (elapsed >= duration) {
-            if (paceDemoBoard) {
-              cycleStartedAt = now;
-              cycleInitialElapsed = 0;
-              elapsedRef.current = 0;
-              drawAt(0);
-              requestRef.current = window.requestAnimationFrame(tick);
-              return;
-            }
             requestRef.current = null;
             publishPlaybackState("finished");
             return;
@@ -353,7 +326,7 @@ export function HomeBoardPlayback({ board, active, onOpenBoard, showReplay = tru
     }
 
     return cancelScheduledPlayback;
-  }, [active, boardKey, canPlay, cancelScheduledPlayback, drawAt, duration, flowCurrent, intersecting, paceDemoBoard, playbackRate, publishPlaybackState, reduceMotion, replayRequest, visible]);
+  }, [active, boardKey, canPlay, cancelScheduledPlayback, drawAt, duration, flowCurrent, intersecting, playbackRate, publishPlaybackState, reduceMotion, replayRequest, visible]);
 
   useEffect(() => {
     mountedRef.current = true;
