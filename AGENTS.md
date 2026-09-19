@@ -18,7 +18,6 @@
 - RallyPath is now used directly in a phone or desktop browser. Do not render the simulated iOS or Android keyboard in any product flow.
 - Text and numeric fields must use the browser and device's native input behavior. On phones this means the system keyboard; on computers it means direct physical-keyboard input.
 - Keep `KeyboardInput`, `KeyboardTextarea`, and the keyboard context as compatibility wrappers for shared focus cleanup, but keep `KeyboardDock` visually disabled and all simulated keyboard height/inset values at zero.
-
 ## Current Home History Direction — 2026-09-15
 
 - Keep the live portrait board, primary action, and two intent actions as the entire first-screen focus. Do not place board-history rows or knowledge content in that initial viewport.

@@ -213,7 +213,6 @@ test("round-trips optional pace while preserving legacy durations without infere
   });
   expect(validateBoardDocument(pacedMove)).toMatchObject({ ok: false });
 });
-
 test("board purposes validate explicitly and legacy drafts are inferred conservatively", () => {
   expect(BOARD_PURPOSE_LABELS).toEqual({
     tactic: "战术",
