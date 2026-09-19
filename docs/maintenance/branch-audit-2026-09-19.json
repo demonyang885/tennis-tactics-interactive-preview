@@ -1,0 +1,814 @@
+{
+  "audit_date": "2026-09-19",
+  "canonical_repository": "demonyang885/tennis-tactics-interactive-preview",
+  "baseline_commit": "24fa57112728cad53e1792fe6df15999964f6e94",
+  "baseline_tree": "83aee24853c23574fb24cc932b076db2acda4b0b",
+  "branches": [
+    {
+      "repository": "demonyang885/tennis-tactics",
+      "branch": "feature/court-canvas-tactics-board",
+      "sha": "7bb3316e7ae47364da441641108c0e34f5c6b202",
+      "protected": false
+    },
+    {
+      "repository": "demonyang885/tennis-tactics",
+      "branch": "feature/interactive-combination-rally",
+      "sha": "65d7be4606bb98056755b6c8f06442ac524e7b37",
+      "protected": false
+    },
+    {
+      "repository": "demonyang885/tennis-tactics",
+      "branch": "feature/signal-anchored-decision-practice",
+      "sha": "5345230f8cf48ae384f88b0a3b1bc4c29a06f932",
+      "protected": false
+    },
+    {
+      "repository": "demonyang885/tennis-tactics",
+      "branch": "main",
+      "sha": "2f47936a4fb372e6d3b9577654dc21246fc278a2",
+      "protected": false
+    },
+    {
+      "repository": "demonyang885/tennis-tactics-interactive-preview",
+      "branch": "main",
+      "sha": "24fa57112728cad53e1792fe6df15999964f6e94",
+      "protected": false
+    },
+    {
+      "repository": "demonyang885/tennis-tactics-interactive-preview",
+      "branch": "preview/court-canvas-cad0d5f",
+      "sha": "5224649d49f3f1c0c49b224d65bd2bee4df91265",
+      "protected": false
+    },
+    {
+      "repository": "demonyang885/tennis-tactics-interactive-preview",
+      "branch": "release/rallypath-v0.1.0",
+      "sha": "eb0f489d52c77c5187de037e67b1922665867cd7",
+      "protected": false
+    }
+  ],
+  "preview_to_main": [
+    {
+      "path": ".github/workflows/deploy-pages.yml",
+      "preview_blob": "7214496ef874fa74f7370130e6bde87fcd6d6746",
+      "main_blob": "acb1197100b9431ecfa147e85103a42238f6c4d9",
+      "status": "changed"
+    },
+    {
+      "path": ".gitignore",
+      "preview_blob": "bf3f731f75d0a595f2d02d24fc3b3b4ea99aa021",
+      "main_blob": "bf3f731f75d0a595f2d02d24fc3b3b4ea99aa021",
+      "status": "identical"
+    },
+    {
+      "path": ".npmrc",
+      "preview_blob": "1223b5c7deb2b1053be942740dbac26b7f0954c5",
+      "main_blob": "1223b5c7deb2b1053be942740dbac26b7f0954c5",
+      "status": "identical"
+    },
+    {
+      "path": ".openai/hosting.json",
+      "preview_blob": "47c28cb400bdab23565c9a36f833a675266221b3",
+      "main_blob": "47c28cb400bdab23565c9a36f833a675266221b3",
+      "status": "identical"
+    },
+    {
+      "path": "AGENTS.md",
+      "preview_blob": "1fec2dffa9dc04e7aa68dba9d47df3412349d495",
+      "main_blob": "a7347f41a29a7660203b0887818c9bd20ba06e3a",
+      "status": "changed"
+    },
+    {
+      "path": "MACMINI_HANDOFF.md",
+      "preview_blob": "0e644aa5921c51ab6594827362dd4462b075790a",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "PRODUCT_VNEXT.md",
+      "preview_blob": "aa699feddf7b02242db08187c965254f141957c7",
+      "main_blob": "a8de3b0963a93f5e9a3ec80024569279682163fb",
+      "status": "changed"
+    },
+    {
+      "path": "README.md",
+      "preview_blob": "66e82898bbc2c21aa8fbe22a81653b6fa96ab9aa",
+      "main_blob": "12ee0cd8f5bef51272846405b2fa94c2c086e418",
+      "status": "changed"
+    },
+    {
+      "path": "design-qa.md",
+      "preview_blob": "a570b56bce59073fe77b666180c6129bd9683846",
+      "main_blob": "6651d9f717ce4252696e901f91f19235f43720cc",
+      "status": "changed"
+    },
+    {
+      "path": "docs/court-board/DESIGN_SELECTION.md",
+      "preview_blob": "cfdc411df6296e8c4c2f24f9bafcdf367e837a87",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/IMPLEMENTATION.md",
+      "preview_blob": "1dcd64fc7643a6de58abf79d3e6ae0a7959195d6",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/ITERATION_2026-09-11.md",
+      "preview_blob": "119dc855e514ff9bf75bfdb3d35c272113dc62b3",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/MODEL_CONTRACT.md",
+      "preview_blob": "55b6e6460803b486ddcb3b7d1e6c1c0d109f7e81",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/apple-tactics-board-reference.png",
+      "preview_blob": "a7b2acb3ff231a8b66d1785ed06b63cda64bdb27",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/court-canvas-app-store.png",
+      "preview_blob": "f916135f1af37464d3399ef6283dbec382fc550d",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/current-tactic-board.png",
+      "preview_blob": "67755bbb33341a457552a6debd386d360ddd3b99",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/design-qa-comparison.png",
+      "preview_blob": "b31829cc6c23532b1fc434561e139308562c7182",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/design-qa-controls-comparison.png",
+      "preview_blob": "d22afa55c8b77c6a1982ed852a389b7d8c3c3aff",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/implementation-theme-1-screen-1x.png",
+      "preview_blob": "ce0f4eb02dd1b6ea3e542e0c31408fbd7774ed0a",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/theme-1-coach.png",
+      "preview_blob": "7ecd5137125d53ebfef136fa974fb720787e587f",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/theme-1-comparison-1x.png",
+      "preview_blob": "543ccd5472fa1d92bb4f49a3ebbfd4c35403fa88",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/theme-1-controls-comparison-1x.png",
+      "preview_blob": "c6477e30db135a41a6eb00be4dfc6cbe855d2ea9",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/theme-1-court-comparison-1x.png",
+      "preview_blob": "f9456172928ee81efbf0eae73cdeb8b8416ac199",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/theme-2-focus.png",
+      "preview_blob": "0e2f82b6c9a5e232239344c8c19ddf13c98ee899",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "docs/court-board/theme-3-notebook.png",
+      "preview_blob": "edf1f819f36ad12c68918d0952ced63cbcdf9c7d",
+      "main_blob": null,
+      "status": "preview_only"
+    },
+    {
+      "path": "index.html",
+      "preview_blob": "7a665e4367b0b15c1c6b903335b89660bf53249a",
+      "main_blob": "d56a679310b6cffe9ed1ea975903ba3628a6dc8d",
+      "status": "changed"
+    },
+    {
+      "path": "mobile-runtime.lock.json",
+      "preview_blob": "383d553add9fda450aa37e7d5728d53ef22e7f1b",
+      "main_blob": "cb343a40089ed123155b9b173c572216358990a2",
+      "status": "changed"
+    },
+    {
+      "path": "package-lock.json",
+      "preview_blob": "a5a2b02c666b93bd27f167618395a9e91196ee8f",
+      "main_blob": "8ad5f486a0641c3008abddbf65b21fead43c4cd2",
+      "status": "changed"
+    },
+    {
+      "path": "package.json",
+      "preview_blob": "f157e89a80b6d678d666e12a6228f6495168c53f",
+      "main_blob": "1ebeb02af588e7622e886d4756f495b41055be76",
+      "status": "changed"
+    },
+    {
+      "path": "playwright.config.ts",
+      "preview_blob": "04d4c8bf7d1ec6c664a8ef78b925f4d5dbe0a53c",
+      "main_blob": "04d4c8bf7d1ec6c664a8ef78b925f4d5dbe0a53c",
+      "status": "identical"
+    },
+    {
+      "path": "product-audit.md",
+      "preview_blob": "60a9ee83cede5070c3dd21843d41731c6f4ed384",
+      "main_blob": "c8ee37d1dbd345c9cc658c2f396d22f7fdeaa96d",
+      "status": "changed"
+    },
+    {
+      "path": "public/assets/android/Keyboard.png",
+      "preview_blob": "bf959faf47b346c68a023c142cc3a17f455eb5da",
+      "main_blob": "bf959faf47b346c68a023c142cc3a17f455eb5da",
+      "status": "identical"
+    },
+    {
+      "path": "public/assets/android/Pixel10.png",
+      "preview_blob": "2ba4a10d65f45c022ec27777b0d81bd330700a11",
+      "main_blob": "2ba4a10d65f45c022ec27777b0d81bd330700a11",
+      "status": "identical"
+    },
+    {
+      "path": "public/assets/android/navigation-bar.svg",
+      "preview_blob": "9e795438d527a54f3e179d99d41b1b11a9957ca7",
+      "main_blob": "9e795438d527a54f3e179d99d41b1b11a9957ca7",
+      "status": "identical"
+    },
+    {
+      "path": "public/assets/iphone/Bezel.png",
+      "preview_blob": "759e8aaff849f2a8f8d4876cbb63c119e5bf5f6f",
+      "main_blob": "759e8aaff849f2a8f8d4876cbb63c119e5bf5f6f",
+      "status": "identical"
+    },
+    {
+      "path": "public/assets/iphone/Keyboard.png",
+      "preview_blob": "80207c335d6f10878a85e27a3b2d70a09c9f79be",
+      "main_blob": "80207c335d6f10878a85e27a3b2d70a09c9f79be",
+      "status": "identical"
+    },
+    {
+      "path": "public/assets/status/ios-status-icons.svg",
+      "preview_blob": "b75235ae4eacef02b1ef43f2e19c8f0c69e380bb",
+      "main_blob": "b75235ae4eacef02b1ef43f2e19c8f0c69e380bb",
+      "status": "identical"
+    },
+    {
+      "path": "public/assets/status/status-icons.svg",
+      "preview_blob": "8a97e8182bf7698ec7c9db93a69f1fe47bbc0845",
+      "main_blob": "8a97e8182bf7698ec7c9db93a69f1fe47bbc0845",
+      "status": "identical"
+    },
+    {
+      "path": "public/assets/tennis/tennis-ball.png",
+      "preview_blob": "3e4bcf9ad68d369d1b8963d98fb31ec1113b4eda",
+      "main_blob": "3e4bcf9ad68d369d1b8963d98fb31ec1113b4eda",
+      "status": "identical"
+    },
+    {
+      "path": "scripts/check-content.mjs",
+      "preview_blob": "33ffb8e3fd6b762d9ae72253f2c40bf5bea50ee4",
+      "main_blob": "33ffb8e3fd6b762d9ae72253f2c40bf5bea50ee4",
+      "status": "identical"
+    },
+    {
+      "path": "scripts/check-mobile-runtime.mjs",
+      "preview_blob": "72bf53d266d43fed9e81d782db773134c2776bb1",
+      "main_blob": "72bf53d266d43fed9e81d782db773134c2776bb1",
+      "status": "identical"
+    },
+    {
+      "path": "scripts/prepare-github-pages.mjs",
+      "preview_blob": "564563cf7c074bbc92fb82bd74359ab2c59121fa",
+      "main_blob": "157746db154f5cf720161068de6151f1025feb4e",
+      "status": "changed"
+    },
+    {
+      "path": "scripts/prepare-sites-build.mjs",
+      "preview_blob": "86a9e8c1bbd01b1e379996db66b9bcfeb6b519ee",
+      "main_blob": "86a9e8c1bbd01b1e379996db66b9bcfeb6b519ee",
+      "status": "identical"
+    },
+    {
+      "path": "scripts/update-mobile-runtime-lock.mjs",
+      "preview_blob": "7d9127587fcc495a299c3b902847fc40ca4e2722",
+      "main_blob": "7d9127587fcc495a299c3b902847fc40ca4e2722",
+      "status": "identical"
+    },
+    {
+      "path": "src/App.tsx",
+      "preview_blob": "fe4bedd2eb604864f3cd5ef363a6b22d7fad2b09",
+      "main_blob": "fe4bedd2eb604864f3cd5ef363a6b22d7fad2b09",
+      "status": "identical"
+    },
+    {
+      "path": "src/Prototype.tsx",
+      "preview_blob": "6f96e5c85fd7285a6742206a8b9a5ee2768d6584",
+      "main_blob": "ff373369427b8c9aa0420a5d3f2337e09bf9f7f1",
+      "status": "changed"
+    },
+    {
+      "path": "src/board/adapters.ts",
+      "preview_blob": "d28198290dacdc2d37067dfe24d9a922db4ac522",
+      "main_blob": "5f28fd60ebc63bf0c6d233dd12581559e4702684",
+      "status": "changed"
+    },
+    {
+      "path": "src/board/drills.ts",
+      "preview_blob": "234034a586d6900810356791d7d0a1cc4caa2dae",
+      "main_blob": "234034a586d6900810356791d7d0a1cc4caa2dae",
+      "status": "identical"
+    },
+    {
+      "path": "src/board/gif.worker.ts",
+      "preview_blob": "bcd8840e0b191c7f55e04b96e338c77006e1462b",
+      "main_blob": "bcd8840e0b191c7f55e04b96e338c77006e1462b",
+      "status": "identical"
+    },
+    {
+      "path": "src/board/media-core.d.ts",
+      "preview_blob": "571bfe1816bbc9aa8a23779fcd3649bc411bce21",
+      "main_blob": "571bfe1816bbc9aa8a23779fcd3649bc411bce21",
+      "status": "identical"
+    },
+    {
+      "path": "src/board/media-core.js",
+      "preview_blob": "7ae9528f15073cff3895032f559da611ac8cb286",
+      "main_blob": "7ae9528f15073cff3895032f559da611ac8cb286",
+      "status": "identical"
+    },
+    {
+      "path": "src/board/media.ts",
+      "preview_blob": "c5a599d3e35e38725436efb19c2c5ca0ed3fefe9",
+      "main_blob": "b1d22c9ee914a5c3f5f2f089eb826787eb6f011d",
+      "status": "changed"
+    },
+    {
+      "path": "src/board/model.ts",
+      "preview_blob": "40b02409752982467bcd9b0486d3986c11e269c2",
+      "main_blob": "d13a99923076b554768380cf0489d964ea381a74",
+      "status": "changed"
+    },
+    {
+      "path": "src/board/render.ts",
+      "preview_blob": "812f5097cc0ba7426f7a0c7579639e39f6741341",
+      "main_blob": "886f713fb35cec559afa646fb2019447fe53eb83",
+      "status": "changed"
+    },
+    {
+      "path": "src/board/storage.ts",
+      "preview_blob": "1e3384d057b3535d2705028eeff869eb3e5bd1bc",
+      "main_blob": "1e3384d057b3535d2705028eeff869eb3e5bd1bc",
+      "status": "identical"
+    },
+    {
+      "path": "src/board/validate.ts",
+      "preview_blob": "6c4cc0f55354bb448d2b34e6e568d9f66b29c754",
+      "main_blob": "a31c3be739c38a63fe6789bbd6ed0859a40d6892",
+      "status": "changed"
+    },
+    {
+      "path": "src/content/TACTIC_AUTHORING.md",
+      "preview_blob": "85d01c02e1a7ec649a34ef1326c21568cbb51683",
+      "main_blob": "85d01c02e1a7ec649a34ef1326c21568cbb51683",
+      "status": "identical"
+    },
+    {
+      "path": "src/content/effects.ts",
+      "preview_blob": "4673651722ebf0771f1f369debaec472b7de6864",
+      "main_blob": "4673651722ebf0771f1f369debaec472b7de6864",
+      "status": "identical"
+    },
+    {
+      "path": "src/content/expansion.ts",
+      "preview_blob": "6c4f11644d24b1c28b2c93c5400f778117331700",
+      "main_blob": "6c4f11644d24b1c28b2c93c5400f778117331700",
+      "status": "identical"
+    },
+    {
+      "path": "src/content/library.ts",
+      "preview_blob": "ec6cefd89859c860265429769f948e3ffc5c1f80",
+      "main_blob": "ec6cefd89859c860265429769f948e3ffc5c1f80",
+      "status": "identical"
+    },
+    {
+      "path": "src/content/next.ts",
+      "preview_blob": "c71a1c3b9b3fbf03976a455c4693342f6f678c5e",
+      "main_blob": "c71a1c3b9b3fbf03976a455c4693342f6f678c5e",
+      "status": "identical"
+    },
+    {
+      "path": "src/content/rallies.ts",
+      "preview_blob": "4963e79ddcd87f32e897a78b00949b13edaf45b3",
+      "main_blob": "4963e79ddcd87f32e897a78b00949b13edaf45b3",
+      "status": "identical"
+    },
+    {
+      "path": "src/content/types.ts",
+      "preview_blob": "42f9b5d37f596215574ee4381e04741436283f6e",
+      "main_blob": "42f9b5d37f596215574ee4381e04741436283f6e",
+      "status": "identical"
+    },
+    {
+      "path": "src/content/validate.ts",
+      "preview_blob": "fa3e4cb60bc80e60e304abc728d5f383288c7115",
+      "main_blob": "fa3e4cb60bc80e60e304abc728d5f383288c7115",
+      "status": "identical"
+    },
+    {
+      "path": "src/main.tsx",
+      "preview_blob": "9ff4f467b33d63c7f02dc7d00b6eeb85c58208ab",
+      "main_blob": "9ff4f467b33d63c7f02dc7d00b6eeb85c58208ab",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/BottomSheet.tsx",
+      "preview_blob": "bd9252e48e4fe40b432358c0f391dd36cb63aa13",
+      "main_blob": "bd9252e48e4fe40b432358c0f391dd36cb63aa13",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/COMPONENTS.md",
+      "preview_blob": "653194a057e0cfbb567070a836b6e89b94f491ed",
+      "main_blob": "653194a057e0cfbb567070a836b6e89b94f491ed",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/Carousel.tsx",
+      "preview_blob": "28f0997ff50223fc81f66cf72dd27bf48b668d0a",
+      "main_blob": "28f0997ff50223fc81f66cf72dd27bf48b668d0a",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/Device.tsx",
+      "preview_blob": "aedf08456e28224ee614d8c20510524c92c52099",
+      "main_blob": "aedf08456e28224ee614d8c20510524c92c52099",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/FlowStack.tsx",
+      "preview_blob": "f98f257bc3018144c6bf615e2a5d1d547de2cdf5",
+      "main_blob": "f98f257bc3018144c6bf615e2a5d1d547de2cdf5",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/Keyboard.tsx",
+      "preview_blob": "54d8464905c3ac90347e330b3aa04c1396a8f890",
+      "main_blob": "54d8464905c3ac90347e330b3aa04c1396a8f890",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/MobileCursor.tsx",
+      "preview_blob": "d1fec8dee0fe937353ca10d593c730ad27025bb4",
+      "main_blob": "d1fec8dee0fe937353ca10d593c730ad27025bb4",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/MobileRuntime.tsx",
+      "preview_blob": "edc53b9d72604136a12f5ec1569538f52bce47bc",
+      "main_blob": "edc53b9d72604136a12f5ec1569538f52bce47bc",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/MobileScroll.tsx",
+      "preview_blob": "75040432a52697fd960fc1cf8c2cd40ca242ebf0",
+      "main_blob": "75040432a52697fd960fc1cf8c2cd40ca242ebf0",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/PhoneFrame.tsx",
+      "preview_blob": "c9f0ce51f0635fd06b6d9bf4d790f546b96dc54c",
+      "main_blob": "2fccc2f33526ef61e332f56ddedd395ed0743bd6",
+      "status": "changed"
+    },
+    {
+      "path": "src/mobile/assets.ts",
+      "preview_blob": "7ac2f6a49d064a1dbbda9df24b5287723be7a8d3",
+      "main_blob": "7ac2f6a49d064a1dbbda9df24b5287723be7a8d3",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/components.tsx",
+      "preview_blob": "998fd35454040c0cd6c31b708ebe8ab5b9d4c282",
+      "main_blob": "998fd35454040c0cd6c31b708ebe8ab5b9d4c282",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/geometry.ts",
+      "preview_blob": "3cd22d8260fcc8e35f7e37361382cdbe8b932659",
+      "main_blob": "3cd22d8260fcc8e35f7e37361382cdbe8b932659",
+      "status": "identical"
+    },
+    {
+      "path": "src/mobile/index.ts",
+      "preview_blob": "2b25283fb96c0ec8c18bcf70fe325cc25cfd207e",
+      "main_blob": "2b25283fb96c0ec8c18bcf70fe325cc25cfd207e",
+      "status": "identical"
+    },
+    {
+      "path": "src/prototype.css",
+      "preview_blob": "8826697c14fc93b3f51f89e8a34a7b8aec37392d",
+      "main_blob": "b65c10d9beca271a75c1ecee9e7fac18bd205af0",
+      "status": "changed"
+    },
+    {
+      "path": "src/styles.css",
+      "preview_blob": "addfd283c1d30e3bb47736885ed117c3ae5c4300",
+      "main_blob": "c1e69737296d06528953311015224b8c5a11effd",
+      "status": "changed"
+    },
+    {
+      "path": "src/vite-env.d.ts",
+      "preview_blob": "11f02fe2a0061d6e6e1f271b21da95423b448b32",
+      "main_blob": "11f02fe2a0061d6e6e1f271b21da95423b448b32",
+      "status": "identical"
+    },
+    {
+      "path": "tests/board-adapters.spec.ts",
+      "preview_blob": "89b71982e74315efd131e8eb9d30d2541d410654",
+      "main_blob": "89b71982e74315efd131e8eb9d30d2541d410654",
+      "status": "identical"
+    },
+    {
+      "path": "tests/board-adapters.test.ts",
+      "preview_blob": "3f7aa3dba62518a49b1557dacd763c8b813a705a",
+      "main_blob": "f0c856d93f18eee405528648f9215e6f5dbfc29d",
+      "status": "changed"
+    },
+    {
+      "path": "tests/board-media-core.test.mjs",
+      "preview_blob": "d11df44eb5e774ca09ee9af32467147528ffc51d",
+      "main_blob": "d11df44eb5e774ca09ee9af32467147528ffc51d",
+      "status": "identical"
+    },
+    {
+      "path": "tests/board-media-model.spec.ts",
+      "preview_blob": "bd7a05a05ef453fd7e1b3c278c52ee5e50f2ab79",
+      "main_blob": "bd7a05a05ef453fd7e1b3c278c52ee5e50f2ab79",
+      "status": "identical"
+    },
+    {
+      "path": "tests/board-media.spec.ts",
+      "preview_blob": "32d739b64f54679b0e51511cac250a2ec054a1f4",
+      "main_blob": "32d739b64f54679b0e51511cac250a2ec054a1f4",
+      "status": "identical"
+    },
+    {
+      "path": "tests/board-model.playwright.config.ts",
+      "preview_blob": "64aa6c97520d1aa9d460e7e5573df683901a47bb",
+      "main_blob": "64aa6c97520d1aa9d460e7e5573df683901a47bb",
+      "status": "identical"
+    },
+    {
+      "path": "tests/board-model.spec.ts",
+      "preview_blob": "34dec7d717869b5d18ec412edb1f7a4a419aa6e9",
+      "main_blob": "56bac84c171855d5b8cc992319d6c5b351876b00",
+      "status": "changed"
+    },
+    {
+      "path": "tests/board-render.spec.ts",
+      "preview_blob": "9d49bace9444a296bf0b04e19a0770d94895b97c",
+      "main_blob": "9d49bace9444a296bf0b04e19a0770d94895b97c",
+      "status": "identical"
+    },
+    {
+      "path": "tests/court-board.spec.ts",
+      "preview_blob": "d021581a9ccd7f124d5f7437f7803e28c5ab3f2b",
+      "main_blob": "e6fdadc0b89cb6d598f70b5fdcb8863390ab204d",
+      "status": "changed"
+    },
+    {
+      "path": "tests/github-pages.test.mjs",
+      "preview_blob": "e6588a681a9a00cbbd657b0ae7ff664196edf0a6",
+      "main_blob": "36934f69e1affe3d7387f5dfe3fbbbecfc6d4846",
+      "status": "changed"
+    },
+    {
+      "path": "tests/mobile-runtime.spec.ts",
+      "preview_blob": "8f630806dd3b64ba47fe516a8759569411a31502",
+      "main_blob": "5aec3f1ea9a597f250c311f995f3ddbd6f7aa5bd",
+      "status": "changed"
+    },
+    {
+      "path": "tests/runtime-fixture.css",
+      "preview_blob": "b00a562609d2783587c0a88f54177fc514dfa18f",
+      "main_blob": "b00a562609d2783587c0a88f54177fc514dfa18f",
+      "status": "identical"
+    },
+    {
+      "path": "tests/runtime-fixture.html",
+      "preview_blob": "fbed3ca18941066a47fe4d65554633fe896617f6",
+      "main_blob": "fbed3ca18941066a47fe4d65554633fe896617f6",
+      "status": "identical"
+    },
+    {
+      "path": "tests/runtime-fixture.tsx",
+      "preview_blob": "1bada08230e5e9bfde010da232366614b62024e8",
+      "main_blob": "1bada08230e5e9bfde010da232366614b62024e8",
+      "status": "identical"
+    },
+    {
+      "path": "tests/sites-worker.test.mjs",
+      "preview_blob": "64f277e76964cd78f59ec5c31dfbd4cf1e92015f",
+      "main_blob": "64f277e76964cd78f59ec5c31dfbd4cf1e92015f",
+      "status": "identical"
+    },
+    {
+      "path": "tests/tactic-score-effect.spec.ts",
+      "preview_blob": "cd5ba08576588ee32e99937a76f54845ed08e2f7",
+      "main_blob": "862b3617c72133661b52e2809586cc988941b874",
+      "status": "changed"
+    },
+    {
+      "path": "tsconfig.json",
+      "preview_blob": "dfc3fbee87d79258402f4bfd95113dbc7d25d1aa",
+      "main_blob": "dfc3fbee87d79258402f4bfd95113dbc7d25d1aa",
+      "status": "identical"
+    },
+    {
+      "path": "vite.config.ts",
+      "preview_blob": "025adf382c8a51e8d8ef9dce3414253a274fc08c",
+      "main_blob": "025adf382c8a51e8d8ef9dce3414253a274fc08c",
+      "status": "identical"
+    },
+    {
+      "path": "worker/index.js",
+      "preview_blob": "5f35412463f5c8e96e36dda4008c267c4a7c96ce",
+      "main_blob": "5f35412463f5c8e96e36dda4008c267c4a7c96ce",
+      "status": "identical"
+    }
+  ],
+  "main_only": [
+    {
+      "path": "src/home/BoardLibrary.tsx",
+      "blob_sha": "fbc03dbfe6e34d0ca2f19a6234d8a40d48b81d64"
+    },
+    {
+      "path": "src/home/HomeBoardPlayback.tsx",
+      "blob_sha": "ef6194d84bcdf2fbc5aa8706c5cd63e233b574ab"
+    },
+    {
+      "path": "tests/home-accordion.spec.ts",
+      "blob_sha": "ef4f5f29360697c399ba2182022932210d973c06"
+    },
+    {
+      "path": "tests/home-history-hub.spec.ts",
+      "blob_sha": "153d4b2b9365ce4143b761a1646c467341a8828a"
+    },
+    {
+      "path": "tests/home-v3-live-playback.spec.ts",
+      "blob_sha": "9cdbb6c0cc467032736c3c2e37cd97d72dad0ef4"
+    },
+    {
+      "path": "tests/homepage-board-first.spec.ts",
+      "blob_sha": "4bcdcd67c23eb6a42bc96732ae5f5c3285aec86f"
+    },
+    {
+      "path": "tests/homepage-visual.spec.ts",
+      "blob_sha": "48ee619f2c2904d446d280b22048d907095c53b5"
+    },
+    {
+      "path": "tests/immersive-board-menu.spec.ts",
+      "blob_sha": "f080231e8241d0aed38971f83ca56f98285cfd04"
+    }
+  ],
+  "release_files_identical_to_main": true,
+  "archived": [
+    {
+      "source_path": "AGENTS.md",
+      "destination": "docs/archive/court-board-2026-09-12/historical-agent-notes.md",
+      "original_blob_sha": "1fec2dffa9dc04e7aa68dba9d47df3412349d495",
+      "mode": "100644"
+    },
+    {
+      "source_path": "MACMINI_HANDOFF.md",
+      "destination": "docs/archive/court-board-2026-09-12/MACMINI_HANDOFF.md",
+      "original_blob_sha": "0e644aa5921c51ab6594827362dd4462b075790a",
+      "mode": "100644"
+    },
+    {
+      "source_path": "design-qa.md",
+      "destination": "docs/archive/court-board-2026-09-12/design-qa.md",
+      "original_blob_sha": "a570b56bce59073fe77b666180c6129bd9683846",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/DESIGN_SELECTION.md",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/DESIGN_SELECTION.md",
+      "original_blob_sha": "cfdc411df6296e8c4c2f24f9bafcdf367e837a87",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/IMPLEMENTATION.md",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/IMPLEMENTATION.md",
+      "original_blob_sha": "1dcd64fc7643a6de58abf79d3e6ae0a7959195d6",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/ITERATION_2026-09-11.md",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/ITERATION_2026-09-11.md",
+      "original_blob_sha": "119dc855e514ff9bf75bfdb3d35c272113dc62b3",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/MODEL_CONTRACT.md",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/MODEL_CONTRACT.md",
+      "original_blob_sha": "55b6e6460803b486ddcb3b7d1e6c1c0d109f7e81",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/apple-tactics-board-reference.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/apple-tactics-board-reference.png",
+      "original_blob_sha": "a7b2acb3ff231a8b66d1785ed06b63cda64bdb27",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/court-canvas-app-store.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/court-canvas-app-store.png",
+      "original_blob_sha": "f916135f1af37464d3399ef6283dbec382fc550d",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/current-tactic-board.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/current-tactic-board.png",
+      "original_blob_sha": "67755bbb33341a457552a6debd386d360ddd3b99",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/design-qa-comparison.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/design-qa-comparison.png",
+      "original_blob_sha": "b31829cc6c23532b1fc434561e139308562c7182",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/design-qa-controls-comparison.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/design-qa-controls-comparison.png",
+      "original_blob_sha": "d22afa55c8b77c6a1982ed852a389b7d8c3c3aff",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/implementation-theme-1-screen-1x.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/implementation-theme-1-screen-1x.png",
+      "original_blob_sha": "ce0f4eb02dd1b6ea3e542e0c31408fbd7774ed0a",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/theme-1-coach.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/theme-1-coach.png",
+      "original_blob_sha": "7ecd5137125d53ebfef136fa974fb720787e587f",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/theme-1-comparison-1x.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/theme-1-comparison-1x.png",
+      "original_blob_sha": "543ccd5472fa1d92bb4f49a3ebbfd4c35403fa88",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/theme-1-controls-comparison-1x.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/theme-1-controls-comparison-1x.png",
+      "original_blob_sha": "c6477e30db135a41a6eb00be4dfc6cbe855d2ea9",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/theme-1-court-comparison-1x.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/theme-1-court-comparison-1x.png",
+      "original_blob_sha": "f9456172928ee81efbf0eae73cdeb8b8416ac199",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/theme-2-focus.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/theme-2-focus.png",
+      "original_blob_sha": "0e2f82b6c9a5e232239344c8c19ddf13c98ee899",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/court-board/theme-3-notebook.png",
+      "destination": "docs/archive/court-board-2026-09-12/docs/court-board/theme-3-notebook.png",
+      "original_blob_sha": "edf1f819f36ad12c68918d0952ced63cbcdf9c7d",
+      "mode": "100644"
+    }
+  ],
+  "limitations": [
+    "Remote GitHub contents only; no Mac mini unpushed work inspected.",
+    "Source and tree audit; no browser or device tests rerun.",
+    "Production Actions checked; live version.json not independently fetched."
+  ]
+}
