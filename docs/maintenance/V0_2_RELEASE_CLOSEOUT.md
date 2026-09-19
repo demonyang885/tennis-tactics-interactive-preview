@@ -13,9 +13,9 @@
 | Git tag | `v0.2.0`，指向發布提交 |
 | 正式網站 | `https://demonyang885.github.io/tennis-tactics-interactive-preview/` |
 | 部署證據 | Actions run `35445469313`，build 與 deploy 均成功 |
-| 線上版本檔 | product `RallyPath`、version `0.2.0`、commit `9158a2b`、builtAt `2026-09-19T13:27:00.430Z` |
+| 首次 v0.2.0 線上版本檔 | product `RallyPath`、version `0.2.0`、commit `9158a2b`、builtAt `2026-09-19T13:27:00.430Z` |
 
-GitHub Releases 沒有獨立 release object；本版本以 tag、main 提交、成功 Pages 部署及線上 `version.json` 共同識別。v0.2.0 沒有獨立發布 PR，不能把它寫成經 PR 合併；後續變更恢復短期分支 → PR → CI → main 的流程。
+GitHub Releases 沒有獨立 release object；本版本以 tag、程式發布提交、成功 Pages 部署及線上產品版本共同識別。其後純文件 main 提交亦會觸發 Pages，可能改變 `version.json` 的 source commit，但不代表產品版本升級。v0.2.0 沒有獨立發布 PR，不能把它寫成經 PR 合併；後續變更恢復短期分支 → PR → CI → main 的流程。
 
 ## 驗證結果
 
