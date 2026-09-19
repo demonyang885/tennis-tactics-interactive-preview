@@ -237,33 +237,22 @@ function drawPath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geom
   ctx.restore();
 }
 
-function paceColor(path: BoardPath) {
-  if (path.pace === "put-away") return "#ee5b4c";
-  if (path.pace === "drive") return "#f0d84c";
-  return "#45c987";
-}
-
-/**
- * A small moving light turns the semantic pace into something a young player
- * can read at a glance. The dot follows the same progress used by playback,
- * so a shorter frame duration visibly means a faster shot rather than merely
- * changing the route's colour.
- */
-function drawMarqueeDot(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress: number) {
-  const color = paceColor(path), dotProgress = bound(progress, 0, 1);
-  const at = geometry.toCanvas(pointOnBoardPath(path, dotProgress));
-  const radius = path.pace === "put-away" ? 6.8 : path.pace === "drive" ? 6.2 : 5.7;
+/** A moving tennis ball previews the authored route while it is being set. */
+function drawChargingBall(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress: number) {
+  const at = geometry.toCanvas(pointOnBoardPath(path, bound(progress, 0, 1)));
+  const radius = 7;
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  const glow = ctx.createRadialGradient(at[0], at[1], 0, at[0], at[1], radius * 3.2);
-  glow.addColorStop(0, "rgba(255,255,255,.98)");
-  glow.addColorStop(.18, color);
-  glow.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = glow;
+  ctx.shadowColor = "rgba(0,0,0,.42)";
+  ctx.shadowBlur = 7;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 3;
+  circle(ctx, at, radius, COLORS.shot, "rgba(255,255,255,.98)", 1.7);
+  ctx.shadowColor = "transparent";
+  ctx.strokeStyle = "rgba(24,74,45,.55)";
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(at[0], at[1], radius * 3.2, 0, Math.PI * 2);
-  ctx.fill();
-  circle(ctx, at, radius, color, "rgba(255,255,255,.95)", 1.6);
+  ctx.arc(at[0] - 1, at[1], radius * .62, -.85, .85);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -338,7 +327,7 @@ function drawChargeFeedback(
   ctx.save();
   ctx.lineCap = "round";
   if (path) {
-    drawMarqueeDot(ctx, { ...path, pace: charge.pace }, geometry, charge.marquee);
+    drawChargingBall(ctx, path, geometry, charge.marquee);
     const statusPoint = geometry.toCanvas(pointOnBoardPath(path, .82));
     label(ctx, PACE_LABELS[charge.pace], [statusPoint[0], statusPoint[1] - 13], 8.5, "center", "rgba(4,32,23,.95)");
   } else {
@@ -379,7 +368,10 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
     drawPath(ctx, path, geometry, 1, false, isSelected, path.kind === "move" ? .82 : .94);
   }
   for (const mark of frame.marks) drawMark(ctx, mark, geometry, selected?.kind === "element" && selected.id === mark.id, options.showLabels !== false);
-  for (const path of frame.paths) drawPath(ctx, path, geometry, progress, !!options.playing, selected?.kind === "element" && selected.id === path.id);
+  for (const path of frame.paths) {
+    const charging = options.charge?.pathId === path.id;
+    drawPath(ctx, path, geometry, progress, !!options.playing, selected?.kind === "element" && selected.id === path.id, charging ? .5 : 1);
+  }
   const poses = getFramePose(frame, progress);
   for (const actor of [...actors].sort((a, b) => Number(a.kind === "ball") - Number(b.kind === "ball"))) {
     const pose = poses[actor.id]; if (!pose) continue;
