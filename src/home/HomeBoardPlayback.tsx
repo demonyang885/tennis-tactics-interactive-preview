@@ -68,6 +68,16 @@ function prefersReducedMotion() {
 
 export function HomeBoardPlayback({ board, active, onOpenBoard, showReplay = true, className = "" }: HomeBoardPlaybackProps) {
   const fallbackBoard = useMemo(() => createStarterBoard("我的战术板"), []);
+  const paceExperiment = useMemo(() => {
+    if (typeof window === "undefined") return { dots: false, trail: false };
+    const params = new URLSearchParams(window.location.search);
+    const port = window.location.port;
+    return {
+      // Keep the homepage preview consistent with the editor test ports.
+      dots: port === "4175" || port === "4176" || params.get("paceDots") === "1",
+      trail: port === "4176" || params.get("dotTrail") === "1",
+    };
+  }, []);
   const savedPlaybackBoard = useMemo(() => board ? prepareBoardForMedia(board) : null, [board]);
   const isSavedBoard = !!savedPlaybackBoard && hasPlayablePath(savedPlaybackBoard);
   const sourceBoard = isSavedBoard && board ? board : fallbackBoard;
@@ -154,8 +164,10 @@ export function HomeBoardPlayback({ board, active, onOpenBoard, showReplay = tru
       playing: isSavedBoard,
       showLegend: false,
       showLabels: false,
+      showPaceDots: isSavedBoard && paceExperiment.dots,
+      showPaceDotTrail: isSavedBoard && paceExperiment.trail,
     });
-  }, [actorsWithoutLabels, isSavedBoard, playbackBoard]);
+  }, [actorsWithoutLabels, isSavedBoard, paceExperiment.dots, paceExperiment.trail, playbackBoard]);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
