@@ -28,11 +28,7 @@ export type BoardRenderOptions = {
   /** Actor names are independent from authored text marks. */
   showActorLabels?: boolean;
   /** Temporary endpoint feedback while a ball route is charging. */
-  charge?: { point: Point; pace: BoardShotPace; progress: number; frame: number } | null;
-  /** Playback-only light point that makes shot pace visible without labels. */
-  showPaceDots?: boolean;
-  /** Optional low-opacity route trail for the pace-dot experiment. */
-  showPaceDotTrail?: boolean;
+  charge?: { pathId: string; point: Point; pace: BoardShotPace; progress: number; marquee: number } | null;
 };
 
 type SurfacePalette = {
@@ -253,27 +249,8 @@ function paceColor(path: BoardPath) {
  * so a shorter frame duration visibly means a faster shot rather than merely
  * changing the route's colour.
  */
-function drawPaceDot(
-  ctx: CanvasRenderingContext2D,
-  path: BoardPath,
-  geometry: Geometry,
-  progress: number,
-  showTrail: boolean,
-) {
+function drawMarqueeDot(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress: number) {
   const color = paceColor(path), dotProgress = bound(progress, 0, 1);
-  if (showTrail && dotProgress > .015) {
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.globalAlpha = .22;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([2, 6]);
-    tracePath(ctx, path, geometry, dotProgress);
-    ctx.stroke();
-    ctx.restore();
-  }
-
   const at = geometry.toCanvas(pointOnBoardPath(path, dotProgress));
   const radius = path.pace === "put-away" ? 6.8 : path.pace === "drive" ? 6.2 : 5.7;
   ctx.save();
@@ -288,11 +265,6 @@ function drawPaceDot(
   ctx.fill();
   circle(ctx, at, radius, color, "rgba(255,255,255,.95)", 1.6);
   ctx.restore();
-
-  // The pace label sits just before the route arrow. It replaces the old
-  // right-side energy meter and keeps the court itself readable.
-  const statusPoint = geometry.toCanvas(pointOnBoardPath(path, .82));
-  label(ctx, PACE_LABELS[path.pace ?? "control"], [statusPoint[0], statusPoint[1] - 13], 8.5, "center", "rgba(4,32,23,.95)");
 }
 
 function markBounds(mark: BoardMark, geometry: Geometry) {
@@ -358,13 +330,20 @@ function drawHandles(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: G
 function drawChargeFeedback(
   ctx: CanvasRenderingContext2D,
   geometry: Geometry,
+  frame: BoardFrame,
   charge: NonNullable<BoardRenderOptions["charge"]>,
 ) {
   const at = geometry.toCanvas(charge.point);
+  const path = frame.paths.find(item => item.id === charge.pathId);
   ctx.save();
   ctx.lineCap = "round";
-  circle(ctx, at, 7 + charge.progress * 2, "rgba(216,239,114,.18)", "rgba(255,255,255,.92)", 1.5);
-  label(ctx, PACE_LABELS[charge.pace], [at[0], at[1] - 17], 8.5, "center", "rgba(4,32,23,.95)");
+  if (path) {
+    drawMarqueeDot(ctx, { ...path, pace: charge.pace }, geometry, charge.marquee);
+    const statusPoint = geometry.toCanvas(pointOnBoardPath(path, .82));
+    label(ctx, PACE_LABELS[charge.pace], [statusPoint[0], statusPoint[1] - 13], 8.5, "center", "rgba(4,32,23,.95)");
+  } else {
+    circle(ctx, at, 7 + charge.progress * 2, "rgba(216,239,114,.18)", "rgba(255,255,255,.92)", 1.5);
+  }
   ctx.restore();
 }
 
@@ -412,12 +391,6 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
       label(ctx, actor.label, [at[0], bound(at[1] + dy, 12, height - 38)], 13, "center", palette.surround);
     }
   }
-  if (options.playing && options.showPaceDots) {
-    for (const path of frame.paths) {
-      if (path.kind === "move") continue;
-      drawPaceDot(ctx, path, geometry, progress, !!options.showPaceDotTrail);
-    }
-  }
   if (selected?.kind === "element") {
     const path = frame.paths.find(item => item.id === selected.id)
       ?? (selected.frameIndex === undefined || selected.frameIndex === options.contextFrameIndex
@@ -425,7 +398,7 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
         : undefined);
     if (path) drawHandles(ctx, path, geometry, palette);
   }
-  if (options.charge) drawChargeFeedback(ctx, geometry, options.charge);
+  if (options.charge) drawChargeFeedback(ctx, geometry, frame, options.charge);
   if (options.showLegend !== false) drawLegend(ctx, width, height, frame.paths.some(path => path.kind === "feed") || !!options.contextPaths?.some(path => path.kind === "feed"));
   ctx.restore();
 }
