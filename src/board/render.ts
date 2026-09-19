@@ -29,6 +29,10 @@ export type BoardRenderOptions = {
   showActorLabels?: boolean;
   /** Temporary endpoint feedback while a ball route is charging. */
   charge?: { point: Point; pace: BoardShotPace; progress: number; frame: number } | null;
+  /** Playback-only light point that makes shot pace visible without labels. */
+  showPaceDots?: boolean;
+  /** Optional low-opacity route trail for the pace-dot experiment. */
+  showPaceDotTrail?: boolean;
 };
 
 type SurfacePalette = {
@@ -236,6 +240,55 @@ function drawPath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geom
   ctx.restore();
 }
 
+function paceColor(path: BoardPath) {
+  if (path.pace === "put-away") return "#ee5b4c";
+  if (path.pace === "drive") return "#f0d84c";
+  return "#45c987";
+}
+
+/**
+ * A small moving light turns the semantic pace into something a young player
+ * can read at a glance. The dot follows the same progress used by playback,
+ * so a shorter frame duration visibly means a faster shot rather than merely
+ * changing the route's colour.
+ */
+function drawPaceDot(
+  ctx: CanvasRenderingContext2D,
+  path: BoardPath,
+  geometry: Geometry,
+  progress: number,
+  showTrail: boolean,
+) {
+  const color = paceColor(path), dotProgress = bound(progress, 0, 1);
+  if (showTrail && dotProgress > .015) {
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.globalAlpha = .22;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([2, 6]);
+    tracePath(ctx, path, geometry, dotProgress);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const at = geometry.toCanvas(pointOnBoardPath(path, dotProgress));
+  const radius = path.pace === "put-away" ? 6.8 : path.pace === "drive" ? 6.2 : 5.7;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  const glow = ctx.createRadialGradient(at[0], at[1], 0, at[0], at[1], radius * 3.2);
+  glow.addColorStop(0, "rgba(255,255,255,.98)");
+  glow.addColorStop(.18, color);
+  glow.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(at[0], at[1], radius * 3.2, 0, Math.PI * 2);
+  ctx.fill();
+  circle(ctx, at, radius, color, "rgba(255,255,255,.95)", 1.6);
+  ctx.restore();
+}
+
 function markBounds(mark: BoardMark, geometry: Geometry) {
   const at = geometry.toCanvas(mark.position);
   const width = Math.max(14, (mark.size?.[0] ?? .28) * geometry.court.width);
@@ -378,6 +431,12 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
     if (!isBall && (options.showActorLabels ?? options.showLabels !== false) && actor.label) {
       const dy = pose[1] < .5 ? 26 : -31;
       label(ctx, actor.label, [at[0], bound(at[1] + dy, 12, height - 38)], 13, "center", palette.surround);
+    }
+  }
+  if (options.playing && options.showPaceDots) {
+    for (const path of frame.paths) {
+      if (path.kind === "move") continue;
+      drawPaceDot(ctx, path, geometry, progress, !!options.showPaceDotTrail);
     }
   }
   if (selected?.kind === "element") {

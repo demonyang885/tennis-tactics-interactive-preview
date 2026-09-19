@@ -651,7 +651,7 @@ type BoardCanvasCompletion = {
   path?:BoardDrag["path"];
 };
 
-function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,pathKind,markPreset,curved,smartEnabled,contextPaths,contextFrameIndex,previewing,elapsed,display,preview,commit,finishPreview,onComplete,onOverride,onCancel,onNudge,onDelete,onError,onTogglePathCurve}: {
+function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,pathKind,markPreset,curved,smartEnabled,contextPaths,contextFrameIndex,previewing,elapsed,display,paceDots,dotTrail,preview,commit,finishPreview,onComplete,onOverride,onCancel,onNudge,onDelete,onError,onTogglePathCurve}: {
   board:BoardDocument;
   frameIndex:number;
   selection:BoardSelection|null;
@@ -667,6 +667,8 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
   previewing:boolean;
   elapsed:number;
   display:BoardDisplayPreferences;
+  paceDots:boolean;
+  dotTrail:boolean;
   preview:(next:BoardDocument)=>void;
   commit:(next:BoardDocument)=>void;
   finishPreview:(base:BoardDocument,cancel?:boolean)=>void;
@@ -680,7 +682,7 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
 }) {
   const holderRef=useRef<HTMLDivElement>(null),canvasRef=useRef<HTMLCanvasElement>(null),drawRef=useRef<()=>void>(()=>{}),dragRef=useRef<BoardDrag|null>(null),chargeRef=useRef<BoardChargeFeedback|null>(null),chargeAnimationRef=useRef<number|null>(null),chargePaceRef=useRef<BoardShotPace>("control");
   const [canvasSize,setCanvasSize]=useState({width:0,height:0});
-  const latest=useRef({board,frameIndex,selection,contextPaths,contextFrameIndex,previewing,elapsed,display});latest.current={board,frameIndex,selection,contextPaths,contextFrameIndex,previewing,elapsed,display};
+  const latest=useRef({board,frameIndex,selection,contextPaths,contextFrameIndex,previewing,elapsed,display,paceDots,dotTrail});latest.current={board,frameIndex,selection,contextPaths,contextFrameIndex,previewing,elapsed,display,paceDots,dotTrail};
   useLayoutEffect(()=>{
     const canvas=canvasRef.current,holder=holderRef.current;if(!canvas||!holder)return;
     const draw=()=>{
@@ -690,11 +692,11 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
       const ctx=canvas.getContext("2d");if(!ctx)return;ctx.setTransform(dpr,0,0,dpr,0,0);
       const pose=current.previewing?getBoardPose(current.board,current.elapsed):null;
       const targetIndex=pose?.frameIndex??current.frameIndex,frame=current.board.frames[targetIndex];if(!frame)return;
-      renderBoard(ctx,width,height,frame,current.board.actors,{progress:pose?.progress??0,playing:current.previewing,selection:current.selection,showLegend:false,showLabels:true,showActorLabels:false,contextPaths:current.contextPaths,contextFrameIndex:current.contextFrameIndex??undefined,surface:current.display.surface,showZones:current.display.showZones,showZoneLabels:current.display.showZoneLabels,charge:current.previewing?null:chargeRef.current});
+      renderBoard(ctx,width,height,frame,current.board.actors,{progress:pose?.progress??0,playing:current.previewing,selection:current.selection,showLegend:false,showLabels:true,showActorLabels:false,contextPaths:current.contextPaths,contextFrameIndex:current.contextFrameIndex??undefined,surface:current.display.surface,showZones:current.display.showZones,showZoneLabels:current.display.showZoneLabels,charge:current.previewing?null:chargeRef.current,showPaceDots:current.previewing&&current.paceDots,showPaceDotTrail:current.previewing&&current.dotTrail});
     };
     drawRef.current=draw;const resize=new ResizeObserver(draw);resize.observe(holder);draw();return()=>resize.disconnect();
   },[]);
-  useEffect(()=>drawRef.current(),[board,contextFrameIndex,contextPaths,frameIndex,selection,previewing,elapsed,display]);
+  useEffect(()=>drawRef.current(),[board,contextFrameIndex,contextPaths,frameIndex,selection,previewing,elapsed,display,paceDots,dotTrail]);
 
   const stopCharge=useCallback(()=>{
     if(chargeAnimationRef.current!==null)cancelAnimationFrame(chargeAnimationRef.current);
@@ -934,6 +936,11 @@ function shouldRequestNativeBoardFullscreen() {
 function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, legacyNeedsReview=false, entryIntent, entryNotice, back, openLibrary }:{initialBoard:BoardDocument;initialPersisted?:boolean;migrationSource?:BoardDocument;legacyNeedsReview?:boolean;entryIntent?:"review";entryNotice?:string;back:()=>void;openLibrary:()=>void}) {
   const keyboard=useKeyboard();
   const {screenRef}=useScreenPortal();
+  const paceExperiment=useMemo(()=>{
+    if(typeof window==="undefined")return {dots:false,trail:false};
+    const params=new URLSearchParams(window.location.search);
+    return {dots:params.get("paceDots")==="1",trail:params.get("dotTrail")==="1"};
+  },[]);
   const initialSmart=getSmartBoardContinuation(initialBoard);
   const [board,setBoardState]=useState(initialBoard),[frameIndex,setFrameIndex]=useState(initialSmart?.frameIndex??0),[selection,setSelection]=useState<BoardSelection|null>(initialSmart?{kind:"actor",id:initialSmart.actorId}:null),[committedRevision,setCommittedRevision]=useState(0);
   const [past,setPast]=useState<BoardDocument[]>(migrationSource?[migrationSource]:[]),[future,setFuture]=useState<BoardDocument[]>([]),[saveState,setSaveState]=useState<BoardSaveState>(migrationSource?"dirty":initialPersisted?"saved":"clean"),[error,setError]=useState(""),[notice,setNotice]=useState(migrationSource?"已将旧版跑位改为与来球同步；可撤销为手动时间线。":legacyNeedsReview?"这份旧版时间线无法安全自动同步，已切换为手动编辑，请检查拍次。":entryNotice??"");
@@ -1466,7 +1473,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
           <button aria-label={`打开${board.title}的画板菜单`} aria-haspopup="dialog" aria-expanded={fileSurface==="menu"} onClick={event=>{rememberSheetOpener(event.currentTarget);setFileSurface("menu");}}><DotsHorizontalIcon/></button>
         </div>
       </div>}
-      <BoardCanvas board={previewing?playbackBoard:board} frameIndex={frameIndex} selection={selection} setSelection={setSelection} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} smartEnabled={!!activeSmart} contextPaths={previousBeatPaths} contextFrameIndex={contextFrameIndex} previewing={previewing} elapsed={elapsed} display={display} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onOverride={overrideSmartActor} onCancel={cancelCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError} onTogglePathCurve={toggleCurve}/>
+      <BoardCanvas board={previewing?playbackBoard:board} frameIndex={frameIndex} selection={selection} setSelection={setSelection} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} smartEnabled={!!activeSmart} contextPaths={previousBeatPaths} contextFrameIndex={contextFrameIndex} previewing={previewing} elapsed={elapsed} display={display} paceDots={paceExperiment.dots} dotTrail={paceExperiment.trail} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onOverride={overrideSmartActor} onCancel={cancelCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError} onTogglePathCurve={toggleCurve}/>
       {!sheetOpen&&error&&<div className="board-toast is-error" role="alert" aria-live="assertive" aria-atomic="true"><span>{error}</span><button aria-label="关闭提示" onClick={()=>setError("")}><Cross2Icon/></button></div>}
       <span className="board-sr-only" role="status" aria-live="polite" aria-atomic="true">{error||notice||toolStatus}</span>
     </div>
