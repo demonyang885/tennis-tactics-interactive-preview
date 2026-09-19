@@ -1,15 +1,16 @@
 # Mobile Prototype Agent Guide
 
-## Current Pace And Court Display Direction — 2026-09-16
+## Current Pace And Court Display Direction — v0.2 / 2026-09-19
 
-- The selected ball-speed interaction is the landing-point segmented charge ring from visual direction 1. Do not reopen the three-choice popup during normal line drawing.
+- The selected ball-speed interaction is a moving tennis ball on the authoring route at 50% opacity, without shadow. The endpoint must remain stable for 0.8 seconds before charging begins. Show only the current English pace near the arrow; remove the preview ball and pace label on release. Do not restore the old charge ring, energy bar, or three-choice popup.
 - A single continuous gesture draws and sets pace: drag from the tennis ball to the landing point, let the endpoint become stable, keep holding to charge, and release to commit. The order is `Control` at minimum charge, `Drive` after charging, and `Put away` at maximum charge. The sequence stops at `Put away` and never loops.
 - Pace feedback on the court uses only the English labels `Control`, `Drive`, and `Put away`. Do not add Chinese translations, seconds, speed values, sliders, or gauges to the primary gesture.
 - Preserve internal frame duration as the playback source of truth. A released gesture must commit route geometry, pace, and duration as one undoable edit, then resume the existing synchronized receiver-movement flow.
 - Remove the manual per-frame duration field from the product UI. Duration remains in the board model for playback, legacy compatibility, home preview, video, and GIF output, and is now derived from route length plus the selected pace.
-- Hard, Clay, and Grass are visual-only, device-level display preferences. Select them directly on the board through a compact icon control; do not bury theme selection in the overflow menu or serialize it as tactic content. Themes must never silently change ball speed, frame duration, bounce, or player movement.
+- Hard, Clay, and Grass are visual-only, device-level display preferences. Keep all three theme choices at the bottom of the secondary board menu, together with zone-color and zone-label toggles. Do not serialize them as tactic content. Themes must never silently change ball speed, frame duration, bounce, or player movement.
 - The positioning layer follows mirrored tennis positioning bands—Defense, Rally, Pressure, Attack, and Net—with translucent, theme-aware colors. Keep it below court lines and all tactical objects, and show the colored regions by default. Region names are hidden by default; the overflow menu may independently toggle region colors and region-name visibility. These are device display preferences, not tactic content.
-- Keep the board's permanent top and bottom controls icon-only. The top bar exposes back, undo, direct court-theme selection, help, and overflow; the bottom dock exposes only the context-relevant edit, play, history, or delete icons. The help icon opens the complete operation and icon guide, so explanatory copy does not occupy the court during normal use.
+- Keep the board's permanent controls icon-only, with RallyPath fixed at top-left. The top bar exposes back, undo, redo, help, and overflow; the bottom dock exposes add, play, and context-sensitive history/delete. Tap empty court to clear selection and access history. The help icon explains operations and icons; normal use has no permanent text guide covering the court. Secondary menus must fit within 5/8 of the viewport.
+- Newly drawn player movement routes are straight. Do not rewrite existing saved curved movement routes. Ball routes remain curved toward screen-right by default and can be adjusted directly.
 - Pace, court themes, and tactical-zone display are part of the current implementation scope, not deferred future-version work.
 - `PRODUCT_VNEXT.md` is the source of truth for the detailed scope, menu logic, exclusions, and acceptance criteria.
 
@@ -24,7 +25,7 @@
 - 新工作從該倉庫最新 `origin/main` 建立短期分支，PR 只合回同一個 `main`。不要從舊 feature、preview 或 release 分支續作。
 - 先讀 [SOURCE_OF_TRUTH.md](./SOURCE_OF_TRUTH.md)，核對 remote、分支、HEAD、工作區狀態；資料夾名稱、埠號及舊 Mac mini 路徑不能證明版本。
 - `24fa57112728cad53e1792fe6df15999964f6e94` 是本次核查的 v0.1.0 發布基準，不是要求將未來 main 重設回此提交。
-- 下方 9/8 產品方向、`PRODUCT_VNEXT.md` 及歷史 QA 是功能背景；畫板優先首頁、用途分類與已發布程式／測試是目前基準。不要把歷史分支描述當作待合併工作。
+- 下方 9/8 產品方向及歷史 QA 是功能背景；`PRODUCT_VNEXT.md` 已於 v0.2 收斂時更新為現行規格。不要把歷史分支描述當作待合併工作。本次 v0.2 保留本機未發布成果並合入 origin/main；完成發布後，後續開發仍從最新 origin/main 開始。
 - 已發布的 `PhoneFrame.tsx` 是 frameless 容器，並已有沉浸畫板及行動裝置原生輸入適配。下方較早模板中要求恢復 device picker／bezel 的文字不適用於已發布外觀；保留目前受 lock 保護的 runtime，不要為符合舊文字回退它。
 - [分支審核](./docs/maintenance/BRANCH_AUDIT_2026-09-19.md) 記錄保留、取代與待考慮內容；`docs/archive/` 是歷史證據，內含的舊發布／交接命令均不可當作現行指令。
 

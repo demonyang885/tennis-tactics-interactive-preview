@@ -7,7 +7,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDownIcon,
-  ChevronUpIcon,
   CodeIcon,
   ComponentInstanceIcon,
   CopyIcon,
@@ -20,7 +19,6 @@ import {
   DrawingPinIcon,
   InfoCircledIcon,
   ImageIcon,
-  LapTimerIcon,
   LayersIcon,
   MinusIcon,
   PauseIcon,
@@ -46,7 +44,6 @@ import { categories, combinations, interactiveRallies, libraryStats, rallyNodes,
 import type { Combination, Moment, Point, RallyChoice, RallyNode, RallyObservation, RallyScenarioChoice, Tactic, TacticExcerpt } from "./content/types";
 import { getScoreBounceMotion } from "./content/effects";
 import { boardFromTactic, boardFromTactics } from "./board/adapters";
-import { BOARD_DRILLS, getDrillForTactic } from "./board/drills";
 import {
   addActor,
   addFrame,
@@ -82,14 +79,13 @@ import {
   getBoardPurpose,
   type BoardActor,
   type BoardDocument,
-  type BoardFrame,
   type BoardMark,
   type BoardPath,
   type BoardPurpose,
   type BoardShotPace,
   type Point as BoardPoint,
 } from "./board/model";
-import { exportBoardPng, getBoardGeometry, hitTestBoard, renderBoard, type BoardHit, type BoardSelection } from "./board/render";
+import { exportBoardPng, getBoardGeometry, hitTestBoard, renderBoard, type BoardSelection } from "./board/render";
 import { getBoardDisplayPreferences, setBoardDisplayPreferences, type BoardDisplayPreferences, type BoardSurface } from "./board/display";
 import { exportBoardGif, exportBoardVideo, pickVideoEncoding, prepareBoardForMedia, type BoardMediaExport } from "./board/media";
 import { readBoards, saveBoard } from "./board/storage";
@@ -112,7 +108,6 @@ function tacticMeta(tactic: Tactic) {
     mistake: tactic.mistake ?? "还没到位就急着发力。",
   };
 }
-const firstClause = (text: string) => text.split(/[；。]/)[0].trim();
 function ProductWordmark({ compact = false }: { compact?: boolean }) {
   return <span className={`product-wordmark${compact ? " is-compact" : ""}`} aria-label="RallyPath">
     <span className="product-wordmark-mark" aria-hidden="true" />
@@ -490,12 +485,6 @@ function safeFilename(title:string,extension:string) {
   return `${title.trim().replace(/[\\/:*?"<>|]+/g,"-").slice(0,48)||"tennis-board"}.${extension}`;
 }
 
-function withBoundedSuffix(value:string,suffix:string,maxLength:number,fallback:string) {
-  let stem=value.trim().slice(0,Math.max(0,maxLength-suffix.length)).trimEnd();
-  const lastCode=stem.charCodeAt(stem.length-1);
-  if(lastCode>=0xd800&&lastCode<=0xdbff)stem=stem.slice(0,-1);
-  return `${stem||fallback}${suffix}`.slice(0,maxLength);
-}
 
 function clampBoardPoint(point:BoardPoint):BoardPoint {
   return [
@@ -756,6 +745,9 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
         if(markPreset!=="freehand"){const nextSelection={kind:"element",id:mark.id} as const;commit(addMark(board,frameIndex,mark));onComplete({selection:nextSelection,created:true,gesture:"mark",base:board});return;}
         dragRef.current={pointerId:event.pointerId,base:board,kind:"freehand",id:mark.id,points:[point],startClient:[event.clientX,event.clientY],moved:false,selectionBefore:selection};event.currentTarget.setPointerCapture(event.pointerId);return;
       }
+      // Empty court deselects even while the next smart-rally tool is armed.
+      // This exposes the dock's history button without cancelling continuation.
+      if(!hit){setSelection(null);onError("");return;}
       if(tool==="shot"||tool==="move"){
         let actor:BoardActor|undefined,kind:"shot"|"feed"|"move";
         if(smartEnabled){
@@ -773,7 +765,6 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
         const id=newBoardId("path");
         dragRef.current={pointerId:event.pointerId,base:board,kind:"path",id,startClient:[event.clientX,event.clientY],moved:false,selectionBefore:selection,path:{kind,actorId:actor.id,from}};event.currentTarget.setPointerCapture(event.pointerId);return;
       }
-      if(!hit){setSelection(null);return;}
       if(hit.kind==="actor"){
         const pose=frame.poses[hit.id];if(!pose)return;
         dragRef.current={pointerId:event.pointerId,base:board,kind:"actor",id:hit.id,startClient:[event.clientX,event.clientY],offset:[pose[0]-point[0],pose[1]-point[1]],moved:false,selectionBefore:selection};
@@ -890,7 +881,6 @@ function BoardRenameLayer({open,value,error,onChange,onCancel,onSubmit}:{open:bo
 
 type BoardFileSurface = null | "menu" | "save-share" | "media" | "rename";
 type WebkitFullscreenDocument = Document & {webkitFullscreenElement?:Element|null;webkitExitFullscreen?:()=>Promise<void>|void};
-type WebkitFullscreenElement = HTMLElement & {webkitRequestFullscreen?:()=>Promise<void>|void};
 let boardFullscreenSessionSequence=0;
 const boardFullscreenOwners=new WeakMap<HTMLElement,string>();
 
@@ -929,9 +919,6 @@ function exitScreenFullscreenBestEffort(screen:HTMLElement|null) {
   }catch{/* browser exit is best effort after its owning editor has gone */}
 }
 
-function shouldRequestNativeBoardFullscreen() {
-  return !window.matchMedia("(any-pointer: coarse)").matches;
-}
 
 function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, legacyNeedsReview=false, entryIntent, entryNotice, back, openLibrary }:{initialBoard:BoardDocument;initialPersisted?:boolean;migrationSource?:BoardDocument;legacyNeedsReview?:boolean;entryIntent?:"review";entryNotice?:string;back:()=>void;openLibrary:()=>void}) {
   const keyboard=useKeyboard();
@@ -940,8 +927,8 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
   const [board,setBoardState]=useState(initialBoard),[frameIndex,setFrameIndex]=useState(initialSmart?.frameIndex??0),[selection,setSelection]=useState<BoardSelection|null>(initialSmart?{kind:"actor",id:initialSmart.actorId}:null),[committedRevision,setCommittedRevision]=useState(0);
   const [past,setPast]=useState<BoardDocument[]>(migrationSource?[migrationSource]:[]),[future,setFuture]=useState<BoardDocument[]>([]),[saveState,setSaveState]=useState<BoardSaveState>(migrationSource?"dirty":initialPersisted?"saved":"clean"),[error,setError]=useState(""),[notice,setNotice]=useState(migrationSource?"已将旧版跑位改为与来球同步；可撤销为手动时间线。":legacyNeedsReview?"这份旧版时间线无法安全自动同步，已切换为手动编辑，请检查拍次。":entryNotice??"");
   const [tool,setTool]=useState<BoardTool>(initialSmart?.phase??"select"),[actorPreset,setActorPreset]=useState<ActorPreset>("me"),[pathKind,setPathKind]=useState<"shot"|"feed">("shot"),[markPreset,setMarkPreset]=useState<MarkPreset>("target"),[curved,setCurved]=useState(true);
-  const [viewMode,setViewMode]=useState<"edit"|"preview">("edit"),[isPlaying,setIsPlaying]=useState(false),[elapsed,setElapsed]=useState(0),[speed,setSpeed]=useState(1);
-  const [fileSurface,setFileSurface]=useState<BoardFileSurface>(null),[historyOpen,setHistoryOpen]=useState(false),[frameOpen,setFrameOpen]=useState(false),[drillOpen,setDrillOpen]=useState(false),[helpOpen,setHelpOpen]=useState(false),[toolPalette,setToolPalette]=useState<"add"|null>(null),[immersive,setImmersive]=useState(true);
+  const [viewMode,setViewMode]=useState<"edit"|"preview">("edit"),[isPlaying,setIsPlaying]=useState(false),[elapsed,setElapsed]=useState(0),[speed]=useState(1);
+  const [fileSurface,setFileSurface]=useState<BoardFileSurface>(null),[historyOpen,setHistoryOpen]=useState(false),[frameOpen,setFrameOpen]=useState(false),[helpOpen,setHelpOpen]=useState(false),[toolPalette,setToolPalette]=useState<"add"|null>(null),[immersive,setImmersive]=useState(true);
   const [display,setDisplay]=useState<BoardDisplayPreferences>(()=>getBoardDisplayPreferences());
   const [mediaState,setMediaState]=useState<BoardMediaState>({status:"idle"});
   const [titleDraft,setTitleDraft]=useState(board.title),[frameLabel,setFrameLabel]=useState(board.frames[0]?.label??"");
@@ -961,11 +948,10 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
   const selectedElementFrame=board.frames[selectedElementFrameIndex];
   const selectedPath=selection?.kind==="element"?selectedElementFrame?.paths.find(path=>path.id===selection.id):undefined;
   const selectedMark=selection?.kind==="element"?selectedElementFrame?.marks.find(mark=>mark.id===selection.id):undefined;
-  const drill=BOARD_DRILLS.find(item=>item.id===board.drillId)??getDrillForTactic(board.sourceTacticId);
   const setSheetVisibility=useCallback((setter:(open:boolean)=>void,nextOpen:boolean)=>{if(!nextOpen)keyboard.hide();setter(nextOpen);},[keyboard]);
   const rememberSheetOpener=useCallback((opener:HTMLElement)=>{if(sheetFocusTimerRef.current!==null)window.clearTimeout(sheetFocusTimerRef.current);sheetOpenerRef.current=opener;},[]);
   const restoreSheetFocus=useCallback((destination:"opener"|"canvas")=>{if(sheetFocusTimerRef.current!==null)window.clearTimeout(sheetFocusTimerRef.current);const opener=sheetOpenerRef.current;sheetFocusTimerRef.current=window.setTimeout(()=>{const canvas=editorRef.current?.querySelector<HTMLElement>('[data-testid="board-canvas"]');const target=destination==="canvas"?canvas:opener?.isConnected?opener:selectToolRef.current;(target??selectToolRef.current)?.focus();sheetOpenerRef.current=null;sheetFocusTimerRef.current=null;},360);},[]);
-  const closeBoardSurfaces=useCallback(()=>{mediaAbortRef.current?.abort();mediaAbortRef.current=null;if(mediaUrlRef.current){URL.revokeObjectURL(mediaUrlRef.current);mediaUrlRef.current=null;}setMediaState({status:"idle"});setFileSurface(null);setHistoryOpen(false);setFrameOpen(false);setDrillOpen(false);setHelpOpen(false);setToolPalette(null);keyboard.hide();},[keyboard]);
+  const closeBoardSurfaces=useCallback(()=>{mediaAbortRef.current?.abort();mediaAbortRef.current=null;if(mediaUrlRef.current){URL.revokeObjectURL(mediaUrlRef.current);mediaUrlRef.current=null;}setMediaState({status:"idle"});setFileSurface(null);setHistoryOpen(false);setFrameOpen(false);setHelpOpen(false);setToolPalette(null);keyboard.hide();},[keyboard]);
   const finishImmersiveExit=useCallback((announce=exitAnnouncementRef.current,message="已退出全屏战术板。")=>{
     const screen=screenRef.current;
     const stage=screen?.closest<HTMLElement>(".phone-stage");
@@ -1069,69 +1055,6 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
     fullscreenOperationRef.current+=1;
     finishImmersiveExit(announce);
   },[closeBoardSurfaces,finishImmersiveExit,requestNativeExit,screenRef]);
-  const enterImmersive=useCallback(()=>{
-    closeBoardSurfaces();
-    const screen=screenRef.current;
-    if(!screen)return;
-    claimBoardFullscreen(screen,fullscreenSessionRef.current);
-    afterImmersiveExitRef.current=null;
-    immersiveDesiredRef.current=true;
-    fullscreenRequestPendingRef.current=false;
-    fullscreenExitPendingRef.current=false;
-    nativeFullscreenOwnedRef.current=false;
-    setImmersive(true);
-    setError("");
-    setNotice("已进入全屏战术板；退出按钮会一直保留在顶部。");
-    if(!shouldRequestNativeBoardFullscreen())return;
-    const target=screen as WebkitFullscreenElement;
-    const request=target.requestFullscreen
-      ?()=>target.requestFullscreen({navigationUI:"hide"})
-      :target.webkitRequestFullscreen
-        ?()=>target.webkitRequestFullscreen!()
-        :null;
-    if(!request)return;
-    const operation=++fullscreenOperationRef.current;
-    fullscreenRequestPendingRef.current=true;
-    try{
-      const settleRequest=()=>{
-        const currentScreen=screenRef.current;
-        const owner=boardFullscreenOwner(currentScreen);
-        if(owner!==fullscreenSessionRef.current){
-          fullscreenRequestPendingRef.current=false;
-          if(!owner&&screenOwnsFullscreen(currentScreen))exitScreenFullscreenBestEffort(currentScreen);
-          return;
-        }
-        if(operation!==fullscreenOperationRef.current)return;
-        fullscreenRequestPendingRef.current=false;
-        if(!immersiveDesiredRef.current){
-          if(screenOwnsFullscreen(currentScreen))requestNativeExit(exitAnnouncementRef.current);
-          else finishImmersiveExit(exitAnnouncementRef.current);
-          return;
-        }
-        if(screenOwnsFullscreen(currentScreen))nativeFullscreenOwnedRef.current=true;
-        else{
-          nativeFullscreenOwnedRef.current=false;
-          setNotice("已进入沉浸模式；当前浏览器未开放系统全屏。");
-        }
-      };
-      const result=request();
-      if(result instanceof Promise)result.then(settleRequest,settleRequest);
-      else settleRequest();
-    }catch{
-      fullscreenRequestPendingRef.current=false;
-      if(!boardSessionOwnsFullscreen(screenRef.current,fullscreenSessionRef.current))return;
-      if(!immersiveDesiredRef.current){
-        finishImmersiveExit(exitAnnouncementRef.current);
-        return;
-      }
-      if(screenOwnsFullscreen(screenRef.current))nativeFullscreenOwnedRef.current=true;
-      else{
-        nativeFullscreenOwnedRef.current=false;
-        setNotice("已进入沉浸模式；当前浏览器未开放系统全屏。");
-      }
-    }
-  },[closeBoardSurfaces,finishImmersiveExit,requestNativeExit,screenRef]);
-  const toggleImmersive=useCallback(()=>{if(immersive)exitImmersive();else enterImmersive();},[enterImmersive,exitImmersive,immersive]);
 
   const setBoard=useCallback((next:BoardDocument)=>{boardRef.current=next;setBoardState(next);},[]);
   const prepareToLeave=useCallback(()=>{setIsPlaying(false);setViewMode("edit");setElapsed(0);closeBoardSurfaces();},[closeBoardSurfaces]);
@@ -1203,7 +1126,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
       document.removeEventListener("webkitfullscreenerror",failed);
     };
   },[closeBoardSurfaces,finishImmersiveExit,recoverNativeExit,requestNativeExit,screenRef]);
-  useEffect(()=>{if(!immersive)return;const onKeyDown=(event:KeyboardEvent)=>{if(event.key!=="Escape"||event.defaultPrevented)return;if(fileSurface!==null||historyOpen||frameOpen||drillOpen||toolPalette!==null||keyboard.visible)return;sendBoardAction(initialBoard.id,"back");};document.addEventListener("keydown",onKeyDown,true);return()=>document.removeEventListener("keydown",onKeyDown,true);},[drillOpen,fileSurface,frameOpen,historyOpen,immersive,initialBoard.id,keyboard.visible,toolPalette]);
+  useEffect(()=>{if(!immersive)return;const onKeyDown=(event:KeyboardEvent)=>{if(event.key!=="Escape"||event.defaultPrevented)return;if(fileSurface!==null||historyOpen||frameOpen||toolPalette!==null||keyboard.visible)return;sendBoardAction(initialBoard.id,"back");};document.addEventListener("keydown",onKeyDown,true);return()=>document.removeEventListener("keydown",onKeyDown,true);},[fileSurface,frameOpen,historyOpen,immersive,initialBoard.id,keyboard.visible,toolPalette]);
   useEffect(()=>{
     const flowStack=editorRef.current?.closest<HTMLElement>(".flow-stack");
     if(!flowStack)return;
@@ -1318,7 +1241,6 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
   const addNextFrame=(duplicate=false)=>{try{const nextIndex=frameIndex+1,generated=addFrame(board,frameIndex,duplicate),next=generated.smartRally?setSmartRally(generated):generated;commit(next);setFrameIndex(nextIndex);setSelection(null);setTool("select");setViewMode("edit");setIsPlaying(false);setError("");setNotice(`已新增第 ${nextIndex+1} 拍，从上一拍结束位置开始。`);}catch(reason){setError(reason instanceof Error?reason.message:"无法添加拍次");}};
   const applyFrame=()=>{try{commit(updateFrame(board,frameIndex,{label:frameLabel}));setFrameOpen(false);keyboard.hide();restoreSheetFocus("opener");}catch(reason){setError(reason instanceof Error?reason.message:"无法更新拍次");}};
   const deleteCurrentFrame=()=>{const next=deleteFrame(board,frameIndex);commit(next);setFrameIndex(Math.max(0,Math.min(frameIndex,next.frames.length-1)));setFrameOpen(false);keyboard.hide();restoreSheetFocus("opener");};
-  const openFrameSheet=()=>{setFrameLabel(frame.label);setFrameOpen(true);};
   const openFrameFromHistory=(index:number)=>{const nextFrame=board.frames[index];if(!nextFrame)return;setFrameIndex(index);setFrameLabel(nextFrame.label);setHistoryOpen(false);setFrameOpen(true);};
   const frameStart=(index:number)=>board.frames.slice(0,index).reduce((sum,item)=>sum+item.duration,0);
   const nextPlaybackFrame=()=>{const pose=getBoardPose(playbackBoard,elapsed);if(pose.frameIndex>=playbackBoard.frames.length-1)return;const next=pose.frameIndex+1;setElapsed(frameStart(next));setIsPlaying(false);setNotice(`已跳到第 ${next+1} 拍。`);};
@@ -1443,17 +1365,12 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
     return board.frames[frameIndex-1].paths;
   },[board,frame?.id,frameIndex,previewing]);
   const contextFrameIndex=previousBeatPaths.length?frameIndex-1:null;
-  const resumeSmartFlow=()=>{if(applySmartContinuation(board)){setError("");setNotice(smartContinuation?.phase==="move"?`继续拖动${smartActorLabel||"接球方"}跑位。`:"继续从网球拖出下一拍。");restoreSheetFocus("canvas");}else{setSelection(null);setTool("select");}};
-  const smartActor=activeSmart?board.actors.find(actor=>actor.id===activeSmart.actorId):undefined;
-  const smartActorLabel=smartActor?numberedActorLabel(board.actors,smartActor):"";
   const toolStatus=activeSmart?.phase==="shot"?(frameIndex===0?(entryIntent==="review"?"从网球拖出去，还原这一分":"从网球拖出去，画出发球路线"):"再拖动网球，画下一拍"):activeSmart?.phase==="move"?"拖动接球球员，画出跑位":tool==="actor"?`点一下球场，放置${actorPreset==="me"?"我方球员":actorPreset==="opponent"?"对手球员":"网球"}`:tool==="shot"?`从网球拖到落点，画出${pathKind==="feed"?"喂球路线":"球路"}${curved?"曲线":"直线"}`:tool==="move"?`拖动已选球员，画出跑位${curved?"曲线":"直线"}`:tool==="mark"?`${markPreset==="freehand"?"在球场上拖动，画出":"点一下球场，放置"}${BOARD_MARK_NAMES[markPreset]}`:"";
-  const addToolActive=toolPalette!==null||tool==="actor"||tool==="mark";
   const canGoPrevious=elapsed>0;
   const canGoNext=currentPlaybackFrame<playbackBoard.frames.length-1;
   const videoEncoding=pickVideoEncoding();
   const canNativeShare=mediaState.status==="ready"&&!!navigator.share&&(()=>{try{const file=new File([mediaState.result.blob],mediaState.result.name,{type:mediaState.result.mimeType.split(";")[0]});return navigator.canShare?.({files:[file]})??false;}catch{return false;}})();
-  const sheetOpen=toolPalette!==null||fileSurface!==null||historyOpen||frameOpen||drillOpen||helpOpen;
-  const activeGuideMessage=error||notice;
+  const sheetOpen=toolPalette!==null||fileSurface!==null||historyOpen||frameOpen||helpOpen;
   const sheetFeedback=(error||notice)&&<p className={`board-sheet-feedback ${error?"is-error":"is-status"}`} role={error?"alert":"status"} aria-live={error?"assertive":"polite"} aria-atomic="true">{error||notice}</p>;
   return <div ref={editorRef} className={`board-editor ${previewing?"is-previewing":"is-editing"} ${immersive?"is-immersive":""}`} data-immersive={immersive?"true":"false"}>
     <div className="board-canvas-shell">
@@ -1518,7 +1435,6 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
     <BoardRenameLayer open={fileSurface==="rename"} value={titleDraft} error={error} onChange={value=>{setTitleDraft(value);if(error)setError("");}} onCancel={cancelRename} onSubmit={applyRename}/>
     <BottomSheet open={historyOpen} onOpenChange={open=>{setSheetVisibility(setHistoryOpen,open);if(!open)restoreSheetFocus("opener");}} title="拍次" snap={.44}><div className="board-sheet"><button className="guide-close" aria-label="关闭拍次" onClick={()=>{setHistoryOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<div className="board-object-list board-history-list">{board.frames.map((item,index)=>{const isCurrent=index===frameIndex,isContinuation=smartContinuation?.frameIndex===index&&item.paths.length===0,continuationLabel=smartContinuation?.phase==="move"?"等待接球方跑位":index===0?"等待第一条球路":"等待下一拍球路";return <button key={item.id} aria-current={isCurrent?"step":undefined} aria-label={`编辑第 ${index+1} 拍：${item.label}`} onClick={()=>openFrameFromHistory(index)}><span className="board-history-number">{index+1}</span><span><strong>{item.label}</strong><small>{isContinuation?continuationLabel:`${item.paths.length} 条轨迹 · ${item.duration.toFixed(1)} 秒`}</small></span>{isCurrent?<CheckCircledIcon/>:<ChevronRightIcon/>}</button>;})}</div></div></BottomSheet>
     <BottomSheet open={frameOpen} onOpenChange={open=>{setSheetVisibility(setFrameOpen,open);if(!open)restoreSheetFocus("opener");}} title={`第 ${frameIndex+1} 拍`} description="球速由画球路时的蓄力决定，跑位与来球同步。" snap={.58}><div className="board-sheet"><button className="guide-close" aria-label="取消编辑拍次" onClick={()=>{setFrameOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<label className="board-field"><span>拍次口令</span><KeyboardInput value={frameLabel} maxLength={42} onChange={event=>setFrameLabel(event.currentTarget.value)}/></label><button className="sheet-done" onClick={applyFrame}>完成</button><div className="board-sheet-row"><button onClick={()=>{addNextFrame(true);setFrameOpen(false);keyboard.hide();restoreSheetFocus("canvas");}}><CopyIcon/>沿用标记到新增一拍</button><button className="is-danger" disabled={board.frames.length===1} onClick={deleteCurrentFrame}><TrashIcon/>删除此拍</button></div></div></BottomSheet>
-    <BottomSheet open={drillOpen} onOpenChange={open=>{setSheetVisibility(setDrillOpen,open);if(!open)restoreSheetFocus("opener");}} title={drill?.title??"练到场上"} description={drill?.goal} snap={.9}>{drill&&<div className="drill-guide"><button className="guide-close" aria-label="关闭训练指南" onClick={()=>{setDrillOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<div className="drill-setup"><h3>开始前，准备这些</h3><p><strong>一起练</strong>{drill.people}</p><p><strong>准备</strong>{drill.equipment.join("、")}</p><ol>{drill.setup.map(item=><li key={item}>{item}</li>)}</ol></div><div className="drill-stages">{drill.stages.map(stage=><details key={stage.id}><summary><span>{stage.title}</span><ChevronDownIcon/></summary><div><p><strong>这一组怎么练</strong>{stage.task}</p><p><strong>怎么喂球</strong>{stage.feed}</p><blockquote>{stage.cue}</blockquote><p><strong>留意这一点</strong>{stage.check}</p><p><strong>简单一点</strong>{stage.easier}</p><p><strong>加点难度</strong>{stage.harder}</p><small>{stage.reps}</small></div></details>)}</div><p className="drill-progression">{drill.progression}</p><button className="sheet-done" onClick={()=>{setDrillOpen(false);keyboard.hide();restoreSheetFocus("opener");}}>回到画板</button></div>}</BottomSheet>
   </div>;
 }
 

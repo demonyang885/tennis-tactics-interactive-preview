@@ -27,7 +27,8 @@ test("prepared artifact contains the deployed entry points", async () => {
   const escapedBasePath = version.basePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   await stat(path.join(output, ".nojekyll"));
   assert.equal(version.product, "RallyPath");
-  assert.equal(version.version, "0.1.0");
+  const manifest = JSON.parse(await readFile(path.resolve("package.json"), "utf8"));
+  assert.equal(version.version, manifest.version);
   assert.equal(version.basePath, normalizeBasePath(version.basePath));
   assert.match(index, new RegExp(`${escapedBasePath}assets/`));
   assert.equal(fallback, index);

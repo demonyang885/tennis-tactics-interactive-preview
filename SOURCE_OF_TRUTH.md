@@ -44,8 +44,8 @@ git log --oneline origin/main..HEAD
 ```
 
 若工作區有未提交內容、remote 不對，或目前分支有尚未整合的提交，先保留並比對；不可強制 reset、clean 或直接覆寫。
-舊 Mac mini 路徑 `/Users/clawbot/Documents/Codex/2026-09-10/app/tennis-tactics` 僅是歷史線索，本次未連線驗證。
-`192.168.31.153:4175` 也只能證明服務位置，不能證明 checkout／分支／版本。
+2026-09-19 本機補充核查：4176 服務工作目錄為 `/Users/clawbot/Documents/Codex/2026-09-10/app/tennis-tactics`，現已在 `release/rallypath-v0.2.0` 整理。埠號只能證明服務位置，不能證明 checkout／分支／版本。
+本次保留本機未發布成果，再合入 origin/main 與文件整理分支，避免丟失已確認的操作。詳見 [v0.2 收斂記錄](./docs/maintenance/V0_2_CONSOLIDATION.md)。尚未推送／部署，公開發布基準仍是上方 v0.1。
 
 最省混淆的方式是建立獨立新 checkout（目標資料夾須不存在）：
 
@@ -64,7 +64,7 @@ git switch -c feature/next-iteration origin/main
 2. 根目錄 AGENTS.md：目前產品約束與工程規則。
 3. main 的程式、資料型別與測試：已實作行為；實際模型見 `src/board/model.ts`、`validate.ts`、`storage.ts`。
 4. 日期化審核與 docs/archive：演進證據，不是下輪任務或當前發布指令。
-5. PRODUCT_VNEXT.md：9/10 情境決策功能設計背景，不是整個 RallyPath 的最新總路線圖。
+5. PRODUCT_VNEXT.md：已更新為 v0.2 現行規格與驗收邊界；早期情境決策設計保留在 Git 歷史及封存目錄。
 
 目前首頁以畫板為主，戰術／練習／比賽回顧分類位於下方歷史區；保持無實際編輯不建立草稿、舊瀏覽器存檔相容。
 保留 `tennis-tactics:board-drafts:v1` 存檔鍵；不要只為產品改名而改動儲存鍵。
@@ -73,11 +73,11 @@ git switch -c feature/next-iteration origin/main
 ## 合併、發布與下一次交接
 
 - 同倉庫 PR → main；既有 workflow 已對 PR 測試，只讓 main 部署正式 Pages。
-- 發布驗證：`npm run check:runtime`、`npm run test:runtime`、`npm run build`、`npm run prepare:pages`、`npm run test:pages`。實機分享與觸控仍需相應設備驗收。
+- 發布驗證：`npm run verify:release`。實機分享與觸控仍需相應設備驗收。
 - 合併前確認當次 PR 的 CI，而非沿用 9/15 的成功紀錄；合併後確認 deploy 與線上 version.json。
 - 每次交接記錄 repository、branch、完整 HEAD、工作區是否乾淨、PR、測試結果、部署 run 與 URL；若只本機預覽，明確記錄其 checkout 與 SHA。
 - 舊 `demonyang885/tennis-tactics` 僅供歷史查閱，不接收新功能。舊 Pages URL 不再代表最新產品。
-- 本次只準備文件／歷史保存 PR；不刪分支、不改寫歷史、不搬站、不改 runtime、不自動合併。
+- v0.2 收斂只在本機整理與測試；不刪歷史分支、不改寫歷史、不搬站、不改受保護 runtime、不自動合入 main 或部署。
 - 審核時兩邊 main 的 branches API 均回報 `protected:false`。保護規則／rulesets 未完整查核；本文件是工作約定，不代表 GitHub 已強制執行。後續可由管理員核對並設定 required CI 與禁止直接推送。
 
 ## 可直接交給下一位開發者的任務開頭

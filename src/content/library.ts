@@ -1,7 +1,7 @@
 import { expansionCombinations, expansionGuides, expansionTactics } from "./expansion";
 import { baseInteractiveRallies, baseRallyNodes } from "./rallies";
 import { nextCombinations, nextGuides, nextInteractiveRallies, nextRallyNodes, nextTactics } from "./next";
-import type { Category, Combination, InteractiveRally, Moment, Point, RallyNode, Tactic, TacticGuide } from "./types";
+import type { Combination, InteractiveRally, Moment, Point, RallyNode, Tactic, TacticGuide } from "./types";
 import { validateTennisLibrary } from "./validate";
 
 export const tacticGuides: Record<string, TacticGuide> = {

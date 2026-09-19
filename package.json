@@ -1,9 +1,13 @@
 {
   "name": "rallypath",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
+    "check:types": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
+    "test:core": "node --test tests/board-media-core.test.mjs",
+    "test": "npm run check:runtime && npm run check:content && npm run check:types && npm run test:core && npm run test:runtime",
+    "verify:release": "npm test && npm run build && npm run test:sites && npm run prepare:pages && npm run test:pages",
     "check:runtime": "node scripts/check-mobile-runtime.mjs",
     "check:content": "node scripts/check-content.mjs",
     "update:runtime-lock": "node scripts/update-mobile-runtime-lock.mjs",

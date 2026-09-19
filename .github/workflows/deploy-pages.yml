@@ -35,9 +35,11 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Test runtime, board model, and UI
-        run: npm run test:runtime
+        run: npm test
       - name: Build
         run: npm run build
+      - name: Verify static worker artifact
+        run: npm run test:sites
       - name: Prepare project Pages paths
         run: npm run prepare:pages
         env:

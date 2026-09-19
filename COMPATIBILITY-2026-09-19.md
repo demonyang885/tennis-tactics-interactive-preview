@@ -32,7 +32,9 @@ Final result: all 16 engine/viewport combinations passed the listed checks. Each
 
 The 390px-high landscape drawer initially measured 260px, violating the 5/8 limit. After the minimum-height fix, WebKit measured 243.75px (exactly 390 × 0.625); theme controls remained operable through the drawer's scrolling content.
 
-Screenshots and the repeatable CLI scenario are in `output/playwright/compat-20260919/` (local QA artifacts, not release assets).
+Screenshots are in `output/playwright/compat-20260919/` (local QA artifacts, not release assets). The repeatable CLI scenario is now tracked at `scripts/qa/compatibility-matrix.js`; run it with Playwright CLI `run-code` in an opened Chromium or WebKit session against port 4176. Create the screenshot output directory before a fresh checkout run.
+
+The 16 engine/viewport checks were rerun after v0.2 code cleanup and the empty-court deselection fix. All passed again with no page errors in their isolated contexts. Prior long-lived dev tabs contained temporary HMR errors during merge/edit operations; these were not counted as clean validation sessions.
 
 ## Limits
 

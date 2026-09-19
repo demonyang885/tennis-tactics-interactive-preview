@@ -12,6 +12,8 @@ RallyPath 是一款面向青少年的网球战术画板。孩子可以画出下�
 
 当前公开版本：**V0.1（0.1.0）**
 
+本機整理版本：**v0.2.0**，分支 `release/rallypath-v0.2.0`；尚未合入 main 或部署。現行功能約束見 [PRODUCT_VNEXT.md](./PRODUCT_VNEXT.md)，整理記錄見 [v0.2 收斂記錄](./docs/maintenance/V0_2_CONSOLIDATION.md)。
+
 - 以竖向全场战术板为核心，支持球路、跑位、连续回合与动画播放。
 - 首页直接播放最后编辑的画板，并区分战术、练习和比赛回顾。
 - 内置单项战术、组合打法和临场变化，帮助孩子理解“什么时候用、想换来什么”。
@@ -23,6 +25,6 @@ RallyPath 是一款面向青少年的网球战术画板。孩子可以画出下�
 
 本机预览：运行 `npm ci`，然后运行 `npm run dev -- --host 127.0.0.1 --port 5173`。
 
-发布前验证：`npm run test:runtime`、`npm run build`、`npm run prepare:pages`、`npm run test:pages`。
+完整發布前驗證：`npm run verify:release`。包含 runtime 保護、內容、嚴格型別／無用程式碼、媒體核心、瀏覽器回歸、建置及兩種靜態發布產物檢查。此指令只測試／建置，不會上傳部署。
 
 战术内容用于帮助判断，不保证得分，也不能替代教练的现场指导。教学原则参考 ITF、LTA 和 USTA 的公开资料；具体组合与练习为教学化编排。
