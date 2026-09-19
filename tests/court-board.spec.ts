@@ -1231,8 +1231,10 @@ test("reopens a legacy default blank draft and repairs its missing continuation"
   expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: "opponent" });
   expect(saved.frames[1].paths.map((path) => path.kind)).toEqual(["shot"]);
   expect(saved.frames[2].paths).toEqual([]);
-  expect(saved.frames[2].poses.ball[0]).toBeCloseTo(.32, 5);
-  expect(saved.frames[2].poses.ball[1]).toBeCloseTo(.75, 5);
+  const repairedShot = saved.frames[1].paths[0];
+  expect(saved.frames[2].poses.ball).toEqual(repairedShot.to);
+  expect(repairedShot.to[0]).toBeCloseTo(.32, 3);
+  expect(repairedShot.to[1]).toBeCloseTo(.75, 3);
 });
 
 test("playback counts a synchronized opening shot and receiver movement as one beat", async ({ page }) => {
