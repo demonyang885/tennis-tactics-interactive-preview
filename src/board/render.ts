@@ -242,12 +242,7 @@ function drawChargingBall(ctx: CanvasRenderingContext2D, path: BoardPath, geomet
   const at = geometry.toCanvas(pointOnBoardPath(path, bound(progress, 0, 1)));
   const radius = 7;
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,.42)";
-  ctx.shadowBlur = 7;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 3;
   circle(ctx, at, radius, COLORS.shot, "rgba(255,255,255,.98)", 1.7);
-  ctx.shadowColor = "transparent";
   ctx.strokeStyle = "rgba(24,74,45,.55)";
   ctx.lineWidth = 1;
   ctx.beginPath();
