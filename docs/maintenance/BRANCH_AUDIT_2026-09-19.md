@@ -1,5 +1,7 @@
 # RallyPath 分支與內容審核 — 2026-09-19
 
+> 後續狀態：本文件保留 v0.1.0 基線上的分支審核證據。v0.2.0 其後已發布於 main `9158a2b`；目前發布身份與正式站證據見 [V0_2_RELEASE_CLOSEOUT.md](./V0_2_RELEASE_CLOSEOUT.md)。
+
 ## 結論
 
 唯一來源採用 [demonyang885/tennis-tactics-interactive-preview / main](https://github.com/demonyang885/tennis-tactics-interactive-preview/tree/main)。

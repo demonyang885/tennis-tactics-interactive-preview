@@ -10,9 +10,9 @@
 
 RallyPath 是一款面向青少年的网球战术画板。孩子可以画出下一分、回顾关键回合，再从战术知识库找到更合适的打法。
 
-当前公开版本：**V0.1（0.1.0）**
+当前公开版本：**v0.2.0**，发布提交 [`9158a2b`](https://github.com/demonyang885/tennis-tactics-interactive-preview/commit/9158a2beef25c3fd346326f3fb9eece9c0100229)，标签 `v0.2.0`。
 
-本機整理版本：**v0.2.0**，分支 `release/rallypath-v0.2.0`；尚未合入 main 或部署。現行功能約束見 [PRODUCT_VNEXT.md](./PRODUCT_VNEXT.md)，整理記錄見 [v0.2 收斂記錄](./docs/maintenance/V0_2_CONSOLIDATION.md)。
+现行功能约束见 [PRODUCT_VNEXT.md](./PRODUCT_VNEXT.md)，整理记录见 [v0.2 收敛记录](./docs/maintenance/V0_2_CONSOLIDATION.md)，发布核对见 [v0.2 发布收尾](./docs/maintenance/V0_2_RELEASE_CLOSEOUT.md)。
 
 - 以竖向全场战术板为核心，支持球路、跑位、连续回合与动画播放。
 - 首页直接播放最后编辑的画板，并区分战术、练习和比赛回顾。
@@ -21,7 +21,7 @@ RallyPath 是一款面向青少年的网球战术画板。孩子可以画出下�
 
 公开地址：[https://demonyang885.github.io/tennis-tactics-interactive-preview/](https://demonyang885.github.io/tennis-tactics-interactive-preview/)
 
-正式页面只由 `main` 分支更新。GitHub Actions 会在完整测试通过后构建并部署；`version.json` 用于核对线上产品名、版本和提交。
+正式页面只由 `main` 分支更新。v0.2.0 的完整测试、构建及部署已于 2026-09-19 通过；线上 [`version.json`](https://demonyang885.github.io/tennis-tactics-interactive-preview/version.json) 用于核对产品名、版本和提交。
 
 本机预览：运行 `npm ci`，然后运行 `npm run dev -- --host 127.0.0.1 --port 5173`。
 
