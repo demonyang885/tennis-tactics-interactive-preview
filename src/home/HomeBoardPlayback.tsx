@@ -314,18 +314,27 @@ export function HomeBoardPlayback({ board, active, onOpenBoard, showReplay = tru
       if (runRef.current !== run || !mountedRef.current) return;
       waitingRef.current = false;
       const startedAt = performance.now();
-      const initialElapsed = elapsedRef.current;
+      let cycleStartedAt = startedAt;
+      let cycleInitialElapsed = elapsedRef.current;
       let lastDrawnAt = Number.NEGATIVE_INFINITY;
       publishPlaybackState("playing");
 
       const tick = (now: number) => {
         if (runRef.current !== run || !mountedRef.current) return;
         if (now - lastDrawnAt >= PLAYBACK_FRAME_INTERVAL_MS) {
-          const elapsed = Math.min(duration, Math.max(0, initialElapsed + ((now - startedAt) / 1000) * playbackRate));
+          const elapsed = Math.min(duration, Math.max(0, cycleInitialElapsed + ((now - cycleStartedAt) / 1000) * playbackRate));
           elapsedRef.current = elapsed;
           drawAt(elapsed);
           lastDrawnAt = now;
           if (elapsed >= duration) {
+            if (paceDemoBoard) {
+              cycleStartedAt = now;
+              cycleInitialElapsed = 0;
+              elapsedRef.current = 0;
+              drawAt(0);
+              requestRef.current = window.requestAnimationFrame(tick);
+              return;
+            }
             requestRef.current = null;
             publishPlaybackState("finished");
             return;
@@ -344,7 +353,7 @@ export function HomeBoardPlayback({ board, active, onOpenBoard, showReplay = tru
     }
 
     return cancelScheduledPlayback;
-  }, [active, boardKey, canPlay, cancelScheduledPlayback, drawAt, duration, flowCurrent, intersecting, playbackRate, publishPlaybackState, reduceMotion, replayRequest, visible]);
+  }, [active, boardKey, canPlay, cancelScheduledPlayback, drawAt, duration, flowCurrent, intersecting, paceDemoBoard, playbackRate, publishPlaybackState, reduceMotion, replayRequest, visible]);
 
   useEffect(() => {
     mountedRef.current = true;
