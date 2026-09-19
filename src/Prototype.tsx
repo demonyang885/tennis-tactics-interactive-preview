@@ -981,9 +981,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
     if(!ownsSession)return;
     if(afterExit){
       afterExit();
-      // Keep the viewport geometry in immersive mode for the same paint as the
-      // stack pop. Releasing it before the pop exposes a one-frame right edge.
-      if(stage)window.requestAnimationFrame(()=>window.requestAnimationFrame(()=>{delete stage.dataset.boardImmersive;}));
+      if(stage)delete stage.dataset.boardImmersive;
       return;
     }
     window.requestAnimationFrame(()=>{
@@ -1567,10 +1565,10 @@ export default function Prototype() {
       render:flow=> <BoardEditor initialBoard={prepared} initialPersisted={initialPersisted} migrationSource={migrationSource} legacyNeedsReview={legacyNeedsReview} entryIntent={entryIntent} entryNotice={entryNotice} back={()=>{
         const flowStack=document.querySelector<HTMLElement>(".tennis-app .flow-stack");
         const currentScreen=flowStack?.querySelector<HTMLElement>('.flow-screen[data-flow-current="true"]');
-        flowStack?.classList.add("flow-pop-immediate");
+        const previousScreen=currentScreen?.previousElementSibling;
+        previousScreen?.classList.add("flow-pop-destination");
         currentScreen?.classList.add("flow-pop-exiting");
         flow.pop();
-        window.setTimeout(()=>{flowStack?.classList.remove("flow-pop-immediate");currentScreen?.classList.remove("flow-pop-exiting");},600);
       }} openLibrary={()=>flow.push(makeBoardLibrary(prepared.id))}/>,
     };
   }
