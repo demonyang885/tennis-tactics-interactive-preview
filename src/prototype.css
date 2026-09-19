@@ -452,6 +452,9 @@
 .board-editor { position:absolute; inset:0; display:flex; min-height:0; flex-direction:column; overflow:hidden; background:#08442f; color:#173d2c; }
 .board-editor.is-immersive { box-sizing:border-box; padding-top:0; background:#08442f; }
 .tennis-app .flow-screen.board-enter-immediate { transform:none !important; }
+.tennis-app .flow-stack.flow-pop-immediate .flow-screen[data-flow-current="true"] { transform:none !important; }
+.tennis-app .flow-stack.flow-pop-immediate .flow-screen.flow-pop-exiting { visibility:hidden !important; opacity:0 !important; transform:none !important; }
+.tennis-app .flow-stack.flow-pop-immediate .flow-screen:not([data-flow-current="true"]) { visibility:hidden !important; opacity:0 !important; transform:none !important; }
 .board-canvas-shell { position:relative; flex:1; min-height:220px; overflow:hidden; background:#08442f; }
 .board-canvas { position:absolute; inset:0; touch-action:none; outline:none; }
 .board-path-direct-toggle { position:absolute; z-index:4; display:grid; place-items:center; width:34px; height:34px; padding:0; border:1px solid rgb(255 255 255 / 80%); border-radius:50%; background:rgb(8 58 42 / 92%); color:#d8ef72; box-shadow:0 3px 10px rgb(0 0 0 / 24%); transform:translate(-50%,-50%) scale(.5); transform-origin:center; touch-action:manipulation; }

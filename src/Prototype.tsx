@@ -1562,7 +1562,14 @@ export default function Prototype() {
       title:prepared.title,
       headerHeight:62,
       header:()=><BoardHeader boardId={prepared.id} initialTitle={prepared.title} initialSaveState={migrationSource?"dirty":initialPersisted?"saved":"clean"}/>,
-      render:flow=> <BoardEditor initialBoard={prepared} initialPersisted={initialPersisted} migrationSource={migrationSource} legacyNeedsReview={legacyNeedsReview} entryIntent={entryIntent} entryNotice={entryNotice} back={flow.pop} openLibrary={()=>flow.push(makeBoardLibrary(prepared.id))}/>,
+      render:flow=> <BoardEditor initialBoard={prepared} initialPersisted={initialPersisted} migrationSource={migrationSource} legacyNeedsReview={legacyNeedsReview} entryIntent={entryIntent} entryNotice={entryNotice} back={()=>{
+        const flowStack=document.querySelector<HTMLElement>(".tennis-app .flow-stack");
+        const currentScreen=flowStack?.querySelector<HTMLElement>('.flow-screen[data-flow-current="true"]');
+        flowStack?.classList.add("flow-pop-immediate");
+        currentScreen?.classList.add("flow-pop-exiting");
+        flow.pop();
+        window.setTimeout(()=>{flowStack?.classList.remove("flow-pop-immediate");currentScreen?.classList.remove("flow-pop-exiting");},600);
+      }} openLibrary={()=>flow.push(makeBoardLibrary(prepared.id))}/>,
     };
   }
   function makeDetail(tactic:Tactic,contextLabel?:string):FlowScreen {return {id:tactic.id,title:tactic.name,headerHeight:62,header:flow=><AppHeader title={tactic.name} back={flow.pop}/>,render:flow=> <TacticPlayer tactic={tactic} contextLabel={contextLabel} openBoard={()=>flow.push(makeBoard(boardFromTactic(tactic)))}/>};}
