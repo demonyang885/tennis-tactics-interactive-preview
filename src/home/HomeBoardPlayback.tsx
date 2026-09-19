@@ -5,7 +5,10 @@ import { prepareBoardForMedia } from "../board/media";
 import { createStarterBoard, getBoardDuration, getBoardPose, type BoardDocument } from "../board/model";
 import { renderBoard } from "../board/render";
 
-const AUTO_PLAY_DELAY_MS = 400;
+// Let the FlowStack return spring settle before the homepage canvas starts
+// its first animation frame. This avoids a final-frame hitch when leaving the
+// immersive board, while off-screen resume still remains immediate.
+const AUTO_PLAY_DELAY_MS = 650;
 const PLAYBACK_FRAME_INTERVAL_MS = 1000 / 30;
 const MAX_HOME_PREVIEW_SECONDS = 10;
 const FLOW_CURRENT_SELECTOR = ".flow-screen";
