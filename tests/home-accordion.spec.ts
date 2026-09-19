@@ -45,12 +45,12 @@ test("converges the homepage to one board, two intentions, and one knowledge ent
 test("uses the same editor for planning and recalling with the right first hint", async ({ page }) => {
   await page.getByRole("button", { name: "想下一分", exact: true }).click();
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
-  await expect(page.getByTestId("flow-current").locator(".board-interaction-guide")).toContainText(/从网球拖出去.*发球路线/);
+  await expect(page.getByTestId("flow-current").locator(".board-sr-only")).toContainText(/从网球拖出去.*发球路线/);
 
   await page.getByTestId("flow-current").getByRole("toolbar", { name: "战术板操作", exact: true }).getByRole("button", { name: "返回上一页", exact: true }).click();
   await page.getByRole("button", { name: "记下刚才一分", exact: true }).click();
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
-  await expect(page.getByTestId("flow-current").locator(".board-interaction-guide")).toContainText(/从网球拖出去.*还原这一分/);
+  await expect(page.getByTestId("flow-current").locator(".board-sr-only")).toContainText(/从网球拖出去.*还原这一分/);
 });
 
 test("keeps the knowledge library below the first viewport and opens it after scrolling", async ({ page }) => {

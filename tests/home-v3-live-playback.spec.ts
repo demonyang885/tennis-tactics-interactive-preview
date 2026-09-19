@@ -177,7 +177,7 @@ async function expectPureBoardPreview(page: Page) {
 async function expectBoardEditorTitle(page: Page, title: string) {
   const toolbar = page.getByTestId("flow-current").getByRole("toolbar", { name: "战术板操作", exact: true });
   await expect(toolbar).toBeVisible();
-  await expect(toolbar.locator("strong")).toHaveText(title);
+  await expect(toolbar.getByLabel("RallyPath", { exact: true })).toBeVisible();
   await expect(toolbar.getByRole("button", { name: `打开${title}的画板菜单`, exact: true })).toBeVisible();
 }
 

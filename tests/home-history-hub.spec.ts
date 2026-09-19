@@ -205,7 +205,7 @@ test("filters history by purpose, shows full labels, and opens the exact saved b
   await history.locator(`[data-testid="home-history-board"][data-board-id="${review.id}"]`).click();
 
   const toolbar = page.getByTestId("flow-current").getByRole("toolbar", { name: "战术板操作", exact: true });
-  await expect(toolbar.locator("strong")).toHaveText(review.title);
+  await expect(toolbar.getByLabel("RallyPath", { exact: true })).toBeVisible();
   await expect(toolbar.getByRole("button", { name: `打开${review.title}的画板菜单`, exact: true })).toBeVisible();
 });
 

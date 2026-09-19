@@ -378,7 +378,7 @@ test("restores the starter serve position from the board and keeps it one-step u
   await press(page.getByRole("button", { name: /打开.*的画板菜单/ }));
   const files = page.getByTestId("bottom-sheet");
   await expect(files.getByRole("heading", { name: "画板菜单", exact: true })).toBeVisible();
-  await expect(files.locator(".board-menu-list > button")).toHaveCount(6);
+  await expect(files.locator(".board-menu-list > button")).toHaveCount(5);
   await expect(files.getByRole("button", { name: /修改名称/ })).toBeVisible();
   await expect(files.getByRole("button", { name: "现在就是发球站位", exact: true })).toBeDisabled();
   await expect(files.getByRole("button", { name: /保存与分享/ })).toBeVisible();
@@ -427,6 +427,7 @@ test("authors a smart rally as shot, receiver movement, then the next shot", asy
   expect(saved.frames).toHaveLength(2);
   expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
   expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: opponent.id });
+  expect(saved.frames[0].paths.find((path) => path.kind === "move")?.control).toBeUndefined();
   expect(saved.frames[1].paths).toEqual([]);
   expect(saved.frames[1].poses[opponent.id][0]).toBeCloseTo(.66, 1);
   expect(saved.frames[1].poses[opponent.id][1]).toBeCloseTo(.34, 1);
@@ -518,6 +519,8 @@ test("toggles a completed shot between straight and curve directly on the route"
   await openBoard(page);
   const canvas = currentBoardCanvas(page);
   await dragBoardPointAndHold(page, canvas, starterPoint("网球"), [.70, .25], 1_650);
+  const afterShot = await saveAndRead(page);
+  await clickBoardPoint(page, canvas, pointOnBoardPath(afterShot.frames[0].paths[0], .5));
   await expect(page.getByRole("button", { name: "一键改直线", exact: true })).toBeVisible();
   await press(page.getByRole("button", { name: "一键改直线", exact: true }));
   let saved = await saveAndRead(page);
@@ -581,6 +584,7 @@ test("places an added mark over the visible previous route without selecting tha
   expect(saved.frames[1].marks[0]).toMatchObject({ kind: "target" });
   await expect(currentBoardGuide(page)).toContainText(/拖动接球球员.*画出跑位/);
 
+  await clickBoardPoint(page, canvas, onRoute);
   await expect(page.getByRole("button", { name: "删除目标区", exact: true })).toBeVisible();
   await press(page.getByRole("button", { name: "删除目标区", exact: true }));
   saved = await saveAndRead(page);
@@ -590,8 +594,9 @@ test("places an added mark over the visible previous route without selecting tha
   const files = page.getByTestId("bottom-sheet");
   await press(files.getByRole("button", { name: /保存与分享/ }));
   const saveShare = page.getByRole("dialog", { name: "保存与分享" });
-  await expect(saveShare.getByRole("button", { name: /分享球路视频.*推荐/ })).toContainText("3.0 秒");
-  await expect(saveShare.getByRole("button", { name: /分享动态图/ })).toContainText("3.0 秒");
+  const duration = `${saved.frames[0].duration.toFixed(1)} 秒`;
+  await expect(saveShare.getByRole("button", { name: /分享球路视频.*推荐/ })).toContainText(duration);
+  await expect(saveShare.getByRole("button", { name: /分享动态图/ })).toContainText(duration);
 });
 
 test("keeps the armed actor draggable when the ball and receiver share a point", async ({ page }) => {
@@ -752,8 +757,8 @@ test("synchronizes an extra player move before the armed receiver is skipped", a
     hitterId: opponent.id,
     actorId: opponent.id,
   });
-  await expect(play).toContainText(/1\s*拍/);
-  await expect(play).toContainText(/1\.5\s*秒/);
+  await expect(play).toHaveAccessibleName(/1\s*拍/);
+  await expect(play).toHaveAccessibleName(/1\.5\s*秒/);
 
   // Selecting the ball skips the still-armed receiver move. The already
   // synchronized extra movement must not leak into the outgoing return beat.
@@ -1222,8 +1227,8 @@ test("playback counts a synchronized opening shot and receiver movement as one b
   expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: opponent.id });
   expect(saved.frames[1].paths).toEqual([]);
   await expect(play).toBeEnabled();
-  await expect(play).toContainText(/1\s*拍/);
-  await expect(play).toContainText(/1\.5\s*秒/);
+  await expect(play).toHaveAccessibleName(/1\s*拍/);
+  await expect(play).toHaveAccessibleName(/1\.5\s*秒/);
 });
 
 test("playback ignores the automatic trailing empty frame and manages edge focus", async ({ page }) => {
@@ -1238,8 +1243,8 @@ test("playback ignores the automatic trailing empty frame and manages edge focus
   expect(saved.frames).toHaveLength(3);
   expect(saved.frames[2].paths).toEqual([]);
   await expect(play).toBeEnabled();
-  await expect(play).toContainText(/2\s*拍/);
-  await expect(play).toContainText(/3\.0\s*秒/);
+  await expect(play).toHaveAccessibleName(/2\s*拍/);
+  await expect(play).toHaveAccessibleName(/3\.0\s*秒/);
 
   await press(play);
   const playback = page.getByTestId("board-playback-dock");

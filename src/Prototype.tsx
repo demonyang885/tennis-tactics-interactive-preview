@@ -802,7 +802,7 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
       }
       else if(drag.kind==="path"){
         const path=drag.path;if(path){
-          const control=curved?curveControl(path.from,point,path.kind!=="move"):undefined;
+          const control=curved&&path.kind!=="move"?curveControl(path.from,point,true):undefined;
           const next=setPath(drag.base,frameIndex,{id:drag.id,kind:path.kind,actorId:path.actorId,from:path.from,to:point,...(control?{control}:{})});
           drag.latestBoard=next;drag.lastPoint=point;
           if(path.kind!=="move"){
@@ -1471,7 +1471,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
       </div>}
       <BoardCanvas board={previewing?playbackBoard:board} frameIndex={frameIndex} selection={selection} setSelection={setSelection} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} smartEnabled={!!activeSmart} contextPaths={previousBeatPaths} contextFrameIndex={contextFrameIndex} previewing={previewing} elapsed={elapsed} display={display} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onOverride={overrideSmartActor} onCancel={cancelCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError} onTogglePathCurve={toggleCurve}/>
       {!sheetOpen&&error&&<div className="board-toast is-error" role="alert" aria-live="assertive" aria-atomic="true"><span>{error}</span><button aria-label="关闭提示" onClick={()=>setError("")}><Cross2Icon/></button></div>}
-      <span className="board-sr-only" role="status" aria-live="polite" aria-atomic="true">{error||notice||toolStatus}</span>
+      <span className="board-sr-only" role="status" aria-live="polite" aria-atomic="true">{error||notice||toolStatus||(selectedLabel?`已选中${selectedLabel}`:"点选球员、网球或路线开始调整")}</span>
     </div>
     {previewing?<div className="board-playback-dock" data-testid="board-playback-dock">
       <input className="board-playback-progress" type="range" aria-label="画板播放进度" min="0" max={Math.max(.01,totalDuration)} step=".01" value={elapsed} onChange={event=>{setIsPlaying(false);setElapsed(Number(event.currentTarget.value));}}/>

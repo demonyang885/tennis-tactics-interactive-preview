@@ -222,7 +222,7 @@ test.describe("immersive tactical-board menu", () => {
     await press(menuTrigger);
     const rootMenu = page.getByRole("dialog", { name: "画板菜单", exact: true });
     await waitForSheetSettled(page, rootMenu);
-    await expect(rootMenu.locator(".board-menu-list > button")).toHaveCount(6);
+    await expect(rootMenu.locator(".board-menu-list > button")).toHaveCount(5);
     const zones = rootMenu.getByRole("button", { name: /站位分区/ });
     const labels = rootMenu.getByRole("button", { name: /区域名称/ });
     await expect(zones).toHaveAttribute("aria-pressed", "true");
