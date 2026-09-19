@@ -24,8 +24,9 @@
 - **唯一倉庫：`demonyang885/tennis-tactics-interactive-preview`；唯一整合／發布分支：`main`。** 名稱中的 interactive-preview 是歷史命名，現在承載正式 RallyPath。
 - 新工作從該倉庫最新 `origin/main` 建立短期分支，PR 只合回同一個 `main`。不要從舊 feature、preview 或 release 分支續作。
 - 先讀 [SOURCE_OF_TRUTH.md](./SOURCE_OF_TRUTH.md)，核對 remote、分支、HEAD、工作區狀態；資料夾名稱、埠號及舊 Mac mini 路徑不能證明版本。
+- 現行公開版本為 `v0.2.0`；發布提交與標籤均指向 `9158a2beef25c3fd346326f3fb9eece9c0100229`。正式網站只由 `main` 的成功 workflow 部署。
 - `24fa57112728cad53e1792fe6df15999964f6e94` 是本次核查的 v0.1.0 發布基準，不是要求將未來 main 重設回此提交。
-- 下方 9/8 產品方向及歷史 QA 是功能背景；`PRODUCT_VNEXT.md` 已於 v0.2 收斂時更新為現行規格。不要把歷史分支描述當作待合併工作。本次 v0.2 保留本機未發布成果並合入 origin/main；完成發布後，後續開發仍從最新 origin/main 開始。
+- 下方 9/8 產品方向及歷史 QA 是功能背景；`PRODUCT_VNEXT.md` 已於 v0.2 收斂時更新為現行規格。不要把歷史分支描述當作待合併工作。v0.2 已完成整合與發布；後續開發必須從最新 origin/main 開始。
 - 已發布的 `PhoneFrame.tsx` 是 frameless 容器，並已有沉浸畫板及行動裝置原生輸入適配。下方較早模板中要求恢復 device picker／bezel 的文字不適用於已發布外觀；保留目前受 lock 保護的 runtime，不要為符合舊文字回退它。
 - [分支審核](./docs/maintenance/BRANCH_AUDIT_2026-09-19.md) 記錄保留、取代與待考慮內容；`docs/archive/` 是歷史證據，內含的舊發布／交接命令均不可當作現行指令。
 

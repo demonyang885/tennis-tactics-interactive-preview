@@ -16,11 +16,11 @@
 
 ## 當前基準與證據
 
-核查時 main：`24fa57112728cad53e1792fe6df15999964f6e94`，產品版本 0.1.0。
-[發布 PR #1](https://github.com/demonyang885/tennis-tactics-interactive-preview/pull/1) 於 2026-09-15 squash 合併；
-[Actions](https://github.com/demonyang885/tennis-tactics-interactive-preview/actions/runs/34946384862) 的 build 和 deploy 都成功。
-這是當時的發布基準；下次開發必須重新 fetch main，不能硬編碼停留在此 SHA。
-GitHub Releases 查詢為空，tag refs 查詢亦為空：v0.1.0 此處指 package／PR／Pages 發布，不代表已有同名 Git tag。
+2026-09-19 發布收尾核查時，main 為 `9158a2beef25c3fd346326f3fb9eece9c0100229`，package 與線上版本均為 0.2.0；帶註解標籤 `v0.2.0` 指向同一提交。
+[Actions run 35445469313](https://github.com/demonyang885/tennis-tactics-interactive-preview/actions/runs/35445469313) 的 build 與 deploy 均成功；正式站 `version.json` 回報 product `RallyPath`、version `0.2.0`、commit `9158a2beef25c3fd346326f3fb9eece9c0100229`，builtAt `2026-09-19T13:27:00.430Z`。
+
+這是目前可核對的發布基準；下次開發仍須重新 fetch main，不能把此 SHA 當作永久最新版本。GitHub Releases 查詢仍為空；本版本以 Git tag、main 提交、成功 Pages 部署及線上 `version.json` 共同識別。
+v0.2.0 沒有獨立發布 PR；提交在未受保護的 main 上完成整合後觸發 CI 並成功部署。這是歷史事實，不應被寫成經 PR 合併。後續變更仍按本文件要求走短期分支與 PR。
 
 ## 每次開工的身份檢查
 
@@ -44,8 +44,8 @@ git log --oneline origin/main..HEAD
 ```
 
 若工作區有未提交內容、remote 不對，或目前分支有尚未整合的提交，先保留並比對；不可強制 reset、clean 或直接覆寫。
-2026-09-19 本機補充核查：4176 服務工作目錄為 `/Users/clawbot/Documents/Codex/2026-09-10/app/tennis-tactics`，現已在 `release/rallypath-v0.2.0` 整理。埠號只能證明服務位置，不能證明 checkout／分支／版本。
-本次保留本機未發布成果，再合入 origin/main 與文件整理分支，避免丟失已確認的操作。詳見 [v0.2 收斂記錄](./docs/maintenance/V0_2_CONSOLIDATION.md)。尚未推送／部署，公開發布基準仍是上方 v0.1。
+2026-09-19 發布前的 Mac mini 核查記錄顯示，4176 服務工作目錄為 `/Users/clawbot/Documents/Codex/2026-09-10/app/tennis-tactics`，當時在 `release/rallypath-v0.2.0` 整理。該成果其後已固定為 `v0.2.0`、推送至 main 並部署；但遠端發布不能證明 Mac mini 目前工作區是否乾淨。再次使用該 checkout 時仍須先執行上方唯讀身份檢查。
+完整收斂與發布核對分別見 [v0.2 收斂記錄](./docs/maintenance/V0_2_CONSOLIDATION.md) 及 [v0.2 發布收尾](./docs/maintenance/V0_2_RELEASE_CLOSEOUT.md)。
 
 最省混淆的方式是建立獨立新 checkout（目標資料夾須不存在）：
 
@@ -77,7 +77,7 @@ git switch -c feature/next-iteration origin/main
 - 合併前確認當次 PR 的 CI，而非沿用 9/15 的成功紀錄；合併後確認 deploy 與線上 version.json。
 - 每次交接記錄 repository、branch、完整 HEAD、工作區是否乾淨、PR、測試結果、部署 run 與 URL；若只本機預覽，明確記錄其 checkout 與 SHA。
 - 舊 `demonyang885/tennis-tactics` 僅供歷史查閱，不接收新功能。舊 Pages URL 不再代表最新產品。
-- v0.2 收斂只在本機整理與測試；不刪歷史分支、不改寫歷史、不搬站、不改受保護 runtime、不自動合入 main 或部署。
+- v0.2.0 已發布；不要從 `release/rallypath-v0.2.0`、舊 preview 或舊 feature 分支續作，也不要為整理歷史而改寫提交或改變使用者本機存檔。
 - 審核時兩邊 main 的 branches API 均回報 `protected:false`。保護規則／rulesets 未完整查核；本文件是工作約定，不代表 GitHub 已強制執行。後續可由管理員核對並設定 required CI 與禁止直接推送。
 
 ## 可直接交給下一位開發者的任務開頭
