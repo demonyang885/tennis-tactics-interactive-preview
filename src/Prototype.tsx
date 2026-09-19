@@ -939,7 +939,15 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
   const paceExperiment=useMemo(()=>{
     if(typeof window==="undefined")return {dots:false,trail:false};
     const params=new URLSearchParams(window.location.search);
-    return {dots:params.get("paceDots")==="1",trail:params.get("dotTrail")==="1"};
+    // Keep the LAN test URLs clean: each preview port selects one visual
+    // variant. Query flags remain as a fallback for old bookmarked links.
+    const port=window.location.port;
+    const portDots=port==="4175"||port==="4176";
+    const portTrail=port==="4176";
+    return {
+      dots:portDots||params.get("paceDots")==="1",
+      trail:portTrail||params.get("dotTrail")==="1",
+    };
   },[]);
   const initialSmart=getSmartBoardContinuation(initialBoard);
   const [board,setBoardState]=useState(initialBoard),[frameIndex,setFrameIndex]=useState(initialSmart?.frameIndex??0),[selection,setSelection]=useState<BoardSelection|null>(initialSmart?{kind:"actor",id:initialSmart.actorId}:null),[committedRevision,setCommittedRevision]=useState(0);
