@@ -1484,7 +1484,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, migrationSource, le
     </>}
 
     <BottomSheet open={helpOpen} onOpenChange={open=>{setSheetVisibility(setHelpOpen,open);if(!open)restoreSheetFocus("opener");}} title="画板操作" description="主画板保持纯净，需要时在这里查看。" snap={.72}><div className="board-sheet board-help-sheet"><button className="guide-close" aria-label="关闭画板操作说明" onClick={()=>{setHelpOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button><div className="board-help-list">
-      <div><ArrowTopRightIcon/><span><strong>画球路</strong><small>从网球拖到落点；默认 Control，停住 0.8 秒后继续按住才会进入 Drive、Put away。</small></span></div>
+      <div><ArrowTopRightIcon/><span><strong>画球路</strong><small>拖动时光点速度表示 Control、Drive、Put away；放开后光点和状态都会收起。</small></span></div>
       <div><CornerTopRightIcon/><span><strong>画跑位</strong><small>球路完成后，直接拖动接球球员；播放时会与来球同步。</small></span></div>
       <div><Pencil2Icon/><span><strong>直线／曲线</strong><small>点选球路旁的图标切换；白色菱形可继续调整弧度，新球路默认向右弯。</small></span></div>
       <div><ComponentInstanceIcon/><span><strong>切换场地</strong><small>打开画板菜单，再选择硬地、红土或草地。</small></span></div>
