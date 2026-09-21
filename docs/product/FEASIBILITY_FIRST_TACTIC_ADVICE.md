@@ -1,6 +1,7 @@
 # RallyPath 后续独立功能：可执行性优先的战术建议
 
 状态：**候选功能方案，尚未开发或批准发布**。记录于 2026-09-21；不属于已发布 v0.2，也不替代正在推进的「自己画一分 → 找打法／练一项」路径。
+后续开发议题：[RallyPath #5](https://github.com/demonyang885/tennis-tactics-interactive-preview/issues/5)。
 
 ## 要解决的问题
 
