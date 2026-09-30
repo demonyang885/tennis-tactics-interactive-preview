@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1790811385364,
+      "tag": "0000_unusual_puppet_master",
+      "breakpoints": true
+    }
+  ]
+}

@@ -6,7 +6,15 @@
 - 保持本倉庫 `main` 為唯一整合來源，從最新 `origin/main` 建短期分支，透過 PR 與 CI 合回；雲端工作目錄或既有預覽不能取代來源核對。
 - 使用 Node.js 22 與 `npm ci` 對齊現有 CI。雲端工作流程見 [CLOUD_DEVELOPMENT.md](./docs/maintenance/CLOUD_DEVELOPMENT.md)。
 - 雲端 checkout 只涵蓋已推送的來源；未核對 Mac mini 的未提交及未推送工作前，不宣稱完整搬遷。交接前保全分支與提交。
-- 雲端開發不代表發布網站，也不會改變畫板保存在目前瀏覽器的產品行為。
+- 雲端開發與網站發布分別按各自流程處理；公開 GitHub Pages 的 v0.3.0 仍將畫板保存在目前瀏覽器。
+
+## 登入與跨裝置同步測試 — 2026-09-30
+
+- 使用者已明確要求可開啟的測試連結、登入與個人畫板跨裝置同步。使用獨立私有測試站驗證，GitHub Pages 的公開版本仍按正式流程發布。
+- 測試站使用平台提供的 ChatGPT 登入身分與 D1 持久化保存；每個帳號的畫板庫獨立，以版本檢查處理同步衝突。不要信任請求本文中的帳號身分，也不要以最後寫入覆蓋其他裝置的修改。
+- 保留本機畫板與既有 JSON 備份相容性；首次上傳須明確操作，衝突可保留兩份，備份須能匯入還原。退出登入不刪除本機成果，另一帳號不得自動接收它們。
+- 雲端 API 由新增的 `server/` 包裝既有靜態 Worker；`worker/index.js` 與 mobile runtime 保持受 lock 保護。`npm run build` 另外輸出包裝 Worker 及 Drizzle migrations，`npm run test:cloud` 檢查帳號隔離與 D1 交易。
+- 已開啟的編輯器保留記憶中的畫板；收到另一裝置更新後提示返回首頁重新開啟，保存檢查仍阻止覆蓋更新版本。
 
 ## Current Pace And Court Display Direction — v0.2 / 2026-09-19
 
