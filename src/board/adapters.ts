@@ -107,7 +107,7 @@ function bridgeFrames(previous: BoardFrame, next: BoardFrame, boundaryIndex: num
 
 function composedTitle(tactics: Tactic[], requestedTitle?: string) {
   const title = requestedTitle?.trim();
-  return title || tactics.map((tactic) => tactic.name).join(" → ") || "我的戰術";
+  return title || tactics.map((tactic) => tactic.name).join(" · ") || "我的戰術";
 }
 
 /** Create an editable copy of one validated library tactic. */

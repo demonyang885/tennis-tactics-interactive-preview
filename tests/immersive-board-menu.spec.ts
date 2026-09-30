@@ -54,8 +54,11 @@ async function press(locator: Locator) {
 }
 
 async function waitForFlowSettled(page: Page) {
-  await expect(page.getByTestId("flow-current")).toHaveCount(1);
-  await expect.poll(async () => page.getByTestId("flow-current").evaluate((element) => {
+  // Motion can retain the exiting scene with its former current marker until
+  // WebKit finishes the exit animation. Only the non-exiting scene is active.
+  const current = page.locator('.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting)');
+  await expect(current).toHaveCount(1);
+  await expect.poll(async () => current.evaluate((element) => {
     const transform = new DOMMatrixReadOnly(getComputedStyle(element).transform);
     return Math.abs(transform.m41);
   })).toBeLessThan(1);
@@ -158,6 +161,8 @@ test.describe("immersive tactical-board menu", () => {
 
     await expect(editor).toHaveAttribute("data-immersive", "true");
     await expect(stage).toHaveAttribute("data-board-immersive", "true");
+    await expect(stage).toHaveAttribute("data-board-route-active", "true");
+    await expect(page.getByTestId("flow-fixed-header")).toHaveCount(0);
     expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
     expectBoxClose(await stage.boundingBox(), { x: 0, y: 0, width: viewport!.width, height: viewport!.height });
     await expect(page.getByRole("button", { name: /^(进入|退出)全屏战术板$/ })).toHaveCount(0);
@@ -194,6 +199,7 @@ test.describe("immersive tactical-board menu", () => {
     await press(menuTrigger);
     const rootMenu = page.getByRole("dialog", { name: "画板菜单", exact: true });
     await waitForSheetSettled(page, rootMenu);
+    await expect(rootMenu.getByRole("button", { name: "重做", exact: true })).toHaveCount(0);
     const hard = rootMenu.getByRole("button", { name: "硬地", exact: true });
     const clay = rootMenu.getByRole("button", { name: "红土", exact: true });
     await expect(hard).toHaveAttribute("aria-pressed", "true");
@@ -213,6 +219,99 @@ test.describe("immersive tactical-board menu", () => {
     await expect(helpSheet).toBeHidden();
   });
 
+  test("hides a stale route header and keeps the court full-screen after an editor hot update", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const stage = page.locator(".phone-stage");
+    const staleHeader = page.getByTestId("flow-fixed-header");
+    await page.evaluate(() => {
+      const flowStack = document.querySelector(".tennis-app .flow-stack");
+      const phoneStage = document.querySelector(".phone-stage");
+      if (!flowStack || !phoneStage) throw new Error("Board shell is missing");
+      const oldHeader = document.createElement("header");
+      oldHeader.className = "flow-fixed-header";
+      oldHeader.dataset.testid = "flow-fixed-header";
+      oldHeader.textContent = "旧版画板标题";
+      flowStack.prepend(oldHeader);
+      phoneStage.removeAttribute("data-board-immersive");
+    });
+
+    await expect(staleHeader).toBeHidden();
+    await expect(stage).toHaveAttribute("data-board-route-active", "true");
+    await expect(page.getByRole("toolbar", { name: "战术板操作" })).toBeVisible();
+    expectBoxClose(await stage.boundingBox(), { x: 0, y: 0, width: 390, height: 844 });
+    await expect.poll(() => page.locator(".flow-scenes").evaluate((element) => element.getBoundingClientRect().top)).toBe(0);
+  });
+
+  test("keeps the board full-screen when an older Safari ignores the advanced shell selector", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const beforeRouteMarkerRecovers = await page.evaluate(() => {
+      for (const sheet of document.styleSheets) {
+        let rules: CSSRuleList;
+        try { rules = sheet.cssRules; } catch { continue; }
+        for (let index = rules.length - 1; index >= 0; index -= 1) {
+          const rule = rules[index];
+          if (rule instanceof CSSStyleRule && rule.selectorText.startsWith(".phone-stage:is(")) sheet.deleteRule(index);
+        }
+      }
+      const flowStack = document.querySelector(".tennis-app .flow-stack");
+      const phoneStage = document.querySelector(".phone-stage");
+      if (!flowStack || !phoneStage) throw new Error("Board shell is missing");
+      const oldHeader = document.createElement("header");
+      oldHeader.className = "flow-fixed-header";
+      oldHeader.dataset.testid = "flow-fixed-header";
+      oldHeader.textContent = "旧版画板标题";
+      flowStack.prepend(oldHeader);
+      const staleLayout = document.createElement("style");
+      staleLayout.textContent = ".flow-stack { --flow-header-content-height: 62px !important; --flow-header-safe-area: 60px !important; --flow-header-height: 122px !important; }";
+      document.head.append(staleLayout);
+      phoneStage.removeAttribute("data-board-route-active");
+      // Read before the mutation observer can restore the route marker. This
+      // is the exact frame in which the duplicate white header used to show.
+      return {
+        headerDisplay: getComputedStyle(oldHeader).display,
+        headerHeight: getComputedStyle(flowStack).getPropertyValue("--flow-header-height").trim(),
+        scenesTop: document.querySelector(".flow-scenes")?.getBoundingClientRect().top,
+      };
+    });
+
+    expect(beforeRouteMarkerRecovers).toEqual({ headerDisplay: "none", headerHeight: "0px", scenesTop: 0 });
+    await expect(page.locator(".phone-stage")).toHaveAttribute("data-board-route-active", "true");
+    await expect(page.getByTestId("flow-fixed-header")).toBeHidden();
+    await expect.poll(() => page.locator(".flow-scenes").evaluate((element) => element.getBoundingClientRect().top)).toBe(0);
+    await expect(page.getByRole("toolbar", { name: "战术板操作" })).toBeVisible();
+  });
+
+  test("keeps a stale route header hidden while the current board changes fullscreen state", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const stage = page.locator(".phone-stage");
+    const staleHeader = page.getByTestId("flow-fixed-header");
+    await page.evaluate(() => {
+      const flowStack = document.querySelector(".tennis-app .flow-stack");
+      const phoneStage = document.querySelector(".phone-stage");
+      const editor = document.querySelector(".flow-screen[data-flow-current='true'] .board-editor");
+      if (!flowStack || !phoneStage || !editor) throw new Error("Current board shell is missing");
+      const oldHeader = document.createElement("header");
+      oldHeader.className = "flow-fixed-header";
+      oldHeader.dataset.testid = "flow-fixed-header";
+      oldHeader.textContent = "旧版画板标题";
+      flowStack.prepend(oldHeader);
+      (flowStack as HTMLElement).style.setProperty("--flow-header-height", "124px");
+      (flowStack as HTMLElement).style.setProperty("--flow-header-content-height", "62px");
+      (flowStack as HTMLElement).style.setProperty("--flow-header-safe-area", "62px");
+      phoneStage.removeAttribute("data-board-immersive");
+      editor.classList.remove("is-immersive");
+      editor.setAttribute("data-immersive", "false");
+    });
+
+    await expect(stage).not.toHaveAttribute("data-board-immersive", "true");
+    await expect(stage).toHaveAttribute("data-board-route-active", "true");
+    await expect(page.getByTestId("flow-current").locator(".board-editor")).not.toHaveClass(/is-immersive/);
+    await expect(staleHeader).toBeHidden();
+    await expect(page.getByRole("toolbar", { name: "战术板操作" })).toBeVisible();
+    expectBoxClose(await stage.boundingBox(), { x: 0, y: 0, width: 390, height: 844 });
+    await expect.poll(() => page.locator(".flow-scenes").evaluate((element) => element.getBoundingClientRect().top)).toBe(0);
+  });
+
   test("keeps menu and share actions available without leaving immersive mode", async ({ page }, testInfo) => {
     const screen = page.getByTestId("device-screen");
     const editor = page.locator(".board-editor");
@@ -222,7 +321,8 @@ test.describe("immersive tactical-board menu", () => {
     await press(menuTrigger);
     const rootMenu = page.getByRole("dialog", { name: "画板菜单", exact: true });
     await waitForSheetSettled(page, rootMenu);
-    await expect(rootMenu.locator(".board-menu-list > button")).toHaveCount(5);
+    await expect(rootMenu.locator(".board-menu-list > button")).toHaveCount(4);
+    await expect(rootMenu).not.toContainText("找打法");
     const zones = rootMenu.getByRole("button", { name: /站位分区/ });
     const labels = rootMenu.getByRole("button", { name: /区域名称/ });
     await expect(zones).toHaveAttribute("aria-pressed", "true");
@@ -266,11 +366,17 @@ test.describe("immersive tactical-board menu", () => {
     await waitForFlowSettled(page);
     await expect(page.getByRole("heading", { name: "下一分，怎么打？", exact: true })).toBeVisible();
     await expect(page.locator(".phone-stage")).not.toHaveAttribute("data-board-immersive", "true");
+    await expect(page.locator(".phone-stage")).not.toHaveAttribute("data-board-route-active", "true");
 
     const persistedAfter = await currentStoredBoard(page);
     expect(persistedAfter.title).toBe(persistedBefore.title);
     expect(persistedAfter.actors).toEqual(persistedBefore.actors);
     expect(persistedAfter.frames).toEqual(persistedBefore.frames);
+
+    await press(page.getByRole("button", { name: "接着画沉浸测试画板", exact: true }));
+    await waitForFlowSettled(page);
+    await expect(page.locator(".phone-stage")).toHaveAttribute("data-board-route-active", "true");
+    await expect(page.getByTestId("flow-fixed-header")).toHaveCount(0);
   });
 
   test("renames in a keyboard-safe full-screen layer without scaling the phone preview", async ({ page }, testInfo) => {
@@ -328,6 +434,7 @@ test.describe("real-mobile rename viewport", () => {
     expectBoxClose(screenBefore, { x: 0, y: 0, width: 390, height: 844 });
     await expect(page.locator(".board-editor")).toHaveAttribute("data-immersive", "true");
     await expect(page.locator(".phone-stage")).toHaveAttribute("data-board-immersive", "true");
+    await expect(page.getByTestId("flow-fixed-header")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^(进入|退出)全屏战术板$/ })).toHaveCount(0);
 
     const toolbar = page.getByRole("toolbar", { name: "战术板操作", exact: true });

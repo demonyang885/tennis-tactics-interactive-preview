@@ -16,7 +16,10 @@ import {
 
 export type BoardResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
-export const BOARD_IMPORT_MAX_CHARACTERS = 2_000_000;
+// A saved v0.2 board may occupy almost 4 million characters in the compact
+// browser envelope. Its indented JSON export is larger, so the import limit
+// must not make a successful backup impossible to restore.
+export const BOARD_IMPORT_MAX_CHARACTERS = 16_000_000;
 export const BOARD_MAX_ACTORS = 24;
 export const BOARD_MAX_MARKS_PER_FRAME = 100;
 export const BOARD_MAX_FREEHAND_POINTS = 2_000;

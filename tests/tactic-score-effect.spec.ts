@@ -19,7 +19,6 @@ async function openWrongFootTactic(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "找个打法", exact: true }).click();
   await waitForFlowSettled(page);
-  await page.getByRole("button", { name: "拉开空档", exact: true }).click();
   await page.getByRole("button", { name: /打回头球，10秒/ }).click();
 }
 
@@ -123,7 +122,7 @@ test("score feedback appears only after the ball bounces away and clears on scru
   await slider.fill("7.9");
   await expect(court).toHaveAttribute("data-ball-phase", "impact");
   await expect(court.getByRole("img")).toHaveAttribute("aria-label", /网球已经落地.*不显示下一落点圆环/);
-  await expect(court.getByText("落地→弹出得分")).toBeVisible();
+  await expect(court.getByText("落地后弹出得分")).toBeVisible();
   await expect(court.getByText("圆环＝下一落点")).toHaveCount(0);
   expect((await brightIncomingLineSamples(court)).filter((count) => count >= 3)).toHaveLength(3);
   await expect(page.getByText("落地后继续向外弹开，对手无法触球")).toHaveCount(0);
