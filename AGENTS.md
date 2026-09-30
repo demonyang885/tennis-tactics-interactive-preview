@@ -1,5 +1,13 @@
 # Mobile Prototype Agent Guide
 
+## 後續開發環境 — 2026-09-30
+
+- 使用者已指定後續 RallyPath 開發在受管理雲端環境進行；程式修改、依賴安裝、自動化測試與預覽都在雲端執行。Mac mini 與實體 iPhone／iPad 保留 Safari 真機驗收用途。
+- 保持本倉庫 `main` 為唯一整合來源，從最新 `origin/main` 建短期分支，透過 PR 與 CI 合回；雲端工作目錄或既有預覽不能取代來源核對。
+- 使用 Node.js 22 與 `npm ci` 對齊現有 CI。雲端工作流程見 [CLOUD_DEVELOPMENT.md](./docs/maintenance/CLOUD_DEVELOPMENT.md)。
+- 雲端 checkout 只涵蓋已推送的來源；未核對 Mac mini 的未提交及未推送工作前，不宣稱完整搬遷。交接前保全分支與提交。
+- 雲端開發不代表發布網站，也不會改變畫板保存在目前瀏覽器的產品行為。
+
 ## Current Pace And Court Display Direction — v0.2 / 2026-09-19
 
 - The selected ball-speed interaction is a moving tennis ball on the authoring route at 50% opacity, without shadow. The endpoint must remain stable for 0.8 seconds before charging begins. Show only the current English pace near the arrow; remove the preview ball and pace label on release. Do not restore the old charge ring, energy bar, or three-choice popup.

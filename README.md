@@ -26,11 +26,13 @@ v0.3.0 已通過自動化與 GitHub CI；產品負責人批准直接發布，**�
 
 `docs/archive/`、日期化相容性報告與 v0.2 文件是歷史證據，不是現行開發待辦。新開發從本倉庫最新 `main` 建短期分支，透過 PR 合回；不要從舊 preview、release 或其他倉庫續作。
 
-## 本機開發
+## 開發
+
+後續 RallyPath 程式開發與自動化驗證在受管理的雲端環境進行；準備、預覽與交接流程見 [雲端開發](./docs/maintenance/CLOUD_DEVELOPMENT.md)。使用 Node 22（至少 22.12.0），與 CI 及 `.nvmrc` 一致；安裝依賴前先按雲端文件啟用 Node 22 並設定 Playwright 快取路徑，`.nvmrc` 不會自動切換執行環境。
 
 ```sh
 npm ci
-npm run dev -- --host 127.0.0.1 --port 5173
+npm run dev -- --port 5173
 ```
 
 完整測試與建置：`npm run verify:release`。這個命令不會推送或部署。戰術內容供理解與討論，不保證得分，也不取代教練的現場指導。
