@@ -39,8 +39,8 @@ import {
   type BoardShotPace,
   type Point,
 } from "../src/board/model";
-import { BOARD_STORAGE_KEY, deleteBoard, readBoards, saveBoard, type BoardStorage } from "../src/board/storage";
-import { parseBoardJSON, validateBoardDocument } from "../src/board/validate";
+import { BOARD_STORAGE_KEY, checkBoardUnchanged, deleteBoard, deleteBoardIfUnchanged, readBoards, saveBoard, saveBoardIfUnchanged, type BoardStorage } from "../src/board/storage";
+import { BOARD_IMPORT_MAX_CHARACTERS, parseBoardJSON, validateBoardDocument } from "../src/board/validate";
 
 class MemoryStorage implements BoardStorage {
   values = new Map<string, string>();
@@ -996,7 +996,7 @@ test("JSON parsing is bounded, versioned, validated and strips unknown fields", 
 
   expect(parseBoardJSON("{broken")).toEqual({ ok: false, error: "JSON 格式損壞，未匯入任何內容" });
   expect(parseBoardJSON(JSON.stringify({ ...board, version: 2 }))).toMatchObject({ ok: false });
-  expect(parseBoardJSON(" ".repeat(2_000_001))).toMatchObject({ ok: false });
+  expect(parseBoardJSON(" ".repeat(BOARD_IMPORT_MAX_CHARACTERS + 1))).toMatchObject({ ok: false });
 });
 
 test("storage round-trips validated drafts and only reports success after writes", () => {
@@ -1029,4 +1029,49 @@ test("storage refuses corrupt existing data instead of overwriting it", () => {
   expect(readBoards(storage)).toMatchObject({ ok: false });
   expect(saveBoard(createBlankBoard(), storage)).toMatchObject({ ok: false });
   expect(storage.values.get(BOARD_STORAGE_KEY)).toBe(original);
+});
+
+test("guarded saves preserve another tab's edits, deletion and unrelated boards", () => {
+  const storage = new MemoryStorage();
+  const first = saveBoard(playableBoard(), storage);
+  expect(first.ok).toBe(true);
+  if (!first.ok) return;
+
+  const anotherBoard = saveBoard(createBlankBoard("另一份画板"), storage);
+  expect(anotherBoard.ok).toBe(true);
+  if (!anotherBoard.ok) return;
+  const beforeCheck = storage.values.get(BOARD_STORAGE_KEY);
+  expect(checkBoardUnchanged(first.value, storage)).toMatchObject({ ok: true, value: { id: first.value.id } });
+  expect(storage.values.get(BOARD_STORAGE_KEY)).toBe(beforeCheck);
+  const current = saveBoardIfUnchanged({ ...first.value, title: "我自己的改动" }, first.value, storage);
+  expect(current.ok).toBe(true);
+  if (!current.ok) return;
+
+  const externallyChanged = { ...current.value, title: "另一分頁改动" };
+  storage.values.set(BOARD_STORAGE_KEY, JSON.stringify({ version: 1, boards: [externallyChanged, anotherBoard.value] }));
+  expect(checkBoardUnchanged(current.value, storage)).toMatchObject({ ok: false, conflict: "changed" });
+  expect(saveBoardIfUnchanged({ ...current.value, title: "過期改动" }, current.value, storage)).toMatchObject({ ok: false, conflict: "changed" });
+  expect(readBoards(storage)).toMatchObject({ ok: true, value: expect.arrayContaining([expect.objectContaining({ id: current.value.id, title: "另一分頁改动" })]) });
+
+  expect(saveBoardIfUnchanged(current.value, null, storage)).toMatchObject({ ok: false, conflict: "created" });
+  expect(deleteBoard(current.value.id, storage).ok).toBe(true);
+  expect(checkBoardUnchanged(current.value, storage)).toMatchObject({ ok: false, conflict: "deleted" });
+  expect(saveBoardIfUnchanged({ ...current.value, title: "不能复活" }, current.value, storage)).toMatchObject({ ok: false, conflict: "deleted" });
+  expect(readBoards(storage)).toMatchObject({ ok: true, value: [expect.objectContaining({ title: "另一份画板" })] });
+});
+
+test("guarded deletion never removes a newer board revision", () => {
+  const storage = new MemoryStorage();
+  const original = saveBoard(playableBoard(), storage);
+  expect(original.ok).toBe(true);
+  if (!original.ok) return;
+  const newer = saveBoard({ ...original.value, title: "另一页的新版本" }, storage);
+  expect(newer.ok).toBe(true);
+  if (!newer.ok) return;
+
+  const stored = storage.values.get(BOARD_STORAGE_KEY);
+  expect(deleteBoardIfUnchanged(original.value, storage)).toMatchObject({ ok: false, conflict: "changed" });
+  expect(storage.values.get(BOARD_STORAGE_KEY)).toBe(stored);
+  expect(deleteBoardIfUnchanged(newer.value, storage)).toMatchObject({ ok: true });
+  expect(deleteBoardIfUnchanged(newer.value, storage)).toMatchObject({ ok: false, conflict: "deleted" });
 });

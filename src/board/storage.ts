@@ -4,6 +4,13 @@ import { validateBoardDocument, type BoardResult } from "./validate";
 export type { BoardResult } from "./validate";
 
 export type BoardStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+export type BoardSaveConflict = "changed" | "deleted" | "created";
+export type GuardedBoardSaveResult =
+  | { ok: true; value: BoardDocument }
+  | { ok: false; error: string; conflict?: BoardSaveConflict };
+export type GuardedBoardDeleteResult =
+  | { ok: true; value: void }
+  | { ok: false; error: string; conflict?: BoardSaveConflict };
 
 export const BOARD_STORAGE_KEY = "tennis-tactics:board-drafts:v1";
 export const BOARD_MAX_SAVED_DOCUMENTS = 100;
@@ -105,16 +112,48 @@ export function readBoards(storage?: BoardStorage): BoardResult<BoardDocument[]>
   };
 }
 
-export function saveBoard(board: BoardDocument, storage?: BoardStorage): BoardResult<BoardDocument> {
+function boardSnapshotConflict(current: BoardDocument | undefined, expected: BoardDocument | null): Extract<GuardedBoardSaveResult, { ok: false }> | null {
+  if (expected === null) {
+    return current ? { ok: false, conflict: "created", error: "同一画板已在另一个页面建立；未覆盖它。请先另存一份或备份画板。" } : null;
+  }
+  if (!current) return { ok: false, conflict: "deleted", error: "画板已在另一个页面删除；你的改动尚未保存，也没有恢复它。请先另存一份或备份画板。" };
+  const validated = validateBoardDocument(expected);
+  if (!validated.ok || JSON.stringify(current) !== JSON.stringify(validated.value)) {
+    return { ok: false, conflict: "changed", error: "画板已在另一个页面修改；你的改动尚未保存，也没有覆盖它。请先另存一份或备份画板。" };
+  }
+  return null;
+}
+
+/** Read-only check before linking a learning choice to an unchanged open board. */
+export function checkBoardUnchanged(expected: BoardDocument, storage?: BoardStorage): GuardedBoardSaveResult {
+  const validated = validateBoardDocument(expected);
+  if (!validated.ok) return { ok: false, error: `画板检查失败：${validated.error}` };
+  const target = resolveStorage(storage);
+  if (!target.ok) return target;
+  const envelope = readEnvelope(target.value);
+  if (!envelope.ok) return envelope;
+  const current = envelope.value.boards.find((item) => item.id === validated.value.id);
+  return boardSnapshotConflict(current, validated.value) ?? { ok: true, value: current! };
+}
+
+function writeBoard(board: BoardDocument, expected: BoardDocument | null | undefined, storage?: BoardStorage): GuardedBoardSaveResult {
   const validated = validateBoardDocument(board);
   if (!validated.ok) return { ok: false, error: `畫板尚未保存：${validated.error}` };
+  if (expected && expected.id !== validated.value.id) {
+    return { ok: false, error: "画板保存依据不匹配，未覆盖原稿" };
+  }
   const target = resolveStorage(storage);
   if (!target.ok) return target;
   const envelope = readEnvelope(target.value);
   if (!envelope.ok) return envelope;
 
+  const existingIndex = envelope.value.boards.findIndex((item) => item.id === validated.value.id);
+  if (expected !== undefined) {
+    const conflict = boardSnapshotConflict(envelope.value.boards[existingIndex], expected);
+    if (conflict) return conflict;
+  }
+
   const saved: BoardDocument = { ...validated.value, updatedAt: new Date().toISOString() };
-  const existingIndex = envelope.value.boards.findIndex((item) => item.id === saved.id);
   const boards = envelope.value.boards.slice();
   if (existingIndex >= 0) boards[existingIndex] = saved;
   else {
@@ -129,22 +168,48 @@ export function saveBoard(board: BoardDocument, storage?: BoardStorage): BoardRe
   return { ok: true, value: saved };
 }
 
+export function saveBoard(board: BoardDocument, storage?: BoardStorage): BoardResult<BoardDocument> {
+  return writeBoard(board, undefined, storage);
+}
+
+/** Guards editor revisions and newly imported IDs without changing the v1 storage format. */
+export function saveBoardIfUnchanged(board: BoardDocument, expected: BoardDocument | null, storage?: BoardStorage): GuardedBoardSaveResult {
+  return writeBoard(board, expected, storage);
+}
+
+function removeBoardAtIndex(storage: BoardStorage, envelope: StoredBoards, index: number): BoardResult<void> {
+  if (index < 0) return { ok: true, value: undefined };
+  const boards = envelope.boards.filter((_, boardIndex) => boardIndex !== index);
+  if (!boards.length) {
+    try {
+      storage.removeItem(BOARD_STORAGE_KEY);
+      return { ok: true, value: undefined };
+    } catch (error) {
+      return { ok: false, error: storageError("刪除草稿", error) };
+    }
+  }
+  return writeEnvelope(storage, { version: 1, boards }, "刪除草稿");
+}
+
 export function deleteBoard(boardId: string, storage?: BoardStorage): BoardResult<void> {
   if (typeof boardId !== "string" || !boardId.trim()) return { ok: false, error: "缺少要刪除的畫板 ID" };
   const target = resolveStorage(storage);
   if (!target.ok) return target;
   const envelope = readEnvelope(target.value);
   if (!envelope.ok) return envelope;
-  const boards = envelope.value.boards.filter((board) => board.id !== boardId);
-  if (boards.length === envelope.value.boards.length) return { ok: true, value: undefined };
+  return removeBoardAtIndex(target.value, envelope.value, envelope.value.boards.findIndex((board) => board.id === boardId));
+}
 
-  if (!boards.length) {
-    try {
-      target.value.removeItem(BOARD_STORAGE_KEY);
-      return { ok: true, value: undefined };
-    } catch (error) {
-      return { ok: false, error: storageError("刪除草稿", error) };
-    }
-  }
-  return writeEnvelope(target.value, { version: 1, boards }, "刪除草稿");
+/** A list item may be stale even when the deletion is a retry. Never delete a newer revision by id alone. */
+export function deleteBoardIfUnchanged(expected: BoardDocument, storage?: BoardStorage): GuardedBoardDeleteResult {
+  const validated = validateBoardDocument(expected);
+  if (!validated.ok) return { ok: false, error: `画板删除依据无效：${validated.error}` };
+  const target = resolveStorage(storage);
+  if (!target.ok) return target;
+  const envelope = readEnvelope(target.value);
+  if (!envelope.ok) return envelope;
+  const index = envelope.value.boards.findIndex((board) => board.id === validated.value.id);
+  const conflict = boardSnapshotConflict(envelope.value.boards[index], validated.value);
+  if (conflict) return conflict;
+  return removeBoardAtIndex(target.value, envelope.value, index);
 }

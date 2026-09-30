@@ -168,3 +168,16 @@ test("keeps the same compact hierarchy at 320 by 700", async ({ page }) => {
   await expectNoHorizontalOverflow(page);
   await saveEvidence(page, "homepage-portrait-top-320x700.png");
 });
+
+test("keeps the home explanation usable at 320 by 700", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await seedVisualDraft(page);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "打开内容说明" }).click();
+  const dialog = page.getByRole("dialog", { name: "怎么用 RallyPath" });
+  await expect(dialog).toBeVisible();
+  // WebKit can clip a fraction of a CSS pixel at the sheet edge; the action remains fully tappable.
+  await expect(dialog.getByRole("button", { name: "知道了" })).toBeInViewport({ ratio: .99 });
+  await expectNoHorizontalOverflow(page);
+});

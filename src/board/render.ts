@@ -276,8 +276,18 @@ function drawMark(ctx: CanvasRenderingContext2D, mark: BoardMark, geometry: Geom
     for (const dx of [-5, 0, 5]) circle(ctx, [at[0] + dx, at[1] - 4], 2.3, COLORS.shot);
     line(ctx, [at[0] - 6, at[1] + 6], [at[0] - 8, at[1] + 13], "#e4eacb");
     line(ctx, [at[0] + 6, at[1] + 6], [at[0] + 8, at[1] + 13], "#e4eacb");
-  } else if (mark.kind === "text" && showLabels) {
-    label(ctx, mark.text || "提示", at, 13);
+  } else if (mark.kind === "text") {
+    const raw = mark.text || "备注", maxWidth = Math.min(170, geometry.court.width * .64);
+    ctx.font = `700 12px ${FONT}`;
+    let visible = raw;
+    while (visible.length > 1 && ctx.measureText(visible).width > maxWidth - 22) visible = `${visible.slice(0, -2)}…`;
+    const pillWidth = Math.min(maxWidth, ctx.measureText(visible).width + 22);
+    const centerX = bound(at[0], geometry.court.x + pillWidth / 2, geometry.court.x + geometry.court.width - pillWidth / 2);
+    ctx.fillStyle = "rgba(9, 54, 38, .92)";
+    ctx.strokeStyle = selected ? "#ffffff" : "rgba(216, 239, 114, .78)";
+    ctx.lineWidth = selected ? 2 : 1;
+    ctx.beginPath();ctx.roundRect(centerX - pillWidth / 2, at[1] - 16, pillWidth, 32, 16);ctx.fill();ctx.stroke();
+    ctx.fillStyle = "#eff8d2";ctx.textAlign = "center";ctx.textBaseline = "middle";ctx.fillText(visible, centerX, at[1]);
   } else if (mark.kind === "freehand" && mark.points?.length) {
     ctx.beginPath(); ctx.moveTo(...geometry.toCanvas(mark.points[0]));
     for (const point of mark.points.slice(1)) ctx.lineTo(...geometry.toCanvas(point));
@@ -289,8 +299,7 @@ function drawMark(ctx: CanvasRenderingContext2D, mark: BoardMark, geometry: Geom
       const points = mark.points.map(geometry.toCanvas), xs = points.map(p => p[0]), ys = points.map(p => p[1]);
       ctx.strokeRect(Math.min(...xs) - 7, Math.min(...ys) - 7, Math.max(...xs) - Math.min(...xs) + 14, Math.max(...ys) - Math.min(...ys) + 14);
     } else if (mark.kind === "text") {
-      ctx.font = `600 13px ${FONT}`; const textWidth = ctx.measureText(mark.text || "提示").width;
-      ctx.strokeRect(at[0] - textWidth / 2 - 6, at[1] - 12, textWidth + 12, 24);
+      // The filled note pill already carries its selected outline.
     } else ctx.strokeRect(at[0] - 15, at[1] - 15, 30, 32);
   }
   ctx.restore();
@@ -440,7 +449,7 @@ export function hitTestBoard(
     const { at, width: mw, height: mh } = markBounds(mark, geometry);
     let hit = false;
     if (mark.kind === "target") hit = Math.abs(pixel[0] - at[0]) <= Math.max(minimumTouchRadius, mw / 2 + 8) && Math.abs(pixel[1] - at[1]) <= Math.max(minimumTouchRadius, mh / 2 + 8);
-    else if (mark.kind === "text") hit = Math.abs(pixel[0] - at[0]) <= Math.max(minimumTouchRadius, (mark.text || "提示").length * 7) && Math.abs(pixel[1] - at[1]) <= minimumTouchRadius;
+    else if (mark.kind === "text") hit = Math.abs(pixel[0] - at[0]) <= Math.max(minimumTouchRadius, Math.min(85, (mark.text || "备注").length * 7)) && Math.abs(pixel[1] - at[1]) <= minimumTouchRadius;
     else if (mark.kind === "freehand" && mark.points?.length) {
       const points = mark.points.map(geometry.toCanvas);
       hit = points.length === 1 ? distance(pixel, points[0]) <= minimumTouchRadius : points.slice(1).some((point, index) => pointToSegment(pixel, points[index], point) <= minimumTouchRadius);

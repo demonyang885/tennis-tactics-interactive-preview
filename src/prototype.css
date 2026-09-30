@@ -1,7 +1,7 @@
-.tennis-app { position:absolute; inset:0; --mobile-safe-area-height:var(--device-safe-area-bottom,34px); color:#172d24; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; -webkit-font-smoothing:antialiased; }
+.tennis-app { position:absolute; inset:0; --mobile-safe-area-height:var(--device-safe-area-bottom,34px); --rp-ink:#12382b; --rp-muted:#697a70; --rp-court:#08442f; --rp-primary:#d8ef72; --rp-surface:#f5f8f3; --rp-line:#dce5dc; --rp-hairline:rgb(24 65 44 / 10%); --rp-pressed:#edf3ed; --rp-dark-control:rgb(3 39 25 / 38%); --rp-control-radius:14px; color:#172d24; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; -webkit-font-smoothing:antialiased; }
 .mobile-app-viewport[data-platform="android"] .tennis-app { --mobile-safe-area-height:0px; }
 .tennis-app button { font:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-.tennis-app button:focus-visible { outline:3px solid #4d9266; outline-offset:-3px; }
+.tennis-app button:focus-visible { outline:3px solid rgb(216 239 114 / 82%); outline-offset:2px; }
 .tennis-app button:disabled { opacity:.32; cursor:default; }
 .keyboard-dock[data-visible="false"] { display:none; }
 .tennis-app .flow-fixed-header { background:#fff; }
@@ -13,52 +13,44 @@
 .list-header { height:82px; padding-left:22px; background:#f4f7f3; }
 .list-header h1 { font-size:27px; line-height:33px; font-weight:760; letter-spacing:-.8px; }
 .detail-header h1 { text-align:center; }
-.header-back, .header-info { display:grid; place-items:center; flex:none; width:44px; height:44px; padding:0; border:0; background:transparent; color:#234633; }
+.header-back, .header-info { display:grid; place-items:center; flex:none; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:transparent; color:#234633; }
+.header-back:active, .header-info:active { background:#edf3ed; }
 .header-back svg { width:25px; height:25px; }
 .header-info svg { width:21px; height:21px; }
-.home-header { display:flex; align-items:center; justify-content:space-between; width:100%; height:62px; padding:0 18px 0 22px; background:#f8faf7; color:#0a3028; }
+.home-header { display:flex; align-items:center; gap:5px; width:100%; height:62px; padding:0 18px 0 22px; background:rgb(248 250 247 / 88%); color:#0a3028; backdrop-filter:blur(18px) saturate(1.12); -webkit-backdrop-filter:blur(18px) saturate(1.12); }
 .product-wordmark { display:inline-flex; align-items:center; gap:7px; min-width:0; color:#0a3028; font-size:14px; line-height:20px; font-weight:850; letter-spacing:1.7px; white-space:nowrap; }
-.product-wordmark-mark { position:relative; display:inline-block; flex:none; width:18px; height:18px; overflow:hidden; border-radius:50%; background:#d8ef72; box-shadow:0 0 0 3px rgb(216 239 114 / 18%); }
-.product-wordmark-mark::before,.product-wordmark-mark::after { position:absolute; content:""; border:1.4px solid rgb(18 67 45 / 66%); border-radius:50%; }
-.product-wordmark-mark::before { top:-4px; left:5px; width:8px; height:26px; transform:rotate(38deg); }
-.product-wordmark-mark::after { top:3px; left:-4px; width:26px; height:10px; transform:rotate(-38deg); }
+.product-wordmark-mark { display:block; flex:none; width:38px; height:38px; }
+.product-wordmark-mark img { display:block; width:100%; height:100%; object-fit:contain; }
 .product-wordmark.is-compact { gap:5px; color:#eff7e9; font-size:11px; line-height:16px; letter-spacing:1.15px; }
 .product-wordmark.is-compact::after { content:"RallyPath"; }
-.product-wordmark.is-compact .product-wordmark-mark { width:15px; height:15px; box-shadow:0 0 0 2px rgb(216 239 114 / 16%); }
-.product-wordmark.is-compact .product-wordmark-mark::before { top:-5px; left:4px; width:7px; height:24px; }
-.product-wordmark.is-compact .product-wordmark-mark::after { top:3px; left:-4px; width:23px; height:9px; }
-.tennis-app .home-header button { display:grid; place-items:center; width:40px; height:40px; padding:0; border:1px solid #dbe7db; border-radius:50%; background:#eef5ec; color:#24533a; box-shadow:0 4px 12px rgb(28 75 48 / 8%); }
-.home-header button svg { width:18px; height:18px; }
-.tactic-catalogue { position:absolute; inset:0; display:flex; flex-direction:column; background:#f6f8f5; }
-.catalogue-modes { display:flex; flex:none; padding:0 22px; gap:27px; background:#fff; }
-.tennis-app .catalogue-modes button { display:flex; align-items:center; gap:6px; min-height:46px; padding:0 1px; border:0; border-bottom:3px solid transparent; background:transparent; color:#60705f; font-size:14px; }
-.catalogue-modes button.is-selected { color:#25492f; border-bottom-color:#345d3b; font-weight:700; }
-.catalogue-modes button span { font-size:11px; font-weight:600; color:#60705f; }
-.category-carousel { flex:none; padding:12px 0 13px; background:#fff; border-bottom:1px solid #edf1ec; }
-.category-track { display:flex; gap:6px; width:max-content; padding:0 18px; }
-.tennis-app .category-chip { height:44px; padding:0 11px; border:1px solid transparent; border-radius:12px; background:#f2f5ef; color:#58675d; font-size:12px; font-weight:550; white-space:nowrap; }
-.category-chip.is-selected { background:#234e38; color:#fff; font-weight:700; }
-.catalogue-count { display:flex; align-items:center; justify-content:space-between; flex:none; min-height:42px; padding:0 22px; color:#5f7062; font-size:12px; }
-.catalogue-count span:first-child { color:#4f6455; font-weight:650; font-size:12px; }
+.product-wordmark.is-compact .product-wordmark-mark { width:24px; height:24px; }
+.tennis-app .home-header-info { display:grid; place-items:center; flex:none; width:44px; height:44px; padding:0; border:0; background:transparent; color:#74877b; }
+.home-header-info svg { width:17px; height:17px; }
+.tennis-app .flow-fixed-header:has(.knowledge-header) { background:rgb(246 248 246 / 88%); backdrop-filter:blur(24px) saturate(1.25); -webkit-backdrop-filter:blur(24px) saturate(1.25); }
+.knowledge-header { display:flex; align-items:center; justify-content:space-between; box-sizing:border-box; width:100%; max-width:640px; height:60px; margin-inline:auto; padding:0 12px 0 18px; background:transparent; }
+.knowledge-header h1 { margin:0; color:#172a22; font-size:25px; line-height:1.2; font-weight:760; letter-spacing:-.8px; }
+.knowledge-header-actions { position:relative; display:flex; align-items:center; gap:8px; }
+.tennis-app .knowledge-header-actions > button { display:grid; place-items:center; flex:none; width:44px; height:44px; padding:0; border:1px solid rgb(255 255 255 / 70%); border-radius:50%; background:rgb(231 237 231 / 75%); color:#45574b; box-shadow:0 2px 8px rgb(15 55 35 / 5%),inset 0 1px rgb(255 255 255 / 64%); backdrop-filter:blur(14px) saturate(1.1); -webkit-backdrop-filter:blur(14px) saturate(1.1); }
+.knowledge-header-actions > button svg { width:19px; height:19px; }
+.tennis-app .knowledge-header-actions > button:active, .tennis-app .knowledge-index-trigger[aria-expanded="true"] { background:#dfeae0; color:#163d2c; }
+.tennis-app .knowledge-header-actions > button:focus-visible { outline:3px solid #75aa8c; outline-offset:2px; }
+.knowledge-index-menu { position:absolute; z-index:20; top:48px; right:48px; width:188px; padding:6px; border:1px solid rgb(255 255 255 / 90%); border-radius:20px; background:rgb(248 250 248 / 96%); box-shadow:0 14px 36px rgb(13 48 31 / 18%); backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px); }
+.tennis-app .knowledge-index-menu button { display:block; width:100%; min-height:44px; padding:0 14px; border:0; border-radius:13px; background:transparent; color:#244737; text-align:left; font-size:14px; font-weight:650; }
+.tennis-app .knowledge-index-menu button:active { background:#e8f0e8; }
+.tactic-catalogue { position:absolute; inset:0; display:flex; flex-direction:column; background:#f6f8f6; }
 .tactic-list-screen { flex:1; min-height:0; position:relative; }
-.tactics-grid { display:flex; flex-direction:column; gap:10px; padding:0 16px calc(var(--mobile-safe-area-height) + 18px); }
-.tactic-card { display:flex; align-items:center; gap:13px; width:100%; min-height:118px; padding:15px 12px; border:1px solid #e7ece5; border-radius:16px; background:#fff; text-align:left; transition:background .15s,transform .15s; }
-.tactic-card:active { background:#f2f7ef; transform:scale(.99); }
-.card-picture { position:relative; display:flex; flex-direction:column; gap:7px; align-items:center; justify-content:center; flex:none; width:60px; height:76px; border-radius:11px; background:#edf4e6; color:#809473; }
-.card-picture img { display:block; width:27px; height:27px; object-fit:contain; mix-blend-mode:darken; }
-.card-picture span { font-size:10px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:1px; }
-.card-copy { flex:1; min-width:0; }
-.card-copy h2 { margin:0; color:#1b3326; font-size:16px; line-height:23px; font-weight:700; }
-.card-purpose { display:-webkit-box; overflow:hidden; -webkit-line-clamp:2; -webkit-box-orient:vertical; margin:5px 0 7px; color:#69766c; font-size:13px; line-height:19px; }
-.card-meta { display:flex; flex-wrap:wrap; gap:7px; align-items:center; font-size:11px; line-height:16px; color:#5f7062; }
-.card-meta span:first-child { color:#416349; font-weight:600; }
-.card-meta span+span { border-left:1px solid #dce4d8; padding-left:7px; }
-.card-arrow { flex:none; width:16px; height:16px; color:#80917f; }
-.combo-card { min-height:142px; padding:17px; }
-.combo-card-label { margin-bottom:6px; color:#5a7055; font-size:11px; line-height:16px; font-weight:600; }
-.combo-card.is-decision-practice { border-color:#c8dabc; box-shadow:0 7px 20px rgb(58 94 58 / 7%); }
-.combo-card.is-decision-practice .combo-card-label { color:#315f3d; font-weight:750; }
-.card-series { display:inline-flex; align-items:center; min-height:20px; margin-bottom:5px; padding:2px 7px; border-radius:999px; background:#e9f2df; color:#43603b; font-size:11px; line-height:16px; font-weight:700; }
+.tactics-grid { display:flex; flex-direction:column; box-sizing:border-box; width:100%; max-width:640px; gap:2px; margin-inline:auto; padding:0 12px calc(var(--mobile-safe-area-height) + 14px); }
+.tactic-section-heading { margin:6px 6px 5px; color:#557063; font-size:12px; line-height:18px; font-weight:720; letter-spacing:.1px; }
+.tactic-section-list { overflow:hidden; border:1px solid rgb(211 223 214 / 62%); border-radius:18px; background:rgb(255 255 255 / 94%); box-shadow:0 2px 10px rgb(21 49 35 / 3%); }
+.tennis-app .tactic-card { display:flex; align-items:center; gap:11px; width:100%; min-height:100px; padding:5px 10px; border:0; background:transparent; text-align:left; transition:background .15s; }
+.tennis-app .tactic-card + .tactic-card { border-top:1px solid rgb(30 65 43 / 8%); }
+.tennis-app .tactic-card:active { background:var(--rp-pressed); }
+.tennis-app .tactic-card:focus-visible { position:relative; z-index:1; outline:3px solid #75aa8c; outline-offset:-3px; }
+.tactic-catalogue .card-picture { display:block; flex:none; width:66px; height:90px; border-radius:10px; background:#08442f; object-fit:cover; box-shadow:0 1px 4px rgb(3 44 29 / 9%); }
+.tactic-catalogue .card-copy { flex:1; min-width:0; }
+.tactic-catalogue .card-copy h3 { margin:0; color:#17241d; font-size:16px; line-height:22px; font-weight:690; letter-spacing:-.2px; }
+.tactic-catalogue .card-purpose { display:-webkit-box; overflow:hidden; -webkit-line-clamp:2; -webkit-box-orient:vertical; margin:3px 0 0; color:#6b7770; font-size:12px; line-height:17px; }
+@media (max-width:360px) { .knowledge-header h1 { font-size:24px; } .tactics-grid { padding-right:10px; padding-left:10px; } .tactic-catalogue .card-picture { width:60px; height:82px; } .tennis-app .tactic-card { min-height:92px; } }
 .combination-screen { background:#f6f8f5; }
 .combination-content { padding:16px 18px calc(var(--mobile-safe-area-height) + 24px); }
 .combination-summary { padding:20px; border-radius:17px; background:#eaf2df; }
@@ -90,7 +82,6 @@
 .combination-transition p { margin:0; color:#53684d; font-size:13px; line-height:21px; }
 .tennis-app .watch-example { display:flex; align-items:center; gap:7px; min-height:46px; width:100%; padding:9px 0; border:0; background:transparent; color:#3d6837; font-size:12px; font-weight:650; text-align:left; }
 .watch-example svg { flex:none; width:16px; height:16px; }
-.watch-example svg:last-child { margin-left:auto; color:#899c78; }
 .combination-variants { display:flex; flex-direction:column; gap:10px; }
 .combination-variant { background:#fff; border:1px solid #e2e9dc; border-radius:14px; overflow:hidden; }
 .tennis-app .variant-trigger { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; padding:16px; border:0; background:transparent; text-align:left; }
@@ -145,12 +136,11 @@
 .tennis-app .rally-choice-heading button { display:flex; align-items:center; gap:5px; flex:none; min-height:44px; padding:7px 9px; border:0; border-radius:9px; background:#f3f6ef; color:#5b705d; font-size:11px; white-space:nowrap; }
 .rally-choice-heading button svg { width:14px; height:14px; }
 .rally-choice-grid { display:flex; flex-direction:column; gap:6px; }
-.tennis-app .rally-choice-button { position:relative; display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; column-gap:9px; min-height:62px; padding:8px 32px 8px 10px; border:1px solid #dfe8d9; border-radius:12px; background:#fff; color:#294b32; text-align:left; }
+.tennis-app .rally-choice-button { position:relative; display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; column-gap:9px; min-height:62px; padding:8px 10px; border:1px solid #dfe8d9; border-radius:12px; background:#fff; color:#294b32; text-align:left; }
 .tennis-app .rally-choice-button:disabled { opacity:.58; }
 .rally-choice-button > span { grid-row:1/3; min-width:38px; padding:4px 6px; border-radius:999px; color:#52704f; background:#eef3e9; font-size:10px; line-height:14px; font-weight:750; text-align:center; }
 .rally-choice-button > strong { grid-column:2; overflow:hidden; font-size:13px; line-height:18px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
 .rally-choice-button > small { grid-column:2; display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; color:#647364; font-size:11px; line-height:15px; }
-.rally-choice-button > svg { position:absolute; top:50%; right:10px; width:16px; height:16px; color:#758a72; transform:translateY(-50%); }
 .rally-choice-panel.is-scenario { padding-top:0; }
 .rally-signal-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:0 0 7px; }
 .rally-signal-strip > div { min-width:0; min-height:68px; padding:7px 7px 6px; border:1px solid #e2e9dd; border-radius:10px; background:#f7f9f4; }
@@ -261,6 +251,29 @@
 .about-demo p { font-size:14px; line-height:1.7; margin:0 0 13px; }
 .about-demo .about-note { color:#71806b; font-size:12px; }
 .about-demo .about-source { color:#5f7062; font-size:12px; }
+.about-steps { display:grid; gap:0; margin:0 0 6px; padding:0; list-style:none; }
+.about-steps li { display:grid; grid-template-columns:30px minmax(0,1fr); align-items:start; gap:10px; padding:10px 0; border-bottom:1px solid #e8eee8; }
+.about-demo .about-steps li { padding:4px 0; }
+.about-steps li > span { display:grid; place-items:center; width:27px; height:27px; border-radius:50%; background:#eaf3e2; color:#31563a; font-size:10px; font-weight:800; font-variant-numeric:tabular-nums; }
+.about-steps strong { display:block; margin:0 0 2px; color:#204b33; font-size:14px; line-height:20px; }
+.about-demo .about-steps p { margin:0; color:#536659; font-size:12px; line-height:18px; }
+.about-legend { margin:0 0 8px; }
+.about-legend summary { min-height:42px; display:flex; align-items:center; justify-content:space-between; color:#365242; font-size:13px; font-weight:650; cursor:pointer; list-style:none; }
+.about-demo .about-legend summary { min-height:36px; }
+.about-legend summary::-webkit-details-marker { display:none; }
+.about-legend summary::after { content:"⌄"; color:#718872; font-size:21px; font-weight:400; line-height:1; transition:transform .18s; }
+.about-legend[open] summary::after { transform:rotate(180deg); }
+.about-legend.about-build { margin-top:2px; border-top:1px solid #e8eee8; }
+.about-legend.about-build summary { min-height:34px; color:#71806b; font-size:11px; font-weight:600; }
+.about-build-identity { margin:0 0 7px; padding:8px 10px; border-radius:9px; background:#f4f7f3; color:#52665a; font-size:10px; line-height:15px; overflow-wrap:anywhere; }
+.about-build-identity code { font:inherit; }
+.about-court-key { display:flex; flex-wrap:wrap; gap:7px 12px; margin:0 0 9px; padding:10px 12px; border-radius:11px; background:#eff5eb; color:#365242; font-size:11px; line-height:17px; }
+.about-court-key span { display:inline-flex; align-items:center; gap:5px; }
+.about-court-key i { display:inline-block; width:9px; height:9px; border-radius:50%; border:1px solid #fff; }
+.about-court-key .is-me { background:#3e8ad6; }
+.about-court-key .is-opponent { background:#dc4151; }
+.about-court-key .is-ball { background:#d8ef72; }
+.about-demo .about-note { margin:0 1px 9px; color:#71806b; font-size:11px; line-height:16px; }
 @media(prefers-reduced-motion:reduce) { .tactic-card, .variant-trigger svg, .guide-section svg, .rally-progress i { transition:none; } }
 
 /* RallyPath — Coach Green */
@@ -278,11 +291,11 @@
 .combination-board-entry > span { display:flex; flex:1; min-width:0; flex-direction:column; gap:2px; }
 .combination-board-entry strong { font-size:13px; line-height:19px; }
 .combination-board-entry small { color:#647662; font-size:11px; line-height:16px; }
-.combination-board-entry > svg:last-child { width:17px; height:17px; }
 
 .board-header { gap:2px; padding:0 7px; }
 .board-header > .product-wordmark { flex:none; margin:0 3px 0 1px; }
 .board-header .header-back { width:40px; }
+.board-header .header-back svg { width:19px; height:19px; }
 .tennis-app .board-header-title { display:flex; align-items:center; justify-content:center; gap:1px; flex:1; min-width:0; height:52px; padding:2px 3px 0; border:0; background:transparent; color:#183b29; flex-direction:column; }
 .board-header-title > span { display:flex; align-items:center; justify-content:center; gap:3px; width:100%; min-width:0; }
 .board-header-title strong { overflow:hidden; max-width:100%; font-size:13px; line-height:18px; text-overflow:ellipsis; white-space:nowrap; }
@@ -343,19 +356,22 @@
 .home-history-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 2px 15px; }
 .home-history-heading h2 { margin:0; color:#0b3027; font-size:25px; line-height:31px; font-weight:810; letter-spacing:-.55px; }
 .home-history-heading > span { color:#738078; font-size:12px; line-height:18px; font-weight:650; }
+.home-import-pending { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 12px; padding:8px 10px; border:1px solid #e2dca9; border-radius:12px; background:#fbfae9; color:#5d5930; font-size:12px; line-height:17px; }
+.tennis-app .home-import-pending button { flex:none; min-height:36px; padding:0 10px; border:0; border-radius:9px; background:#e8ebbb; color:#3b4926; font:inherit; font-weight:760; }
 .home-purpose-filters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; padding:4px; border-radius:17px; background:#e7ece7; }
 .tennis-app .home-purpose-filters button { position:relative; display:flex; min-width:0; min-height:52px; align-items:center; justify-content:center; padding:0 7px; border:0; border-radius:13px; background:transparent; color:#587064; transition:background .16s ease,color .16s ease,box-shadow .16s ease; }
 .tennis-app .home-purpose-filters button[aria-pressed="true"] { background:#fff; color:#103f32; box-shadow:0 2px 9px rgb(16 55 42 / 9%); }
 .home-purpose-filters button > span { overflow:hidden; min-width:0; font-size:12px; line-height:17px; font-weight:760; text-overflow:ellipsis; white-space:nowrap; }
-.home-history-list { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
-.tennis-app .home-history-list > button { display:grid; grid-template-columns:58px minmax(0,1fr) 18px; min-height:72px; align-items:center; gap:11px; width:100%; padding:9px 12px; border:1px solid #dfe6df; border-radius:16px; background:rgb(255 255 255 / 86%); color:#153e31; box-shadow:0 3px 12px rgb(16 57 43 / 4%); text-align:left; }
+.home-history-list { display:flex; overflow:hidden; flex-direction:column; gap:0; margin-top:14px; border:1px solid var(--rp-hairline); border-radius:18px; background:#fff; box-shadow:0 4px 18px rgb(16 57 43 / 4%); }
+.tennis-app .home-history-list > button { display:grid; grid-template-columns:58px minmax(0,1fr); min-height:72px; align-items:center; gap:11px; width:100%; padding:9px 12px; border:0; border-radius:0; background:transparent; color:#153e31; text-align:left; }
+.tennis-app .home-history-list > button+button { border-top:1px solid var(--rp-hairline); }
+.tennis-app .home-history-list > button:active { background:var(--rp-pressed); }
 .home-history-purpose { display:flex; min-height:27px; align-items:center; justify-content:center; padding:0 7px; border-radius:999px; background:#e3eee3; color:#326046; font-size:10px; line-height:15px; font-style:normal; font-weight:780; white-space:nowrap; }
 .home-history-purpose.is-practice { background:#edf1d5; color:#5b651d; }
 .home-history-purpose.is-review { background:#e5edf1; color:#365c6b; }
 .home-history-copy { display:flex; overflow:hidden; min-width:0; flex-direction:column; gap:3px; }
 .home-history-copy strong { overflow:hidden; font-size:14px; line-height:20px; font-weight:780; text-overflow:ellipsis; white-space:nowrap; }
 .home-history-copy small { color:#78867e; font-size:11px; line-height:16px; }
-.home-history-list > button > svg { width:17px; height:17px; color:#87958d; }
 .home-history-empty { display:grid; min-height:110px; place-items:center; margin-top:14px; padding:18px; border:1px dashed #d6dfd6; border-radius:16px; color:#78877e; font-size:13px; line-height:20px; text-align:center; }
 .tennis-app .home-history-empty button { min-width:72px; min-height:44px; margin-top:8px; padding:0 16px; border:1px solid #d3ddd4; border-radius:22px; background:#fff; color:#315c49; font:inherit; font-weight:760; }
 .home-history-actions { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.72fr); gap:8px; margin-top:12px; }
@@ -366,9 +382,8 @@
 .home-history-actions svg { flex:none; width:16px; height:16px; }
 .home-history-actions span { overflow:hidden; min-width:0; text-overflow:ellipsis; white-space:nowrap; }
 .home-knowledge-section { padding:12px 16px calc(var(--mobile-safe-area-height) + 34px); border-top:1px solid #e2e8e2; background:#f8faf7; }
-.tennis-app .home-knowledge-entry { display:grid; grid-template-columns:34px minmax(0,1fr) 18px; align-items:center; gap:12px; width:100%; min-height:72px; padding:0 4px; border:0; border-bottom:1px solid #dfe6e0; background:transparent; color:#0b3a30; text-align:left; }
-.home-knowledge-entry > svg:first-child { width:29px; height:29px; }
-.home-knowledge-entry > svg:last-child { justify-self:end; width:18px; height:18px; }
+.tennis-app .home-knowledge-entry { display:grid; grid-template-columns:34px minmax(0,1fr); align-items:center; gap:12px; width:100%; min-height:72px; padding:0 4px; border:0; border-bottom:1px solid #dfe6e0; background:transparent; color:#0b3a30; text-align:left; }
+.home-knowledge-entry > .tactic-finder-route { width:34px; height:34px; }
 .home-knowledge-entry span { font-size:19px; line-height:25px; font-weight:790; }
 .home-board-playback-stage:focus-visible,.home-plan-primary:focus-visible,.home-intent-actions button:focus-visible,.home-scroll-cue:focus-visible,.home-purpose-filters button:focus-visible,.home-history-list button:focus-visible,.home-history-actions button:focus-visible,.home-knowledge-entry:focus-visible { position:relative; z-index:5; outline:3px solid rgb(18 97 67 / 34%); outline-offset:-3px; }
 .board-error { margin:0 22px 12px; padding:10px 12px; border:1px solid #e6c6bc; border-radius:11px; background:#fff3ef; color:#8c483d; font-size:12px; line-height:18px; }
@@ -384,8 +399,12 @@
 .tennis-app .board-section-side button { display:flex; align-items:center; gap:2px; min-height:44px; padding:0 0 0 4px; border:0; background:transparent; color:#315c3d; font-size:12px; line-height:17px; font-weight:750; }
 .board-section-side button svg { width:15px; height:15px; }
 .board-draft-list,.drill-card-list { display:flex; flex-direction:column; gap:8px; }
-.board-draft-list article { display:grid; grid-template-columns:minmax(0,1fr) 48px; align-items:stretch; overflow:hidden; border:1px solid #e0e7dc; border-radius:15px; background:#fff; }
-.tennis-app .board-draft-open { display:grid; grid-template-columns:40px minmax(0,1fr) 18px; align-items:center; gap:10px; min-height:70px; padding:10px 6px 10px 11px; border:0; background:transparent; color:#294633; text-align:left; }
+.board-draft-list { overflow:hidden; gap:0; border:1px solid var(--rp-hairline); border-radius:18px; background:#fff; box-shadow:0 4px 18px rgb(16 57 43 / 4%); }
+.board-draft-list article { display:grid; grid-template-columns:minmax(0,1fr) 48px; align-items:stretch; overflow:hidden; background:transparent; }
+.board-draft-list article:has(> button:only-child) { grid-template-columns:minmax(0,1fr); }
+.board-draft-list article+article { border-top:1px solid var(--rp-hairline); }
+.tennis-app .board-draft-open { display:grid; grid-template-columns:40px minmax(0,1fr); align-items:center; gap:10px; min-height:70px; padding:10px 11px; border:0; background:transparent; color:#294633; text-align:left; }
+.tennis-app .board-draft-open:active { background:var(--rp-pressed); }
 .board-draft-icon { display:grid; place-items:center; width:40px; height:44px; border-radius:10px; background:#e9f1e1; color:#426648; }
 .board-draft-icon svg { width:19px; height:19px; }
 .board-draft-open > span:nth-child(2) { display:flex; min-width:0; flex-direction:column; gap:4px; }
@@ -395,7 +414,6 @@
 .board-purpose-badge.is-practice { background:#edf1d5; color:#5b651d; }
 .board-purpose-badge.is-review { background:#e5edf1; color:#365c6b; }
 .board-draft-open small { color:#5f7062; font-size:11px; line-height:15px; }
-.board-draft-open > svg { width:16px; height:16px; color:#829286; }
 .tennis-app .board-draft-delete { display:grid; place-items:center; min-width:48px; border:0; border-left:1px solid #edf0ea; background:#fbfcfa; color:#a05d51; }
 .board-draft-delete svg { width:17px; height:17px; }
 .tennis-app .board-draft-delete:disabled { background:#f6f8f4; color:#b8c2ba; }
@@ -407,8 +425,29 @@
 .board-home.board-library { padding:19px 16px calc(var(--mobile-safe-area-height) + 34px); }
 .board-library .board-error { margin:12px 0 0; }
 .board-library .board-error-action { margin:12px 0 0; }
+.board-library .board-library-recovery { align-items:stretch; flex-direction:column; }
+.board-library-recovery-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.board-library-copy-discard { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px; border:1px solid #d9a99d; border-radius:10px; background:#fffaf8; }
+.board-library-copy-discard p { flex-basis:100%; margin:0; }
 .board-library-status { margin:12px 0 0; padding:10px 12px; border-radius:11px; background:#edf5e9; color:#315b3d; font-size:12px; line-height:18px; }
 .board-library .board-home-section { margin-top:22px; }
+.board-library-legacy { overflow:hidden; border:1px solid #dce6dc; border-radius:17px; background:rgb(255 255 255 / 88%); }
+.tennis-app .board-legacy-toggle { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:68px; padding:12px 15px; border:0; background:transparent; color:#214b37; text-align:left; }
+.board-legacy-toggle > span:first-child { display:flex; min-width:0; flex-direction:column; gap:3px; }
+.board-legacy-toggle strong { font-size:13px; line-height:19px; }
+.board-legacy-toggle small { color:#728379; font-size:11px; line-height:16px; }
+.board-legacy-toggle > span:last-child { flex:none; color:#406a50; font-size:11px; font-weight:700; }
+.board-legacy-content { border-top:1px solid #e4ebe4; }
+.board-legacy-entry { padding:12px 15px 14px; }
+.board-legacy-entry + .board-legacy-entry { border-top:1px solid #e8eee8; }
+.board-legacy-entry h4 { margin:0 0 8px; color:#213c2c; font-size:13px; line-height:19px; }
+.board-legacy-entry > div + div { margin-top:12px; padding-top:10px; border-top:1px solid #edf1ed; }
+.board-legacy-entry strong,.board-legacy-entry small { display:block; color:#50715b; font-size:11px; line-height:17px; }
+.board-legacy-entry small { color:#7a877b; }
+.board-legacy-entry p { margin:5px 0 0; color:#2b4234; font-size:12px; line-height:19px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.board-legacy-error { padding:12px 15px; }
+.board-legacy-error p { margin:0 0 8px; color:#8c483d; font-size:12px; line-height:18px; }
+.tennis-app .board-legacy-error button { min-height:36px; padding:0 12px; border:1px solid #d9a99d; border-radius:10px; background:#fffaf8; color:#7c3f36; font-size:11px; font-weight:700; }
 .board-library .board-draft-open:focus-visible,.board-library .board-draft-delete:focus-visible,.board-library .board-home-primary button:focus-visible { position:relative; z-index:1; outline:3px solid rgb(214 237 124 / 62%); outline-offset:-3px; }
 .tennis-app .drill-card-list > button { display:grid; grid-template-columns:52px minmax(0,1fr) 18px; align-items:center; gap:12px; min-height:96px; padding:13px 12px; border:1px solid #dce5d7; border-radius:15px; background:#fff; color:#2d4936; text-align:left; box-shadow:0 5px 16px rgb(23 63 46 / 3%); }
 .drill-card-number { display:grid; place-items:center; align-self:center; width:52px; height:52px; border-radius:11px; background:#eff6e9; color:#366548; font-size:13px; line-height:18px; font-weight:750; letter-spacing:1px; }
@@ -450,25 +489,48 @@
 .tennis-app .board-knowledge-all:active { background:#eaf2e9; }
 
 .board-editor { position:absolute; inset:0; display:flex; min-height:0; flex-direction:column; overflow:hidden; background:#08442f; color:#173d2c; }
+.copy-recovery-error { position:fixed; z-index:900; right:12px; bottom:max(20px,env(safe-area-inset-bottom,0px)); left:12px; max-width:480px; margin:auto; padding:10px 13px; border:1px solid #d8b09d; border-radius:12px; background:#fff8f3; color:#794638; box-shadow:0 6px 24px rgb(0 0 0 / 18%); font-size:12px; line-height:18px; }
 .board-editor.is-immersive { box-sizing:border-box; padding-top:0; background:#08442f; }
 .tennis-app .flow-screen.board-enter-immediate { transform:none !important; }
 .tennis-app .flow-screen.flow-pop-destination[data-flow-current="true"] { transform:none !important; }
 .tennis-app .flow-screen.flow-pop-exiting { visibility:hidden !important; opacity:0 !important; transform:none !important; pointer-events:none !important; }
+/* React may recreate an exiting FlowStack scene during a pop and drop its
+   imperative class. The marked destination still owns the viewport, so keep
+   every later (exiting) scene out of paint for the whole return transition. */
+.tennis-app .flow-screen.flow-pop-destination[data-flow-current="true"] ~ .flow-screen { visibility:hidden !important; opacity:0 !important; pointer-events:none !important; }
+.phone-stage:has(.flow-screen[data-flow-current="true"] .board-editor):has(.bottom-sheet .skill-practice-guide) :is(.sheet-overlay,.bottom-sheet:has(.skill-practice-guide)) { display:none !important; }
 .board-canvas-shell { position:relative; flex:1; min-height:220px; overflow:hidden; background:#08442f; }
 .board-canvas { position:absolute; inset:0; touch-action:none; outline:none; }
 .board-path-direct-toggle { position:absolute; z-index:4; display:grid; place-items:center; width:34px; height:34px; padding:0; border:1px solid rgb(255 255 255 / 80%); border-radius:50%; background:rgb(8 58 42 / 92%); color:#d8ef72; box-shadow:0 3px 10px rgb(0 0 0 / 24%); transform:translate(-50%,-50%) scale(.5); transform-origin:center; touch-action:manipulation; }
 .board-path-direct-toggle:active { background:#d8ef72; color:#123e2e; transform:translate(-50%,-50%) scale(.46); }
 .board-path-direct-toggle svg { width:17px; height:17px; }
-.board-editor.is-immersive .board-canvas { top:max(52px,calc(env(safe-area-inset-top,0px) + 48px)); }
+.board-editor .board-canvas { top:max(52px,calc(env(safe-area-inset-top,0px) + 48px)); }
+.tennis-app .board-tactic-float { position:absolute; z-index:6; right:10px; bottom:12px; display:grid; place-items:center; width:58px; height:58px; padding:0; border:0; background:transparent; color:#f3f9e8; box-shadow:none; touch-action:manipulation; -webkit-tap-highlight-color:transparent; animation:board-tactic-float-in .24s ease-out both; }
+.tactic-finder-route { position:relative; display:block; width:52px; height:52px; }
+.tactic-finder-route img { display:block; width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 3px 3px rgb(0 24 15 / 38%)) drop-shadow(0 0 5px rgb(216 239 114 / 22%)); transition:transform .16s ease-out,filter .16s ease-out; }
+.board-tactic-float .tactic-finder-route img { animation:tactic-route-breathe 3.2s ease-in-out infinite; }
+.board-tactic-float.is-linked::after { position:absolute; top:9px; right:2px; width:4px; height:4px; border-radius:50%; background:#d8ef72; content:""; }
+.tennis-app .board-tactic-float:active img { transform:translateY(1px) scale(.9); filter:drop-shadow(0 1px 2px rgb(0 24 15 / 30%)); }
+.tennis-app .board-tactic-float:focus-visible { outline:3px solid #d8ef72; outline-offset:-3px; border-radius:50%; }
+@keyframes board-tactic-float-in { from { opacity:0; transform:translateX(5px); } to { opacity:1; transform:translateX(0); } }
+@keyframes tactic-route-breathe { 0%,100% { transform:translateY(0) scale(.98); } 50% { transform:translateY(-2px) scale(1.03); } }
 .board-immersive-toolbar { position:absolute; z-index:11; top:max(4px,env(safe-area-inset-top,0px)); right:10px; left:10px; display:flex; align-items:center; justify-content:space-between; min-height:46px; color:#f5f8f1; pointer-events:none; }
 .board-immersive-leading { display:flex; align-items:center; gap:7px; min-width:0; pointer-events:auto; }
 .board-immersive-actions { display:flex; align-items:center; gap:4px; }
-.tennis-app .board-immersive-toolbar button { position:relative; display:grid; place-items:center; width:40px; height:40px; padding:0; border:1px solid rgb(255 255 255 / 13%); border-radius:50%; background:rgb(3 39 25 / 32%); color:#f2f6ed; font-size:11px; font-weight:750; pointer-events:auto; -webkit-tap-highlight-color:transparent; box-shadow:0 3px 10px rgb(0 0 0 / 8%); }
-.tennis-app .board-immersive-toolbar button:active { background:rgb(255 255 255 / 13%); }
+.tennis-app .board-immersive-toolbar button { position:relative; display:grid; place-items:center; width:40px; height:40px; padding:0; border:1px solid rgb(255 255 255 / 11%); border-radius:50%; background:var(--rp-dark-control); color:#f2f6ed; font-size:11px; font-weight:750; pointer-events:auto; -webkit-tap-highlight-color:transparent; box-shadow:none; backdrop-filter:blur(8px); }
+.tennis-app .board-immersive-toolbar button:active { background:rgb(255 255 255 / 15%); transform:scale(.94); }
 .tennis-app .board-immersive-toolbar button:disabled { opacity:.3; }
 .tennis-app .board-immersive-toolbar .board-immersive-back { width:40px; height:40px; border-color:transparent; border-radius:12px; background:transparent; color:#f2f6ed; box-shadow:none; opacity:.9; }
+.board-immersive-toolbar .board-immersive-back svg { width:18px; height:18px; }
 .tennis-app .board-immersive-toolbar .board-immersive-back:active { background:rgb(255 255 255 / 12%); }
 .board-immersive-toolbar svg { width:20px; height:20px; }
+@media (max-width:350px) {
+  .board-immersive-toolbar { right:6px; left:6px; }
+  .board-immersive-leading { gap:3px; }
+  .board-immersive-actions { gap:0; }
+  .board-immersive-leading .product-wordmark.is-compact { gap:3px; font-size:10px; letter-spacing:.35px; }
+  .board-immersive-leading .product-wordmark.is-compact .product-wordmark-mark { width:20px; height:20px; }
+}
 .board-immersive-history > span { position:absolute; top:5px; right:4px; display:grid; place-items:center; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:#d8ef72; color:#173d2c; font-size:8px; line-height:15px; font-weight:850; font-variant-numeric:tabular-nums; }
 .device-screen :where(.board-header,.board-home,.board-editor,.board-sheet,.board-object-list,.board-rename-layer,.drill-guide) :is(a,button,input,select,summary,textarea,[role="button"],[tabindex]):focus-visible { outline:3px solid #d8ef72 !important; outline-offset:-4px; box-shadow:inset 0 0 0 1px #173d2c !important; }
 .device-screen .board-editor .board-canvas:focus-visible { box-shadow:inset 0 0 0 1px #f7f8f4 !important; }
@@ -477,6 +539,7 @@
 .board-toast span { flex:1; font-size:11px; line-height:16px; }
 .board-toast svg { flex:none; width:15px; height:15px; }
 .board-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.board-save-live { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .board-frame-rail { display:flex; align-items:center; gap:7px; flex:none; min-height:64px; padding:6px 8px; border-bottom:1px solid #e4e9df; background:#fff; }
 .board-frame-carousel { flex:1; min-width:0; }
 .board-frame-track { align-items:center; gap:6px; padding:1px 3px; }
@@ -512,13 +575,58 @@
 .tennis-app .board-primary-play:disabled > svg { color:inherit; }
 .mobile-app-viewport[data-platform="android"] .board-edit-dock { padding-bottom:10px; }
 
-.board-playback-dock { display:flex; flex:none; flex-direction:column; gap:5px; padding:3px max(18px,6vw) calc(var(--mobile-safe-area-height) + 7px); border-radius:0; background:#08442f; box-shadow:none; }
+.board-playback-dock { box-sizing:border-box; display:flex; flex:none; flex-direction:column; gap:5px; width:100%; min-width:0; max-width:100%; padding:3px max(18px,6vw) calc(var(--mobile-safe-area-height) + 7px); border-radius:0; background:#08442f; box-shadow:none; }
 .mobile-app-viewport[data-platform="android"] .board-playback-dock { padding-bottom:14px; }
-.board-playback-progress { width:100%; height:18px; min-height:18px; margin:0; accent-color:#d8ef72; }
-.board-playback-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
-.tennis-app .board-playback-actions button { display:grid; place-items:center; min-height:48px; padding:0; border:0; border-radius:24px; background:transparent; color:#eff5ee; }
+.board-playback-progress { box-sizing:border-box; width:100%; min-width:0; height:18px; min-height:18px; margin:0; accent-color:#d8ef72; }
+.board-playback-actions { box-sizing:border-box; display:grid; min-width:0; width:100%; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+.board-playback-actions.has-practice-action,.board-playback-actions.has-discovery-action { grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.7fr); }
+.board-playback-actions.has-practice-action.has-discovery-action { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.board-playback-actions.has-practice-action.has-discovery-action .board-remember-beat { grid-column:span 2; min-height:38px; }
+.tennis-app .board-playback-actions button { box-sizing:border-box; display:grid; place-items:center; min-width:0; min-height:48px; padding:0; border:0; border-radius:24px; background:transparent; color:#eff5ee; }
 .board-playback-actions button svg { width:21px; height:21px; }
 .tennis-app .board-playback-actions .board-play-toggle { background:#d8ef72; color:#123e2e; }
+.tennis-app .board-playback-actions .board-remember-beat { display:flex; align-items:center; justify-content:center; gap:4px; min-width:0; padding:0 8px; background:#e4f579; color:#123e2e; font-size:11px; font-weight:800; white-space:nowrap; }
+.tennis-app .board-playback-actions .board-remember-beat.is-practice { background:rgb(255 255 255 / 15%); color:#eff5ee; }
+.board-playback-actions.has-practice-action.has-discovery-action .board-remember-beat { padding:0 3px; font-size:11px; }
+.tennis-app .board-discovery-pin { background:#dff5ee; border-color:#dff5ee; }
+.board-observation-pin.board-discovery-pin::after { background:#dff5ee; border-color:#dff5ee; }
+.board-playback-actions .board-remember-beat svg { width:15px; height:15px; flex:none; }
+.board-playback-dock.is-practice-followup { width:calc(100% - 24px); max-width:470px; align-self:center; margin:0 auto 14px; padding:8px 9px 10px; border:1px solid rgb(255 255 255 / 25%); border-radius:20px; background:rgb(255 255 255 / 7%); }
+.board-alternative-label,.board-compare-switch { position:absolute; z-index:6; top:max(68px,calc(env(safe-area-inset-top,0px) + 64px)); left:50%; max-width:calc(100% - 24px); transform:translateX(-50%); }
+.board-alternative-label { padding:7px 11px; border-radius:999px; background:rgb(5 43 30 / 83%); color:#e8f5da; font-size:11px; white-space:nowrap; pointer-events:none; }
+.board-compare-switch { display:flex; flex-wrap:wrap; justify-content:center; gap:3px; width:max-content; padding:3px; border:1px solid rgb(255 255 255 / 27%); border-radius:18px; background:rgb(4 42 29 / 88%); color:#f3f7e8; }
+.tennis-app .board-compare-switch button { min-width:61px; min-height:30px; padding:4px 9px; border:0; border-radius:15px; background:transparent; color:inherit; font-size:11px; font-weight:800; }
+.tennis-app .board-compare-switch button[aria-pressed="true"] { background:#d8ef72; color:#173d2c; }
+.board-compare-switch small { flex-basis:100%; padding:2px 5px; color:#f1eddc; font-size:10px; text-align:center; }
+.board-practice-context { position:absolute; z-index:3; top:max(67px,calc(env(safe-area-inset-top,0px) + 62px)); left:50%; min-width:138px; max-width:calc(100% - 32px); padding:7px 18px; border:1px solid rgb(255 255 255 / 22%); border-radius:22px; background:rgb(4 37 26 / 36%); color:#eef7e8; font-size:12px; font-weight:750; text-align:center; transform:translateX(-50%); pointer-events:none; }
+.tennis-app .board-observation-pin { position:absolute; z-index:5; display:flex; align-items:center; gap:7px; max-width:min(210px,60vw); min-height:44px; padding:5px 10px; border:1px solid #e4f579; border-radius:20px; background:#e4f579; color:#173d2c; box-shadow:0 6px 20px rgb(0 0 0 / 20%); text-align:left; transform:translate(-50%,-100%); }
+.board-observation-pin::after { position:absolute; bottom:-7px; left:calc(50% - 6px); width:10px; height:10px; border-right:1px solid #e4f579; border-bottom:1px solid #e4f579; background:#e4f579; content:""; transform:rotate(45deg); }
+.board-observation-pin svg { width:16px; height:16px; flex:none; color:#173d2c; }
+.board-observation-pin span { overflow:hidden; font-size:11px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
+.tennis-app .board-observation-missing { position:absolute; z-index:5; top:max(95px,calc(env(safe-area-inset-top,0px) + 90px)); left:16px; display:flex; align-items:center; gap:5px; min-height:36px; padding:5px 10px; border:1px solid rgb(216 239 114 / 35%); border-radius:18px; background:rgb(5 38 28 / 82%); color:#edf7cf; font-size:11px; }
+.board-observation-missing svg { width:14px; height:14px; }
+.board-follow-up-sheet { box-sizing:border-box; display:flex; min-width:0; width:100%; flex-direction:column; gap:12px; padding-top:8px; }
+.bottom-sheet:has(.board-follow-up-sheet) .sheet-content { min-height:0; max-width:100%; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+.device-screen .bottom-sheet:has(.board-follow-up-sheet) { bottom:var(--observation-sheet-bottom,0px) !important; min-height:min(260px,var(--observation-sheet-max-height,calc(100dvh - 62px))) !important; max-height:var(--observation-sheet-max-height,calc(100dvh - 62px)) !important; }
+.device-screen :is(.bottom-sheet,.sheet-overlay)[data-state="closed"] { pointer-events:none !important; }
+.tennis-app .board-discovery-switch { display:flex; align-items:center; justify-content:space-between; min-height:38px; padding:0 12px; border:0; border-radius:12px; background:#edf4e6; color:#244d35; font-size:12px; font-weight:750; }
+.board-discovery-switch svg { width:15px; height:15px; }
+.board-follow-up-context { padding:12px 14px; border-radius:14px; background:#eaf1df; color:#244d35; }
+.board-follow-up-context span { font-size:11px; font-weight:800; }
+.board-follow-up-context p { margin:5px 0 0; font-size:13px; line-height:19px; }
+.board-follow-up-sheet label { color:#294638; font-size:12px; font-weight:800; }
+.board-follow-up-sheet textarea { box-sizing:border-box; display:block; width:100%; min-width:0; max-width:100%; min-height:88px; padding:12px; border:1px solid #d4dfd2; border-radius:13px; background:#fff; color:#1a3528; font:inherit; font-size:16px; resize:vertical; }
+.board-follow-up-error { margin:0; color:#a7332b; font-size:12px; }
+.board-follow-up-replace { margin:0; color:#87551f; font-size:11px; line-height:16px; }
+.board-follow-up-actions { position:sticky; bottom:-8px; z-index:1; box-sizing:border-box; display:grid; width:100%; min-width:0; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.15fr); gap:7px; padding:6px 0 8px; background:#fff; }
+.board-follow-up-actions.is-read-only { grid-template-columns:1fr; }
+.board-follow-up-actions button { box-sizing:border-box; min-width:0; min-height:44px; padding:4px; border:1px solid #d9e2d5; border-radius:11px; background:#f4f7f0; color:#2e5039; font-size:11px; font-weight:750; overflow-wrap:anywhere; }
+.board-follow-up-actions button.is-primary { border-color:#244d36; background:#244d36; color:#fff; }
+.board-follow-up-actions button:disabled { opacity:.45; }
+@media (max-width:600px) {
+  .board-follow-up-actions:not(.is-read-only) { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .board-follow-up-actions:not(.is-read-only) button.is-primary { grid-column:1 / -1; }
+}
 
 .board-sheet { padding-bottom:8px; }
 .board-sheet-feedback { margin:0 40px 10px 0; padding:9px 10px; border:1px solid #d7e4d4; border-radius:10px; background:#edf5e8; color:#2d5a3d; font-size:11px; line-height:17px; }
@@ -536,6 +644,7 @@
 .board-help-list { display:flex; flex-direction:column; gap:8px; padding-bottom:8px; }
 .board-help-list > div:not(.board-help-icon-title):not(.board-help-icon-grid) { display:grid; grid-template-columns:38px minmax(0,1fr); align-items:start; gap:10px; padding:11px 10px; border:1px solid #e0e7dc; border-radius:13px; background:#f8faf6; color:#315640; }
 .board-help-list > div:not(.board-help-icon-title):not(.board-help-icon-grid) > svg { justify-self:center; width:22px; height:22px; margin-top:2px; }
+.board-help-list > div:not(.board-help-icon-title):not(.board-help-icon-grid) > .tactic-finder-route { justify-self:center; width:28px; height:28px; margin-top:-1px; }
 .board-help-list > div:not(.board-help-icon-title):not(.board-help-icon-grid) > span { display:flex; min-width:0; flex-direction:column; gap:3px; }
 .board-help-list strong { font-size:13px; line-height:18px; }
 .board-help-list small { color:#647466; font-size:11px; line-height:17px; }
@@ -583,19 +692,23 @@
 .board-display-choice .board-display-toggle-row { gap:6px; margin:0; }
 .device-screen .bottom-sheet .board-display-choice .board-display-toggle { min-height:48px; padding:0 8px; border-color:#dce5d8; border-radius:11px; background:#fff; font-size:11px; }
 .device-screen .bottom-sheet .board-display-choice .board-display-toggle.is-on { border-color:#a9c390; background:#eaf4df; }
-.board-menu-list { display:flex; flex-direction:column; gap:7px; }
-.device-screen .bottom-sheet .board-menu-list > button { display:grid; grid-template-columns:40px minmax(0,1fr) 18px; align-items:center; gap:11px; width:100%; min-height:64px; padding:8px 11px; border:1px solid #dce5d8; border-radius:14px; background:#fafbf8; color:#254b34; text-align:left; }
-.device-screen .bottom-sheet .board-menu-list > button:active { background:#eef4e9; }
-.device-screen .bottom-sheet .board-menu-list > button.board-menu-restore { border-color:#d8e4d2; background:#f3f7ed; }
+.board-menu-list { display:flex; overflow:hidden; flex-direction:column; gap:0; border:1px solid var(--rp-hairline); border-radius:16px; background:#fff; box-shadow:0 2px 10px rgb(19 54 35 / 3%); }
+.device-screen .bottom-sheet .board-menu-list > button { display:grid; grid-template-columns:40px minmax(0,1fr); align-items:center; gap:11px; width:100%; min-height:64px; padding:8px 11px; border:0; border-radius:0; background:transparent; color:#254b34; text-align:left; }
+.device-screen .bottom-sheet .board-menu-list > button:has(> svg:last-child) { grid-template-columns:40px minmax(0,1fr) 18px; }
+.device-screen .bottom-sheet .board-menu-list > button.board-menu-delete-confirm { display:block; padding-inline:14px; text-align:center; }
+.device-screen .bottom-sheet .board-menu-list > button+button { border-top:1px solid #e5ebe3; }
+.device-screen .bottom-sheet .board-menu-list > button:active { background:var(--rp-pressed); }
+.device-screen .bottom-sheet .board-menu-list > button.board-menu-restore { background:#f3f7ed; }
 .device-screen .bottom-sheet .board-menu-list > button.board-menu-restore:disabled { opacity:.62; }
 .board-menu-list > button > svg:first-child { justify-self:center; width:34px; height:34px; padding:8px; box-sizing:border-box; border-radius:11px; background:#edf4e8; color:#315c40; }
 .board-menu-list > button > svg:last-child { width:17px; height:17px; color:#6d806f; }
 .board-menu-list > button > span { display:flex; min-width:0; flex-direction:column; gap:3px; }
-.device-screen .bottom-sheet .board-menu-compact-list { gap:6px; }
-.device-screen .bottom-sheet .board-menu-compact-list > button { grid-template-columns:34px minmax(0,1fr) 18px; min-height:52px; padding:6px 9px; border-radius:12px; }
+.device-screen .bottom-sheet .board-menu-compact-list { gap:0; }
+.device-screen .bottom-sheet .board-menu-compact-list > button { grid-template-columns:34px minmax(0,1fr); min-height:52px; padding:6px 9px; border-radius:12px; }
+.device-screen .bottom-sheet .board-menu-compact-list > button:has(> svg:last-child) { grid-template-columns:34px minmax(0,1fr) 18px; }
 .board-menu-compact-list > button > svg:first-child { width:30px; height:30px; padding:7px; border-radius:9px; }
 .board-menu-compact-list > button > span { gap:0; }
-.board-menu-list strong { overflow:hidden; font-size:13px; line-height:18px; text-overflow:ellipsis; white-space:nowrap; }
+.board-menu-list strong { overflow:hidden; font-size:14px; line-height:20px; text-overflow:ellipsis; white-space:nowrap; }
 .board-menu-list strong b { display:inline-flex; align-items:center; min-height:18px; margin-left:6px; padding:0 6px; border-radius:999px; background:#dced9b; color:#31583b; font-size:9px; line-height:18px; vertical-align:1px; }
 .board-menu-list small { overflow:hidden; color:#6a796b; font-size:10px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
 .board-menu-list em { overflow:hidden; color:#839086; font-size:9px; line-height:13px; font-style:normal; text-overflow:ellipsis; white-space:nowrap; }
@@ -608,6 +721,39 @@
 .board-autosave-actions svg { width:16px; height:16px; }
 .board-menu-section + .board-menu-section { margin-top:16px; }
 .board-menu-section > p { margin:0 2px 8px; color:#294a34; font-size:12px; line-height:17px; font-weight:800; letter-spacing:.15px; }
+.board-learning-sheet { padding-bottom:8px; }
+.device-screen .bottom-sheet .learning-current { display:grid; grid-template-columns:28px minmax(0,1fr); align-items:center; gap:10px; width:100%; min-height:68px; margin-bottom:10px; padding:9px 11px; border:1px solid #b9d09f; border-radius:14px; background:#edf5df; color:#2e5738; text-align:left; }
+.learning-current > svg { width:19px; height:19px; }
+.learning-current > span { display:flex; min-width:0; flex-direction:column; }
+.learning-current small { color:#708066; font-size:9px; line-height:14px; }
+.learning-current strong { overflow:hidden; font-size:13px; line-height:19px; text-overflow:ellipsis; white-space:nowrap; }
+.learning-current em { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; margin-top:2px; color:#5d725b; font-size:10px; line-height:15px; font-style:normal; }
+.learning-prompt { margin:0 0 10px; color:#607163; font-size:11px; line-height:17px; }
+.learning-choice-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.device-screen .bottom-sheet .learning-choice-grid > button { display:grid; grid-template-columns:24px minmax(0,1fr); align-items:center; gap:8px; min-height:60px; padding:8px 10px; border:1px solid #d9e5d3; border-radius:13px; background:#f8faf5; color:#31573b; text-align:left; }
+.learning-choice-grid svg { width:17px; height:17px; }
+.learning-choice-grid strong { font-size:13px; line-height:18px; }
+.device-screen .bottom-sheet .learning-choice-grid > button:active,.device-screen .bottom-sheet .learning-skill-entry:active,.device-screen .bottom-sheet .learning-skill-list > button:active { background:var(--rp-pressed); }
+.device-screen .bottom-sheet .learning-skill-entry { display:grid; grid-template-columns:28px minmax(0,1fr); align-items:center; gap:10px; width:100%; min-height:56px; margin-top:10px; padding:8px 11px; border:1px solid #c9dbab; border-radius:13px; background:#eef5df; color:#31573b; text-align:left; }
+.learning-skill-entry > svg:first-child { width:18px; height:18px; }
+.learning-skill-entry > span { display:flex; min-width:0; flex-direction:column; gap:1px; }
+.learning-skill-entry strong { font-size:12px; line-height:17px; }
+.learning-skill-entry small { overflow:hidden; color:#657867; font-size:10px; line-height:15px; text-overflow:ellipsis; white-space:nowrap; }
+.device-screen .bottom-sheet .learning-all { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; min-height:42px; margin-top:9px; border:0; background:transparent; color:#55705a; font-size:11px; }
+.learning-skill-list { display:flex; flex-direction:column; gap:7px; }
+.device-screen .bottom-sheet .learning-skill-list > button { display:grid; grid-template-columns:minmax(0,1fr); align-items:center; gap:10px; width:100%; min-height:58px; padding:8px 11px; border:1px solid #dde6d8; border-radius:13px; background:#fafbf8; color:#31553a; text-align:left; }
+.device-screen .bottom-sheet .learning-skill-list > button[aria-pressed="true"] { grid-template-columns:minmax(0,1fr) 18px; border-color:#a9c585; background:#edf5df; }
+.learning-skill-list span { display:flex; min-width:0; flex-direction:column; gap:2px; }
+.learning-skill-list strong { font-size:13px; line-height:18px; }
+.learning-skill-list small { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; color:#68796a; font-size:10px; line-height:15px; }
+.learning-skill-list svg { width:16px; height:16px; }
+.point-library-context { display:grid; grid-template-columns:32px minmax(0,1fr); align-items:center; gap:10px; flex:none; margin:10px 14px 0; padding:10px 12px; border:1px solid #c7dba9; border-radius:13px; background:#edf5df; color:#31563a; }
+.point-library-context > svg { width:20px; height:20px; justify-self:center; }
+.point-library-context > span { display:flex; min-width:0; flex-direction:column; }
+.point-library-context strong { font-size:12px; line-height:17px; }
+.point-library-context small { color:#667762; font-size:10px; line-height:15px; }
+.tennis-app .board-from-tactic.point-tactic-choice:disabled { opacity:1; border-color:#b9d09f; background:#edf5df; color:#31573a; }
+.point-tactic-error { margin:7px 0 0; color:#955044; font-size:11px; line-height:16px; text-align:center; }
 .board-save-share-sheet .board-menu-list > button { min-height:64px; }
 .board-save-share-sheet .board-menu-list > button:disabled { opacity:.4; }
 .board-rename-layer { position:absolute; z-index:25; inset:0; box-sizing:border-box; padding-top:max(var(--board-rename-safe-top,0px),env(safe-area-inset-top,0px)); overflow:hidden; background:#fbfcf8; color:#173d2c; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; outline:none; }
@@ -636,6 +782,31 @@
 .device-screen .bottom-sheet .board-file-actions button:disabled { opacity:.34; }
 .board-file-actions button:focus-visible { outline:2px solid #a2c76a; outline-offset:2px; }
 .board-file-actions.board-icon-actions { margin-top:10px; }
+.device-screen .bottom-sheet .board-icon-actions button { display:flex; flex-direction:column; gap:4px; min-width:0; min-height:66px; padding:5px 2px; font-size:10px; line-height:13px; font-weight:750; }
+.board-icon-actions button > span:last-child { overflow:hidden; width:100%; text-align:center; text-overflow:ellipsis; white-space:nowrap; }
+.board-add-player-badge { display:grid; place-items:center; flex:none; width:26px; height:26px; border:2px solid #fff; border-radius:50%; color:#fff; font-size:13px; font-weight:900; box-shadow:0 0 0 1px rgb(0 0 0 / 14%); }
+.board-add-player-badge.is-me { background:#3e8ad6; }
+.board-add-player-badge.is-opponent { background:#dc4151; }
+.device-screen .bottom-sheet .board-icon-actions button.is-me { background:#eaf3fc; border-color:#b8d6ef; color:#245b86; }
+.device-screen .bottom-sheet .board-icon-actions button.is-opponent { background:#fdf0f1; border-color:#f2c4c9; color:#8d3340; }
+.board-editor.is-note-viewport-locked .board-canvas-shell { flex:none; height:var(--board-note-frozen-height); min-height:0; }
+.board-editor.is-note-viewport-locked .board-edit-dock { visibility:hidden; pointer-events:none; }
+.board-editor.is-note-editing .board-canvas,.board-editor.is-note-editing .board-path-direct-toggle,.board-editor.is-note-editing .board-immersive-toolbar button { pointer-events:none; }
+.board-note-overlay { position:absolute; z-index:30; top:var(--board-note-visible-top,0px); right:0; left:0; height:var(--board-note-visible-height,100dvh); display:flex; align-items:center; justify-content:center; box-sizing:border-box; padding:16px; }
+.board-note-scrim { position:absolute; inset:0; background:rgb(13 28 24 / 45%); backdrop-filter:blur(3px); }
+.board-note-dialog { position:relative; box-sizing:border-box; display:flex; flex-direction:column; gap:12px; width:min(100%,390px); max-height:100%; overflow-y:auto; padding:20px; border-radius:22px; background:#fff; color:#192923; box-shadow:0 18px 50px rgb(0 22 15 / 22%); }
+.board-note-dialog h2 { margin:0 0 4px; font-size:18px; font-weight:750; line-height:1.3; }
+.board-note-dialog > input { box-sizing:border-box; flex:none; width:100%; min-height:50px; padding:0 14px; border:1px solid transparent; border-radius:12px; outline:none; background:#ebeced; color:#1b2d25; font-size:16px; }
+.board-note-dialog > input:focus { border-color:#42845e; box-shadow:0 0 0 2px rgb(66 132 94 / 16%); }
+.board-note-dialog > input::placeholder { color:#8c9290; }
+.board-note-suggestions { display:flex; flex-wrap:wrap; gap:7px; }
+.tennis-app .board-note-suggestions button { min-height:30px; padding:4px 9px; border:1px solid #d9e2d9; border-radius:16px; background:#f4f7f2; color:#47624f; font-size:11px; }
+.board-note-error { color:#a0342b; font-size:12px; }
+.board-note-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:2px; }
+.tennis-app .board-note-actions button { min-width:68px; min-height:39px; padding:7px 12px; border:0; border-radius:20px; background:transparent; color:#46544a; font-size:14px; font-weight:700; }
+.tennis-app .board-note-actions button[type="submit"] { background:#d8ef72; color:#173d2c; }
+.tennis-app .board-note-actions button[type="submit"]:disabled { opacity:.45; }
+@media (max-height:450px) { .board-note-dialog { gap:8px; padding:14px; }.board-note-dialog h2 { margin-bottom:0; }.board-note-suggestions { flex-wrap:nowrap; overflow-x:auto; }.tennis-app .board-note-suggestions button { flex:none; } }
 .board-export-warning { margin:11px 0 0; padding:9px 10px; border-radius:10px; background:#fff0ea; color:#925144; font-size:11px; line-height:17px; }
 .board-media-sheet { min-height:300px; }
 .board-media-privacy { display:flex; align-items:flex-start; gap:10px; margin:0 0 12px; padding:11px 12px; border:1px solid #dbe7d5; border-radius:12px; background:#f1f6eb; color:#31583b; }
@@ -670,7 +841,8 @@
 .device-screen .bottom-sheet .board-sheet-row button.is-danger { border-color:#ead8d2; color:#9f5146; }
 .board-sheet-row svg { width:15px; height:15px; }
 .board-object-list { display:flex; flex-direction:column; gap:7px; padding-bottom:10px; }
-.device-screen .bottom-sheet .board-object-list button { display:grid; grid-template-columns:36px minmax(0,1fr) 18px; align-items:center; gap:9px; min-height:58px; padding:8px 9px; border:1px solid #e1e7de; border-radius:12px; background:#f9faf7; color:#405e47; text-align:left; }
+.device-screen .bottom-sheet .board-object-list button { display:grid; grid-template-columns:36px minmax(0,1fr); align-items:center; gap:9px; min-height:58px; padding:8px 9px; border:1px solid #e1e7de; border-radius:12px; background:#f9faf7; color:#405e47; text-align:left; }
+.device-screen .bottom-sheet .board-object-list button[aria-current="step"] { grid-template-columns:36px minmax(0,1fr) 18px; }
 .board-object-list button > svg:first-child,.object-swatch { justify-self:center; width:17px; height:17px; }
 .object-swatch { display:block; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px #9aaa9d; }
 .board-object-list button > span:nth-child(2) { display:flex; min-width:0; flex-direction:column; }
@@ -743,6 +915,101 @@
 .drill-stages small { display:block; margin-top:9px; color:#5f7062; font-size:10px; line-height:16px; }
 .drill-progression { margin:12px 2px; color:#5f7062; font-size:10px; line-height:17px; }
 
+.skill-practice-screen { position:absolute; inset:0; display:grid; grid-template-rows:58px 42px minmax(0,1fr) 72px 64px; box-sizing:border-box; min-height:0; padding:env(safe-area-inset-top,0px) 0 max(env(safe-area-inset-bottom,0px),6px); overflow:hidden; background:#08442f; color:#eff7e9; }
+.skill-practice-header { display:grid; grid-template-columns:44px max-content minmax(0,1fr) 44px; align-items:center; gap:4px; padding:0 12px; }
+.tennis-app .skill-practice-header button { display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid rgb(255 255 255 / 17%); border-radius:50%; background:rgb(4 46 33 / 48%); color:#f1f6ef; }
+.skill-practice-header button:first-child { border-color:transparent; background:transparent; }
+.skill-practice-header button svg { width:22px; height:22px; }
+.skill-practice-header .product-wordmark { color:#eff7e9; font-size:14px; letter-spacing:1px; }
+.skill-practice-title { align-self:center; justify-self:center; min-width:146px; margin:0; padding:8px 18px; border:1px solid rgb(255 255 255 / 22%); border-radius:999px; background:rgb(255 255 255 / 8%); color:#f2f8ef; font-size:15px; line-height:20px; font-weight:780; text-align:center; }
+.skill-practice-board { position:relative; grid-row:3 / span 2; display:grid; grid-template-rows:minmax(0,1fr) 72px; min-height:0; overflow:hidden; background:#08442f; }
+.skill-practice-stage { width:100%; height:100%; min-height:0; background:#08442f; }
+.skill-practice-stage canvas { display:block; width:100%; height:100%; }
+.tennis-app .skill-practice-play { align-self:center; justify-self:center; display:grid; place-items:center; width:64px; height:64px; padding:0; border:0; border-radius:50%; background:#d8ef72; color:#103f31; box-shadow:0 10px 24px rgb(0 0 0 / 18%); }
+.skill-practice-play svg { width:27px; height:27px; }
+.tennis-app .skill-practice-peek { position:relative; display:grid; grid-template-columns:34px minmax(0,1fr) 24px; align-items:center; gap:10px; width:calc(100% - 20px); min-height:58px; margin:0 10px; padding:9px 14px 6px; border:1px solid rgb(255 255 255 / 62%); border-radius:20px 20px 10px 10px; background:rgb(245 249 243 / 94%); color:#174432; box-shadow:0 -8px 26px rgb(0 0 0 / 13%); text-align:left; }
+.skill-practice-peek > svg:first-of-type { width:24px; height:24px; color:#315f45; }
+.skill-practice-peek strong { min-width:0; overflow:hidden; font-size:12px; line-height:18px; font-weight:780; text-overflow:ellipsis; white-space:nowrap; }
+.skill-practice-peek-handle { position:absolute; top:5px; left:50%; width:38px; height:4px; border-radius:999px; background:#c4cec5; transform:translateX(-50%); }
+.skill-practice-peek .skill-practice-peek-chevron { width:19px; height:19px; transform:rotate(180deg); }
+.device-screen .bottom-sheet:has(.skill-practice-guide) { max-height:42dvh !important; background:#f8faf6; color:#1d3e2d; }
+.device-screen .bottom-sheet:has(.skill-practice-guide) .sheet-header { padding-bottom:8px; text-align:center; }
+.device-screen .bottom-sheet:has(.skill-practice-guide) .sheet-title { font-size:16px; line-height:22px; }
+.device-screen .bottom-sheet:has(.skill-practice-guide) .sheet-content { padding:0 12px calc(var(--mobile-safe-area-height) + 12px); }
+.skill-practice-guide { display:grid; gap:0; overflow:hidden; border:1px solid #e1e8de; border-radius:17px; background:#fff; }
+.skill-practice-guide-row { display:grid; grid-template-columns:32px minmax(0,1fr); gap:9px; padding:7px 10px; border-bottom:1px solid #e8ede5; }
+.skill-practice-guide-row > svg { width:21px; height:21px; color:#315f45; }
+.skill-practice-guide-row > span { min-width:0; }
+.skill-practice-guide-row strong { display:block; margin-bottom:3px; color:#31543d; font-size:10px; line-height:15px; font-weight:820; }
+.skill-practice-guide-row p { margin:0; color:#1f3d2d; font-size:12px; line-height:18px; font-weight:650; }
+.skill-practice-setup { display:flex; flex-wrap:wrap; gap:6px; }
+.skill-practice-setup b { padding:3px 8px; border-radius:999px; background:#eef3ea; color:#2f513b; font-size:10px; line-height:15px; font-weight:720; }
+.skill-practice-guide-row ol { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin:2px 0 0; padding:0; list-style:none; }
+.skill-practice-guide-row li { position:relative; color:#294936; font-size:10px; line-height:15px; font-weight:700; text-align:center; }
+.skill-practice-guide-row li+li::before { position:absolute; top:6px; left:-9px; width:3px; height:3px; border-radius:50%; background:#87958a; content:""; }
+.skill-practice-guide-row.is-focus { grid-template-columns:32px minmax(0,1fr) auto; align-items:center; border-bottom:0; background:#f0f7d9; }
+.skill-practice-guide-row.is-focus > svg { color:#64823f; }
+.tennis-app .skill-practice-use { display:flex; align-items:center; justify-content:center; gap:5px; min-height:36px; margin:0; padding:0 11px; border:0; border-radius:18px; background:#103f31; color:#fff; box-shadow:0 5px 14px rgb(8 49 37 / 11%); font-size:11px; line-height:16px; font-weight:790; white-space:nowrap; }
+.tennis-app .skill-practice-use:disabled { background:#dfe6de; color:#567064; box-shadow:none; }
+.skill-practice-use svg { width:18px; height:18px; }
+.skill-practice-error { margin:9px 2px 0; color:#9a4f42; font-size:12px; line-height:18px; text-align:center; }
+.device-screen .bottom-sheet:has(.skill-practice-help) { max-height:38dvh !important; }
+.skill-practice-help { display:grid; gap:8px; }
+.skill-practice-help p { display:grid; grid-template-columns:34px minmax(0,1fr); align-items:center; gap:10px; margin:0; padding:9px 10px; border:1px solid #e2e9de; border-radius:13px; background:#f8faf6; color:#2d5038; }
+.skill-practice-help p > svg { width:22px; height:22px; }
+.skill-practice-help span { display:flex; min-width:0; flex-direction:column; gap:2px; }
+.skill-practice-help strong { font-size:11px; line-height:16px; }
+.skill-practice-help small { color:#657769; font-size:10px; line-height:15px; }
+
+/* Tactic demonstrations share the authored board's court renderer and the
+   training demonstration's court-first, full-screen presentation. */
+.tactic-showcase-screen { position:absolute; inset:0; display:grid; grid-template-rows:58px 42px minmax(0,1fr) 106px 58px; box-sizing:border-box; min-height:0; padding:env(safe-area-inset-top,0px) 0 max(env(safe-area-inset-bottom,0px),6px); overflow:hidden; background:#08442f; color:#eff7e9; }
+.tactic-showcase-header { display:grid; grid-template-columns:44px max-content minmax(0,1fr) 44px; align-items:center; gap:4px; padding:0 12px; }
+.tennis-app .tactic-showcase-header button { display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid rgb(255 255 255 / 11%); border-radius:50%; background:var(--rp-dark-control); color:#f1f6ef; backdrop-filter:blur(8px); }
+.tennis-app .tactic-showcase-header button:first-child { border-color:transparent; background:transparent; }
+.tactic-showcase-header button svg { width:22px; height:22px; }
+.tactic-showcase-header .product-wordmark { color:#eff7e9; font-size:14px; letter-spacing:1px; }
+.tactic-showcase-title { align-self:center; justify-self:center; max-width:calc(100% - 32px); margin:0; padding:8px 18px; overflow:hidden; border:1px solid rgb(255 255 255 / 22%); border-radius:999px; background:rgb(255 255 255 / 8%); color:#f2f8ef; font-size:15px; line-height:20px; font-weight:780; text-align:center; text-overflow:ellipsis; white-space:nowrap; }
+.core-tactic-court { position:relative; min-width:0; min-height:0; overflow:hidden; background:#08442f; }
+.court-display > .core-tactic-court { flex:1; }
+.core-tactic-court canvas { display:block; width:100%; height:100%; }
+.core-tactic-court .stage-progress { top:5px; left:18px; right:18px; }
+.core-tactic-court .stage-progress .stage-hint { display:none; }
+.core-tactic-court:is([data-ball-phase="impact"],[data-ball-phase="bounce"],[data-ball-phase="scored"]) .stage-progress .stage-hint { display:inline; }
+.tactic-showcase-control { display:grid; grid-template-rows:34px 72px; min-height:0; }
+.tactic-showcase-timeline { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; align-items:center; gap:9px; padding:0 19px; }
+.tennis-app .tactic-showcase-timeline button { display:grid; place-items:center; width:38px; height:32px; padding:0; border:0; background:transparent; color:#deebdd; }
+.tactic-showcase-timeline button:disabled { opacity:.35; }
+.tactic-showcase-timeline svg { width:20px; height:20px; }
+.tactic-showcase-timeline input { width:100%; height:30px; margin:0; padding:0; accent-color:#d8ef72; }
+.tactic-showcase-actions { display:grid; grid-template-columns:1fr 112px 1fr; align-items:center; justify-items:center; padding:0 30px; }
+.tennis-app .tactic-showcase-actions button { display:grid; place-items:center; min-width:48px; min-height:46px; padding:0; border:1px solid rgb(255 255 255 / 25%); border-radius:999px; background:transparent; color:#f2f8ef; font-size:14px; font-weight:780; }
+.tactic-showcase-actions button svg { width:22px; height:22px; }
+.tennis-app .tactic-showcase-actions .tactic-showcase-play { width:98px; height:60px; border:0; background:#d8ef72; color:#103f31; box-shadow:0 10px 24px rgb(0 0 0 / 18%); }
+.tactic-showcase-play svg { width:28px !important; height:28px !important; }
+.tactic-showcase-bottom { display:grid; grid-template-columns:minmax(0,1fr) minmax(132px,38%); align-items:stretch; gap:8px; margin:0 10px; }
+.tennis-app .tactic-showcase-bottom button { min-width:0; min-height:52px; padding:7px 11px; border:1px solid rgb(255 255 255 / 58%); border-radius:16px; font-size:11px; line-height:16px; font-weight:780; }
+.tennis-app .tactic-showcase-peek { display:grid; grid-template-columns:22px minmax(0,1fr); align-items:center; gap:6px; background:rgb(245 249 243 / 94%); color:#174432; text-align:left; }
+.tactic-showcase-peek strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tactic-showcase-peek svg { width:19px; height:19px; }
+.tennis-app .tactic-showcase-use { display:flex; align-items:center; justify-content:center; gap:6px; background:#d8ef72; color:#103f31; }
+.tactic-showcase-use svg { width:18px; height:18px; flex:none; }
+.tactic-showcase-use:disabled { opacity:.6; }
+.tactic-showcase-error { position:absolute; right:10px; bottom:calc(env(safe-area-inset-bottom,0px) + 67px); z-index:4; max-width:280px; margin:0; padding:7px 10px; border-radius:9px; background:#fff; color:#9a4f42; font-size:11px; }
+.device-screen .bottom-sheet:has(.guide-panel) { max-height:62.5dvh !important; }
+.device-screen .bottom-sheet:has(.guide-panel) .court-context { background:transparent; color:#49604d; }
+
+@media (max-height:720px) {
+  .skill-practice-screen { grid-template-rows:54px 38px minmax(0,1fr) 62px 58px; }
+  .skill-practice-board { grid-template-rows:minmax(0,1fr) 62px; }
+  .skill-practice-title { padding:6px 16px; font-size:14px; }
+  .tennis-app .skill-practice-play { width:56px; height:56px; }
+  .tennis-app .skill-practice-peek { min-height:54px; }
+  .tactic-showcase-screen { grid-template-rows:54px 38px minmax(0,1fr) 94px 54px; }
+  .tactic-showcase-control { grid-template-rows:29px 65px; }
+  .tennis-app .tactic-showcase-actions .tactic-showcase-play { height:54px; }
+}
+
 @media (max-height:820px) {
   .board-home-portrait { padding-top:0; }
   .home-primary-screen { padding:6px 12px 16px; }
@@ -770,32 +1037,50 @@
   .home-history-hub { padding-right:12px; padding-left:12px; }
   .tennis-app .home-purpose-filters button { padding-right:4px; padding-left:4px; }
   .home-purpose-filters button > span { font-size:11px; }
-  .tennis-app .home-history-list > button { grid-template-columns:54px minmax(0,1fr) 16px; gap:8px; padding-right:9px; padding-left:9px; }
+  .tennis-app .home-history-list > button { grid-template-columns:54px minmax(0,1fr); gap:8px; padding-right:9px; padding-left:9px; }
   .board-primary-play > span { justify-content:center; }
   .board-primary-play small { display:none; }
 }
 @keyframes home-board-pending-spin { to { transform:rotate(360deg); } }
 @keyframes home-scroll-cue { 0%,100% { transform:translateY(-1px); } 50% { transform:translateY(3px); } }
-@media(prefers-reduced-motion:reduce) { .drill-stages summary svg { transition:none; } .home-board-playback-pending svg,.home-scroll-cue svg { animation:none; } }
+@media(prefers-reduced-motion:reduce) { .drill-stages summary svg { transition:none; } .home-board-playback-pending svg,.home-scroll-cue svg,.tennis-app .board-tactic-float,.board-tactic-float .tactic-finder-route img { animation:none; } }
+@media(prefers-reduced-transparency:reduce) { .home-header,.tennis-app .flow-fixed-header:has(.knowledge-header),.tennis-app .knowledge-header-actions > button { backdrop-filter:none; -webkit-backdrop-filter:none; background:#f8faf7; } }
 
-/* Board immersion: the simulator shell collapses into a full viewport court. */
-.phone-stage[data-board-immersive="true"] { position:fixed !important; z-index:500; inset:0; display:block; width:100vw; height:100vh; height:100dvh; min-height:0; padding:0; overflow:hidden; background:#08442f; }
-.phone-stage[data-board-immersive="true"] .phone-scale-box,
-.phone-stage[data-board-immersive="true"] .phone-device { position:absolute; inset:0; width:100% !important; height:100% !important; overflow:hidden; transform:none !important; }
-.phone-stage[data-board-immersive="true"] .device-screen,
+/* A current board owns the viewport through fullscreen changes, but not after its exit transition begins. */
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) { position:fixed !important; z-index:500; inset:0; display:block; width:100vw; height:100vh; height:100dvh; min-height:0; padding:0; overflow:hidden; background:#08442f; }
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .phone-scale-box,
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .phone-device { position:absolute; inset:0; width:100% !important; height:100% !important; overflow:hidden; transform:none !important; }
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .device-screen,
 .device-screen:fullscreen,
 .device-screen:-webkit-full-screen { inset:0 !important; width:100vw !important; height:100vh !important; height:100dvh !important; border-radius:0 !important; background:#08442f; box-shadow:none !important; cursor:auto !important; --device-safe-area-bottom:env(safe-area-inset-bottom,0px) !important; }
 .device-screen:fullscreen::backdrop { background:#08442f; }
-.phone-stage[data-board-immersive="true"] .device-screen,
-.phone-stage[data-board-immersive="true"] .device-screen * { cursor:auto !important; }
-.phone-stage[data-board-immersive="true"] .device-screen :is(button,a,[role="button"]) { cursor:pointer !important; }
-.phone-stage[data-board-immersive="true"] :is(.device-menu-bar,.device-picker-menu,.phone-bezel,.device-camera,.status-bar,.home-indicator-svg,.android-navigation-bar,.mobile-cursor,.flow-fixed-header) { display:none !important; }
-.phone-stage[data-board-immersive="true"] .mobile-app-viewport,
-.phone-stage[data-board-immersive="true"] .mobile-app-viewport[data-platform="android"][data-keyboard-visible="false"] { inset:0 !important; }
-.phone-stage[data-board-immersive="true"] .flow-stack { --flow-header-height:0px !important; --flow-header-content-height:0px !important; --flow-header-safe-area:0px !important; }
-.phone-stage[data-board-immersive="true"] .flow-scenes { top:0 !important; }
-.phone-stage[data-board-immersive="true"] .tennis-app,
-.phone-stage[data-board-immersive="true"] .mobile-app-viewport[data-platform="android"] .tennis-app { --mobile-safe-area-height:env(safe-area-inset-bottom,0px); }
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .device-screen,
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .device-screen * { cursor:auto !important; }
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .device-screen :is(button,a,[role="button"]) { cursor:pointer !important; }
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) :is(.device-menu-bar,.device-picker-menu,.phone-bezel,.device-camera,.status-bar,.home-indicator-svg,.android-navigation-bar,.mobile-cursor,.flow-fixed-header) { display:none !important; }
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .mobile-app-viewport,
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .mobile-app-viewport[data-platform="android"][data-keyboard-visible="false"] { inset:0 !important; }
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .flow-stack { --flow-header-height:0px !important; --flow-header-content-height:0px !important; --flow-header-safe-area:0px !important; }
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .flow-scenes { top:0 !important; }
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .tennis-app,
+.phone-stage:is([data-board-immersive="true"], [data-board-route-active="true"], :has(.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting) .board-editor)) .mobile-app-viewport[data-platform="android"] .tennis-app { --mobile-safe-area-height:env(safe-area-inset-bottom,0px); }
+
+/* A retained pre-update FlowStack header must not push the board down, including
+   in Safari versions that ignore the more advanced selector list above. */
+.phone-stage[data-board-route-active="true"] { position:fixed !important; z-index:500; inset:0; display:block; width:100vw; height:100vh; height:100dvh; min-height:0; padding:0; overflow:hidden; background:#08442f; }
+.phone-stage[data-board-route-active="true"] .device-screen { inset:0 !important; width:100vw !important; height:100vh !important; height:100dvh !important; border-radius:0 !important; background:#08442f; box-shadow:none !important; }
+.phone-stage[data-board-route-active="true"] .mobile-app-viewport { inset:0 !important; }
+.phone-stage[data-board-route-active="true"] :is(.status-bar,.home-indicator-svg,.android-navigation-bar,.mobile-cursor) { display:none !important; }
+.phone-stage[data-board-route-active="true"] .flow-fixed-header { display:none !important; }
+.phone-stage[data-board-route-active="true"] .flow-stack { --flow-header-height:0px !important; --flow-header-content-height:0px !important; --flow-header-safe-area:0px !important; }
+.phone-stage[data-board-route-active="true"] .flow-scenes { top:0 !important; }
+
+/* The active board owns its toolbar even if FlowStack retained a pre-update
+   header callback. Scope this directly to the current scene as a second path
+   independent of the phone-stage marker and the compound :is() selector. */
+.tennis-app .flow-stack:has(.flow-screen[data-flow-current="true"] .board-editor) > .flow-fixed-header { display:none !important; }
+.tennis-app .flow-stack:has(.flow-screen[data-flow-current="true"] .board-editor) { --flow-header-height:0px !important; --flow-header-content-height:0px !important; --flow-header-safe-area:0px !important; }
+.tennis-app .flow-stack:has(.flow-screen[data-flow-current="true"] .board-editor) > .flow-scenes { top:0 !important; }
 
 /* Public release shell: real phones use the viewport, not the desktop device simulator. */
 @media (min-width:601px) and (any-pointer:coarse) {

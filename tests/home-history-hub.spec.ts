@@ -140,7 +140,7 @@ async function renameCurrentBoard(page: Page, title: string) {
   await renameLayer.getByLabel("画板名称", { exact: true }).fill(title);
   await renameLayer.getByRole("button", { name: "完成", exact: true }).click();
   await expect(renameLayer).toBeHidden();
-  await expect(page.getByTestId("board-save-live")).toHaveText("画板已保存", { timeout: 3_000 });
+  await expect(page.getByTestId("flow-current").getByTestId("board-save-live")).toHaveText("画板已保存", { timeout: 3_000 });
 }
 
 for (const viewport of [
