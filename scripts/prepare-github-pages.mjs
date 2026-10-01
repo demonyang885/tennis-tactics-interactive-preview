@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { setCloudBackendCapability } from "../src/cloud/capability-tag.js";
 
 const scriptFile = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(scriptFile), "..");
@@ -44,7 +45,8 @@ export async function prepareGitHubPages({
   for (const file of files) {
     if (!textExtensions.has(path.extname(file))) continue;
     const before = await readFile(file, "utf8");
-    const after = rewriteRootAssetPaths(before, basePath);
+    const staticContent = path.extname(file) === ".html" ? setCloudBackendCapability(before, false) : before;
+    const after = rewriteRootAssetPaths(staticContent, basePath);
     if (after !== before) {
       replacements += 1;
       await writeFile(file, after);

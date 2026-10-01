@@ -147,7 +147,7 @@ test("opens the compact content explanation beside the brand", async ({ page }) 
   const dialog = page.getByRole("dialog", { name: "怎么用 RallyPath", exact: true });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("想下一分");
-  await expect(dialog).toContainText("改动画板才会保存在此浏览器");
+  await expect(dialog).toContainText("修改后会先保存在此浏览器");
   await expect(dialog).toContainText("去战术库看示范");
   await expect(dialog.getByText("亮线＝球路 · 虚线＝跑位")).toBeHidden();
   await press(dialog.getByText("画板颜色与线条"));

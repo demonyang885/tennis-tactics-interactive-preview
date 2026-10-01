@@ -6,7 +6,7 @@
   "scripts": {
     "check:types": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test:core": "node --test tests/board-media-core.test.mjs",
-    "test": "npm run check:runtime && npm run check:content && npm run check:types && npm run test:core && npm run test:runtime",
+    "test": "npm run check:runtime && npm run check:content && npm run check:types && npm run test:core && npm run test:cloud && npm run test:runtime",
     "verify:release": "npm test && npm run build && npm run test:sites && npm run prepare:pages && npm run test:pages",
     "check:runtime": "node scripts/check-mobile-runtime.mjs",
     "check:content": "node scripts/check-content.mjs",
@@ -17,8 +17,10 @@
     "predev": "npm run check:runtime",
     "dev": "vite",
     "prebuild": "npm run check:runtime && npm run check:content",
-    "build": "tsc && vite build && node scripts/prepare-sites-build.mjs",
-    "prepare:pages": "node scripts/prepare-github-pages.mjs"
+    "build": "tsc && vite build && node scripts/prepare-sites-build.mjs && node scripts/prepare-cloud-build.mjs",
+    "prepare:pages": "node scripts/prepare-github-pages.mjs",
+    "test:cloud": "node tests/build-cloud-tests.mjs && node --test tests/cloud-worker.test.mjs",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@fontsource/roboto": "5.2.10",
@@ -35,6 +37,9 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.3",
+    "drizzle-kit": "0.31.11",
+    "drizzle-orm": "0.45.3",
+    "esbuild": "0.28.2",
     "typescript": "7.0.2",
     "vite": "8.1.3"
   }

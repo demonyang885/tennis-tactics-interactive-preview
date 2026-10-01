@@ -1,0 +1,35 @@
+.tennis-app .home-header-account { position:relative; display:grid; place-items:center; flex:none; width:40px; height:44px; margin-left:auto; padding:0; border:0; border-radius:12px; background:transparent; color:#74877b; }
+.home-header-account > svg { width:18px; height:18px; }
+.cloud-account-indicator { display:none; position:absolute; top:9px; right:7px; width:6px; height:6px; border-radius:50%; background:#b96935; }
+.home-header-account.has-attention .cloud-account-indicator { display:block; }
+.bottom-sheet:has(.cloud-account) { color:#1b3326; background:#fff; max-height:62.5dvh !important; }
+.bottom-sheet:has(.cloud-account) .sheet-title { padding-right:32px; font-size:19px; font-weight:750; line-height:26px; }
+.bottom-sheet:has(.cloud-account) .sheet-description { color:#5f7062; font-size:12px; }
+.bottom-sheet:has(.cloud-account) .sheet-content { padding-bottom:calc(var(--mobile-safe-area-height) + 20px); }
+.cloud-account { font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; }
+.cloud-account button,.cloud-account a { font:inherit; -webkit-tap-highlight-color:transparent; }
+.cloud-account button:focus-visible,.cloud-account a:focus-visible { outline:3px solid #4d9266; outline-offset:2px; }
+.cloud-account-close { position:absolute; display:grid; place-items:center; top:27px; right:8px; width:40px; height:40px; padding:0; border:0; border-radius:50%; background:transparent; color:#44624b; cursor:pointer; }
+.cloud-account-close svg { width:18px; height:18px; }
+.cloud-account-identity { display:flex; align-items:center; gap:12px; margin-top:3px; }
+.cloud-account-avatar { display:grid; place-items:center; flex:none; width:42px; height:42px; border-radius:14px; background:#edf4e8; color:#315c40; }
+.cloud-account-avatar svg { width:21px; height:21px; }
+.cloud-account-identity > div { min-width:0; }
+.cloud-account-identity strong { display:block; font-size:16px; line-height:23px; }
+.cloud-account-identity small { display:block; overflow-wrap:anywhere; margin-top:2px; color:#697a70; font-size:12px; line-height:17px; }
+.cloud-account-status { display:flex; align-items:center; gap:6px; margin:17px 0 4px; color:#49634e; font-size:13px; line-height:19px; font-weight:650; }
+.cloud-account-status svg { width:16px; height:16px; }
+.cloud-account-status-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+.cloud-account-status.is-error,.cloud-account-status.is-conflict,.cloud-account-status.is-account-mismatch,.cloud-account-status.is-recovery { color:#955629; }
+.cloud-account-count,.cloud-account-time { margin:0 0 16px; color:#758277; font-size:11px; line-height:17px; }
+.cloud-account-copy,.cloud-account-recovery p { margin:14px 0; color:#5f7062; font-size:12px; line-height:20px; }
+.cloud-account-primary,.cloud-account-secondary { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; box-sizing:border-box; min-height:46px; padding:10px 14px; border:0; border-radius:12px; background:#244f38; color:#fff; text-decoration:none; text-align:center; font-size:14px !important; line-height:21px; font-weight:650 !important; cursor:pointer; }
+.cloud-account-primary svg,.cloud-account-secondary svg { width:17px; height:17px; }
+.cloud-account-primary:disabled,.cloud-account-secondary:disabled { opacity:.45; cursor:default; }
+.cloud-account-secondary { border:1px solid #dde6d8; background:#f0f5ec; color:#315b3d; }
+.cloud-account-backups { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+.cloud-account-backups button { display:flex; align-items:center; justify-content:center; gap:5px; min-height:44px; padding:8px 4px; border:1px solid #dde6d8; border-radius:11px; background:#f4f7f0; color:#45654b; font-size:11px; cursor:pointer; }
+.cloud-account-backups svg { width:14px; height:14px; }
+.cloud-account-file-actions { margin-top:16px; }
+.cloud-account-error { margin:12px 0; padding:10px 12px; border-radius:11px; background:#fbefe6; color:#965531; font-size:12px; line-height:20px; overflow-wrap:anywhere; }
+.cloud-account-signout { display:flex; align-items:center; justify-content:center; min-height:44px; margin-top:14px; color:#6a796d; font-size:12px !important; text-underline-offset:3px; }
