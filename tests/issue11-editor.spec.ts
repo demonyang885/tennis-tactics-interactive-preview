@@ -200,19 +200,21 @@ test("an explicitly selected previous route keeps its overlapping endpoint handl
 });
 
 
-test("cancelling receiver movement restores automatic route selection and the next overlapping actor gesture", async ({ page }) => {
+test("cancelling receiver movement restores automatic route selection and the next receiver gesture", async ({ page }) => {
   const opponent = starter.actors.find(actor => actor.label === "对手")!;
   const overlap: BoardDocument = { ...starter, id: "issue11-cancel-overlap", title: "取消后继续跑位",
-    frames: starter.frames.map(frame => ({ ...frame, poses: { ...frame.poses, [opponent.id]: [.70, .25] } })),
+    // This receiver still needs to move. A receiver already at the landing
+    // point can now hit the next ball directly (covered by v032-rally-authoring).
+    frames: starter.frames.map(frame => ({ ...frame, poses: { ...frame.poses, [opponent.id]: [.62, .32] } })),
   };
   await open(page, overlap);
   await drag(page, [.64, .96], [.70, .25]);
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
-  const start = await at(canvas(page), [.70, .25]), cancelled = await at(canvas(page), [.63, .36]);
+  const start = await at(canvas(page), [.62, .32]), cancelled = await at(canvas(page), [.63, .36]);
   await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(cancelled.x, cancelled.y, { steps: 8 });
   await canvas(page).dispatchEvent("pointercancel", { pointerId: 1, pointerType: "mouse" }); await page.mouse.up();
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
-  await drag(page, [.70, .25], [.67, .33]);
+  await drag(page, [.62, .32], [.67, .33]);
   await expect(dock(page).getByRole("button", { name: "删除跑位路线", exact: true })).toBeVisible();
   await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
   const completed = await stored(page), shot = completed.frames[0].paths.find(path => path.kind === "shot")!;

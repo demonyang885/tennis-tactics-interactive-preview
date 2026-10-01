@@ -543,7 +543,9 @@ test("restores the starter serve position from the board and keeps it one-step u
   await press(page.getByRole("button", { name: /打开.*的画板菜单/ }));
   const files = page.getByTestId("bottom-sheet");
   await expect(files.getByRole("heading", { name: "画板菜单", exact: true })).toBeVisible();
-  await expect(files.locator(".board-menu-list > button")).toHaveCount(4);
+  await expect(files.locator(".board-menu-edit-section .board-menu-list > button, .board-menu-manage-section .board-menu-list > button")).toHaveCount(4);
+  await expect(files.getByRole("button", { name: "一分的发现", exact: true })).toBeVisible();
+  await expect(files.getByRole("button", { name: "练后发现", exact: true })).toBeVisible();
   await expect(files.getByRole("button", { name: /修改名称/ })).toBeVisible();
   await expect(files.getByRole("button", { name: "现在就是发球站位", exact: true })).toBeDisabled();
   await expect(files.getByRole("button", { name: /保存与分享/ })).toBeVisible();
@@ -795,13 +797,15 @@ test("keeps the armed actor draggable when the ball and receiver share a point",
   const board = currentBoardCanvas(page);
   const ballStart = starterPoint("网球");
   const receiverPoint = starterPoint("对手");
+  const landing: Point = [.70, .25];
 
-  // A realistic serve often ends exactly on the receiver. The guided actor
-  // must win this ambiguous hit target on both the movement and return steps.
-  await dragBoardPoint(page, board, ballStart, receiverPoint);
+  // Move the receiver to the incoming landing, then draw the return from the
+  // shared ball/player point. A receiver already at the landing now skips the
+  // movement phase, which is covered by v032-rally-authoring.spec.ts.
+  await dragBoardPoint(page, board, ballStart, landing);
   await expect(currentBoardGuide(page)).toContainText(/拖动接球球员.*画出跑位/);
 
-  await dragBoardPoint(page, board, receiverPoint, [.66, .34]);
+  await dragBoardPoint(page, board, receiverPoint, landing);
   await expect(currentBoardGuide(page)).toContainText("跑位已记下。再拖动网球，画下一拍。");
   await expect(currentBoardGuide(page)).toContainText(/再拖动网球.*画下一拍/);
   let saved = await saveAndRead(page);
@@ -810,8 +814,9 @@ test("keeps the armed actor draggable when the ball and receiver share a point",
   expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
   expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: opponent.id });
   expect(saved.frames[1].paths).toEqual([]);
+  expect(saved.frames[1].poses[opponent.id]).toEqual(saved.frames[1].poses[ball.id]);
 
-  await dragBoardPoint(page, board, receiverPoint, [.32, .75]);
+  await dragBoardPoint(page, board, landing, [.32, .75]);
   await expect(currentBoardGuide(page)).toContainText(/拖动接球球员.*画出跑位/);
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(3);
@@ -1582,7 +1587,9 @@ test("opens directly in the app-level immersive board and returns with its state
   await press(immersiveToolbar.getByRole("button", { name: /打开我的战术板的画板菜单/ }));
   const menu = page.getByRole("dialog", { name: "画板菜单" });
   await expect(menu).toBeVisible();
-  await expect(menu.locator(".board-menu-list > button")).toHaveCount(4);
+  await expect(menu.locator(".board-menu-edit-section .board-menu-list > button, .board-menu-manage-section .board-menu-list > button")).toHaveCount(4);
+  await expect(menu.getByRole("button", { name: "一分的发现", exact: true })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "练后发现", exact: true })).toBeVisible();
   await expect(menu.getByRole("button", { name: "一键还原发球站位，可撤销", exact: true })).toBeEnabled();
   await page.getByTestId("sheet-overlay").click({ position: { x: 20, y: 20 } });
   await expect(menu).toBeHidden();

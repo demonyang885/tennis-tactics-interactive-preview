@@ -18,8 +18,9 @@ import {
 import { BOARD_STORAGE_KEY, checkBoardUnchanged, deleteBoardIfUnchanged, readBoards, saveBoardIfUnchanged, type BoardSaveConflict } from "../board/storage";
 import { BOARD_IMPORT_MAX_CHARACTERS } from "../board/validate";
 import { BOARD_LEARNING_STORAGE_KEY, createBoardBackupJSON, deleteLearningChoice, deleteLearningChoiceIfUnchanged, parseBoardBackupJSON, readLearningChoice, saveLearningChoice } from "../learning/storage";
-import { BOARD_FOLLOW_UP_STORAGE_KEY, deleteBoardFollowUp, deleteBoardFollowUpIfUnchanged, readAllBoardFollowUps, readBoardFollowUp, saveBoardFollowUp, type BoardFollowUp } from "../learning/followUp";
-import { BOARD_DISCOVERY_STORAGE_KEY, deleteBoardDiscovery, deleteBoardDiscoveryIfUnchanged, readAllBoardDiscoveries, readBoardDiscovery, saveBoardDiscovery, type BoardDiscovery } from "../learning/discovery";
+import { BOARD_FOLLOW_UP_EVENT, BOARD_FOLLOW_UP_STORAGE_KEY, deleteBoardFollowUp, deleteBoardFollowUpIfUnchanged, readAllBoardFollowUps, readBoardFollowUp, saveBoardFollowUp, type BoardFollowUp } from "../learning/followUp";
+import { BOARD_DISCOVERY_EVENT, BOARD_DISCOVERY_STORAGE_KEY, deleteBoardDiscovery, deleteBoardDiscoveryIfUnchanged, readAllBoardDiscoveries, readBoardDiscovery, saveBoardDiscovery, type BoardDiscovery } from "../learning/discovery";
+import type { DiscoveryKind } from "../learning/DiscoveryEditor";
 import { BOARD_ALTERNATIVES_EVENT, BOARD_ALTERNATIVES_STORAGE_KEY, deleteBoardAlternativeIfUnchanged, readAllAlternatives, readBoardAlternative, saveBoardAlternativeIfUnchanged, type BoardAlternative } from "../learning/alternative";
 import { BOARD_DELETE_JOURNAL_KEY, clearBoardDeleteJournal, readBoardDeleteJournal, recoverPendingBoardDelete, saveBoardDeleteJournal } from "../learning/deleteJournal";
 import { BOARD_IMPORT_JOURNAL_KEY, boardBackupSignature, clearBoardImportJournal, readBoardImportJournal, readRecoverableBoardImportJournal, saveBoardImportJournal, type BoardImportJournal } from "../learning/importJournal";
@@ -31,6 +32,7 @@ export const BOARD_DRAFTS_EVENT = "tennis-board-drafts-changed";
 
 export type BoardLibraryProps = {
   openBoard: (board: BoardDocument, persisted?: boolean, notice?: string) => void;
+  openDiscovery?: (board: BoardDocument, kind: DiscoveryKind) => void;
   openAlternative?: (record: BoardAlternative, sourceMissing: boolean) => void;
   /** The editor directly beneath this library screen remains mounted. */
   activeBoardId?: string;
@@ -104,6 +106,7 @@ async function readBoundedBackup(file: File): Promise<string | null> {
  */
 export function BoardLibrary({
   openBoard,
+  openDiscovery,
   openAlternative,
   activeBoardId,
   draftsRevision = 0,
@@ -234,11 +237,15 @@ export function BoardLibrary({
     window.addEventListener(draftsEventName, refresh);
     window.addEventListener(BOARD_ALTERNATIVES_EVENT, refresh);
     window.addEventListener(BOARD_COPY_RECOVERY_EVENT, refresh);
+    window.addEventListener(BOARD_DISCOVERY_EVENT, refresh);
+    window.addEventListener(BOARD_FOLLOW_UP_EVENT, refresh);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(draftsEventName, refresh);
       window.removeEventListener(BOARD_ALTERNATIVES_EVENT, refresh);
       window.removeEventListener(BOARD_COPY_RECOVERY_EVENT, refresh);
+      window.removeEventListener(BOARD_DISCOVERY_EVENT, refresh);
+      window.removeEventListener(BOARD_FOLLOW_UP_EVENT, refresh);
       window.removeEventListener("storage", onStorage);
     };
   }, [draftsEventName, draftsRevision, refresh]);
@@ -695,6 +702,7 @@ export function BoardLibrary({
     const index = board?.frames.findIndex(frame => frame.id === frameId) ?? -1;
     return index >= 0 ? `第 ${index + 1} 拍` : "原拍次已变化";
   };
+  const editableDiscoveryRows = legacyRows.filter(row => row.board && row.boardId !== pendingImportId);
 
   return (
     <>
@@ -817,6 +825,14 @@ export function BoardLibrary({
             </div>
           )}
         </section>
+        {loadState === "ready" && !recoveryBlocked && editableDiscoveryRows.length > 0 && <section className="board-home-section board-library-discoveries" aria-label="找回发现笔记">
+          <div className="board-section-heading"><div><span>发现笔记</span><h3>从原画板找回</h3></div></div>
+          <div className="discovery-library-list">{editableDiscoveryRows.map(({ boardId, board, discovery, followUp }) => <article key={boardId}>
+            <strong>{board!.title}</strong>
+            <div>{discovery && <button aria-label={`查看${board!.title}的一分的发现`} onClick={() => openDiscovery ? openDiscovery(board!, "point") : openBoard(board!, true, "从画板菜单打开一分的发现。")}>一分的发现</button>}
+              {followUp && <button aria-label={`查看${board!.title}的练后发现`} onClick={() => openDiscovery ? openDiscovery(board!, "practice") : openBoard(board!, true, "从画板菜单打开练后发现。")}>练后发现</button>}</div>
+          </article>)}</div>
+        </section>}
         {loadState === "ready" && !recoveryBlocked && (legacyRows.length > 0 || legacyLoadError) && <section className="board-home-section board-library-legacy">
           <button className="board-legacy-toggle" aria-expanded={showLegacy} onClick={() => setShowLegacy(value => !value)}>
             <span><strong>以前留下的记录</strong><small>只查看，不会放到球场上</small></span><span>{showLegacy ? "收起旧记录" : "查看旧记录"}</span>
