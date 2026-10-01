@@ -1611,8 +1611,19 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
       event.preventDefault();
       event.stopImmediatePropagation();
     };
+    const yieldNativeTouch=(event:TouchEvent)=>{
+      if(event.touches.length===1&&!(event.target instanceof Element&&event.target.closest('.board-note-overlay,input,textarea,select,[contenteditable="true"]')))return false;
+      if(tracking){tracking=false;resetEdgeOffset();}
+      // Do not let the flow's swipe recognizer consume a native text/pinch
+      // gesture. Stopping propagation leaves the browser default intact.
+      event.stopImmediatePropagation();
+      return true;
+    };
     const start=(event:TouchEvent)=>{
       if(editorRef.current?.closest<HTMLElement>(".flow-screen")?.dataset.flowCurrent!=="true")return;
+      // Text surfaces and multi-touch belong to the browser, including pinch
+      // recovery after native focus zoom. Never turn them into edge-back.
+      if(yieldNativeTouch(event))return;
       const touch=event.touches[0];
       if(!touch)return;
       const bounds=flowStack.getBoundingClientRect();
@@ -1624,6 +1635,8 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
       stopEdgeGesture(event);
     };
     const move=(event:TouchEvent)=>{
+      if(editorRef.current?.closest<HTMLElement>(".flow-screen")?.dataset.flowCurrent!=="true")return;
+      if(yieldNativeTouch(event))return;
       if(!tracking)return;
       const touch=event.touches[0]??event.changedTouches[0];
       if(touch){lastX=touch.clientX;lastY=touch.clientY;}

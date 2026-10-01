@@ -36,19 +36,21 @@ async function assertNativeField(page: Page, field: Locator) {
   expect(await page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1);
 }
 
-async function keyboardViewport(page: Page, height: number, top: number, scale = 1) {
+async function keyboardViewport(page: Page, height: number, top: number, scale = 1, width = page.viewportSize()!.width, left = 0) {
   // Headless browsers do not open an iOS software keyboard. Only the visible
   // viewport geometry/events are injected; the rendered app owns its layout.
-  await page.evaluate(({ height, top, scale }) => {
+  await page.evaluate(({ height, top, scale, width, left }) => {
     const viewport = window.visualViewport!;
     Object.defineProperties(viewport, {
       height: { configurable: true, get: () => height },
       offsetTop: { configurable: true, get: () => top },
       scale: { configurable: true, get: () => scale },
+      width: { configurable: true, get: () => width },
+      offsetLeft: { configurable: true, get: () => left },
     });
     viewport.dispatchEvent(new Event("resize"));
     viewport.dispatchEvent(new Event("scroll"));
-  }, { height, top, scale });
+  }, { height, top, scale, width, left });
 }
 
 for (const viewport of [{ width: 320, height: 700 }, { width: 390, height: 844 }]) {
@@ -116,9 +118,8 @@ for (const viewport of [{ width: 320, height: 700 }, { width: 390, height: 844 }
             const top = viewport.offsetTop, bottom = top + viewport.height;
             const bounds = element.getBoundingClientRect();
             const heightLimit = Math.min(window.innerHeight * .625, viewport.height - 8);
-            // Fields can already fit during the previous viewport's layout.
-            // Require the whole sheet to finish adapting before a later
-            // pinch-zoom assertion captures its unchanged geometry.
+            // Require the whole sheet to adapt, not only a field that happened
+            // to remain visible during the previous viewport's layout.
             const sheetVisible = bounds.top >= top - 1 && bounds.bottom <= bottom + 1 && bounds.height <= heightLimit + epsilon;
             const fields = [document.activeElement, ...element.querySelectorAll(".discovery-actions button")];
             const visible = fields.every(field => {
@@ -137,12 +138,17 @@ for (const viewport of [{ width: 320, height: 700 }, { width: 390, height: 844 }
         const keyboardBounds = await sheet.boundingBox();
         expect(keyboardBounds!.height).toBeLessThanOrEqual(viewport.height * .625 + 1);
         await testInfo.attach(`${kind}-shortened-viewport-${viewport.width}.png`, { body: await page.screenshot(), contentType: "image/png" });
-        await keyboardViewport(page, 240, 110, 1.75);
-        await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-        const pinchedBounds = await sheet.boundingBox();
-        expect(pinchedBounds!.y).toBeCloseTo(keyboardBounds!.y, 0);
-        expect(pinchedBounds!.height).toBeCloseTo(keyboardBounds!.height, 0);
+        await keyboardViewport(page, 240, 110, 1.75, viewport.width / 1.75, 30);
+        await expect.poll(() => sheet.evaluate(element => {
+          const viewport = window.visualViewport!;
+          const bounds = element.getBoundingClientRect();
+          const visible = (rect: DOMRect) => rect.left >= viewport.offsetLeft - 1 && rect.right <= viewport.offsetLeft + viewport.width + 1 && rect.top >= viewport.offsetTop - 1 && rect.bottom <= viewport.offsetTop + viewport.height + 1;
+          const fields = [document.activeElement, ...element.querySelectorAll(".discovery-actions button")];
+          return visible(bounds) && fields.every(field => field instanceof HTMLElement && visible(field.getBoundingClientRect()));
+        })).toBe(true);
         expect(await page.evaluate(() => window.visualViewport!.scale)).toBe(1.75);
+        await expect(field).toBeFocused();
+        await expect(field).toHaveValue("键盘出现时仍能看见正在输入的文字");
         await keyboardViewport(page, viewport.height, 0);
         await expect.poll(async () => (await sheet.boundingBox())?.y).toBeCloseTo(initial!.y, 0);
         await sheet.getByRole("button", { name: "先不记", exact: true }).tap();

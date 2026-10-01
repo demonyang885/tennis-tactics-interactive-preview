@@ -47,23 +47,27 @@ export function DiscoveryEditor({ open, kind, board, frameId, skillId, progress,
     const screen = sheet?.closest<HTMLElement>(".device-screen");
     const visual = window.visualViewport;
     if (!editor || !sheet || !screen || !visual) return;
-    const properties = ["--discovery-sheet-bottom", "--discovery-sheet-max-height", "--discovery-field-height"];
+    const properties = ["--discovery-sheet-bottom", "--discovery-sheet-max-height", "--discovery-field-height", "--discovery-sheet-left", "--discovery-sheet-width"];
     const previous = properties.map(property => [property, sheet.style.getPropertyValue(property), sheet.style.getPropertyPriority(property)]);
     const previousCompact = sheet.getAttribute("data-discovery-compact");
     const previousViewport = sheet.getAttribute("data-discovery-viewport");
     let animation = 0;
     const update = () => {
-      // Safari's keyboard shortens the visual viewport without resizing the
-      // layout viewport. Follow that visible area, leaving native pinch zoom
-      // and its panning entirely under the browser's control.
-      if (Math.abs(visual.scale - 1) > .02 || !window.matchMedia("(max-width:600px), (any-pointer:coarse)").matches) return;
+      // Native keyboard focus, browser zoom and panning all change the visible
+      // viewport independently of the layout viewport. Fit the sheet to their
+      // intersection; never reset the user's zoom or freeze pre-zoom geometry.
+      if (!window.matchMedia("(max-width:600px), (any-pointer:coarse)").matches) return;
       const bounds = screen.getBoundingClientRect();
       const top = Math.max(bounds.top, visual.offsetTop);
       const bottom = Math.min(bounds.bottom, visual.offsetTop + visual.height);
-      if (bottom <= top) return;
+      const left = Math.max(bounds.left, visual.offsetLeft);
+      const right = Math.min(bounds.right, visual.offsetLeft + visual.width);
+      if (bottom <= top || right <= left) return;
       sheet.setAttribute("data-discovery-viewport", "true");
       sheet.style.setProperty(properties[0], `${Math.max(0, bounds.bottom - bottom)}px`);
       sheet.style.setProperty(properties[1], `${Math.max(0, bottom - top - 8)}px`);
+      sheet.style.setProperty(properties[3], `${left - bounds.left}px`);
+      sheet.style.setProperty(properties[4], `${right - left}px`);
       sheet.setAttribute("data-discovery-compact", String(bottom - top < 320));
       const active = document.activeElement;
       const content = editor.closest<HTMLElement>(".sheet-content");

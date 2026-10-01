@@ -1,5 +1,5 @@
 .device-screen .bottom-sheet:has(.discovery-editor) { max-height:62.5dvh !important; }
-.device-screen .bottom-sheet:has(.discovery-editor)[data-discovery-viewport="true"] { bottom:var(--discovery-sheet-bottom) !important; min-height:min(260px,62.5dvh,var(--discovery-sheet-max-height)); max-height:min(62.5dvh,var(--discovery-sheet-max-height)) !important; }
+.device-screen .bottom-sheet:has(.discovery-editor)[data-discovery-viewport="true"] { left:var(--discovery-sheet-left) !important; right:auto; width:var(--discovery-sheet-width); bottom:var(--discovery-sheet-bottom) !important; min-width:0; min-height:min(260px,62.5dvh,var(--discovery-sheet-max-height)); max-height:min(62.5dvh,var(--discovery-sheet-max-height)) !important; }
 .device-screen .bottom-sheet:has(.discovery-editor) .sheet-header { padding-right:52px; }
 .device-screen .bottom-sheet:has(.discovery-editor) .sheet-content { min-height:0; overscroll-behavior:contain; }
 .device-screen .bottom-sheet:has(.discovery-editor)[data-discovery-compact="true"] .sheet-handle-zone { height:24px; flex-shrink:0; }
