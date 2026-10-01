@@ -3,6 +3,15 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { normalizeBasePath, rewriteRootAssetPaths } from "../scripts/prepare-github-pages.mjs";
+import { CLOUD_API_META_TAG, setCloudBackendCapability } from "../src/cloud/capability-tag.js";
+
+test("cloud and static HTML packaging give each target the correct API capability", () => {
+  const plain = '<html><head><title>RallyPath</title></head><body>画板</body></html>';
+  const cloud = setCloudBackendCapability(plain, true);
+  assert.equal(cloud.split(CLOUD_API_META_TAG).length - 1, 1);
+  assert.equal(setCloudBackendCapability(cloud, true), cloud);
+  assert.equal(setCloudBackendCapability(cloud, false), plain);
+});
 
 test("normalizes project and root Pages paths", () => {
   assert.equal(normalizeBasePath(), "/tennis-tactics-interactive-preview/");
@@ -32,4 +41,8 @@ test("prepared artifact contains the deployed entry points", async () => {
   assert.equal(version.basePath, normalizeBasePath(version.basePath));
   assert.match(index, new RegExp(`${escapedBasePath}assets/`));
   assert.equal(fallback, index);
+  assert.equal(index.includes(CLOUD_API_META_TAG), false);
+  assert.equal(fallback.includes(CLOUD_API_META_TAG), false);
+  const cloudIndex = await readFile(path.resolve("dist/client/index.html"), "utf8");
+  assert.equal(cloudIndex.split(CLOUD_API_META_TAG).length - 1, 1);
 });

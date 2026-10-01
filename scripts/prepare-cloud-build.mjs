@@ -1,13 +1,16 @@
 #!/usr/bin/env node
-import { cpSync, existsSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { setCloudBackendCapability } from "../src/cloud/capability-tag.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 for (const relative of ["dist/client/index.html", "dist/.openai/hosting.json", "server/index.js", "drizzle"]) {
   if (!existsSync(path.join(root, relative))) throw new Error("Missing cloud build input: " + relative);
 }
+const index = path.join(root, "dist", "client", "index.html");
+writeFileSync(index, setCloudBackendCapability(readFileSync(index, "utf8"), true));
 await build({
   absWorkingDir: root,
   entryPoints: ["server/index.js"],

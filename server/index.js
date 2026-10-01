@@ -1,6 +1,5 @@
 import staticWorker from "../worker/index.js";
 import { CLOUD_MAX_BYTES, validateCloudSnapshot } from "../src/cloud/snapshot.ts";
-import { CLOUD_API_META_TAG } from "../src/cloud/capability.ts";
 import { readLibrary, writeLibrary } from "./library.js";
 
 // Sites verifies the session and replaces these headers before Worker ingress.
@@ -124,17 +123,7 @@ async function apiFetch(request, env) {
 export default {
   async fetch(request, env, context) {
     const pathname = new URL(request.url).pathname;
-    if (pathname !== "/api" && !pathname.startsWith("/api/")) {
-      const response = await staticWorker.fetch(request, env, context);
-      if (request.method !== "GET" || response.status !== 200
-        || response.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !== "text/html") return response;
-      const html = (await response.text()).replace(/<head\b[^>]*>/i, head => head + CLOUD_API_META_TAG);
-      const headers = new Headers(response.headers);
-      // The body differs from the stored asset. Its original byte count, content
-      // encoding and validator no longer describe the response we send.
-      for (const header of ["Content-Length", "Content-Encoding", "ETag", "Content-MD5"]) headers.delete(header);
-      return new Response(html, { status: response.status, statusText: response.statusText, headers });
-    }
+    if (pathname !== "/api" && !pathname.startsWith("/api/")) return staticWorker.fetch(request, env, context);
     try {
       return await apiFetch(request, env);
     } catch {

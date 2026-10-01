@@ -308,27 +308,24 @@ test("the cloud wrapper preserves the protected static worker's asset and SPA be
   assert.deepEqual(seen, ["/boards/abc", "/index.html"]);
 });
 
-test("public HTML advertises the cloud API without granting anonymous account access", async () => {
-  const html = '<!doctype html><html><HEAD data-layout="court"><title>RallyPath</title></HEAD><body><main>画板</main></body></html>';
+test("the cloud wrapper preserves prebuilt public HTML without granting anonymous account access", async () => {
+  const html = '<!doctype html><html><HEAD data-layout="court"><meta name="rallypath-cloud-api" content="v1"><title>RallyPath</title></HEAD><body><main>画板</main></body></html>';
   const incoming = request("/", { user: null });
   const response = await worker.fetch(incoming, { ASSETS: { fetch: async () => new Response(html, {
     headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=0",
       "Content-Length": String(new TextEncoder().encode(html).byteLength), ETag: '"original-asset"' },
   }) } });
   assert.equal(response.status, 200);
-  const rendered = await response.text();
-  const marker = '<meta name="rallypath-cloud-api" content="v1">';
-  assert.ok(rendered.includes('<HEAD data-layout="court">' + marker));
-  assert.equal(rendered.replace(marker, ""), html);
-  assert.equal(response.headers.get("etag"), null);
-  assert.equal(response.headers.get("content-length"), null);
+  assert.equal(await response.text(), html);
+  assert.equal(response.headers.get("etag"), '"original-asset"');
+  assert.equal(response.headers.get("content-length"), String(new TextEncoder().encode(html).byteLength));
   assert.equal(response.headers.get("cache-control"), "public, max-age=0");
   const account = await worker.fetch(request("/api/account", { user: null }), {});
   assert.equal(account.status, 401);
   assert.equal((await account.json()).error, "unauthenticated");
 });
 
-test("cloud capability injection leaves JavaScript assets and HEAD responses unchanged", async () => {
+test("the cloud wrapper leaves JavaScript assets and HEAD responses unchanged", async () => {
   const script = new Response('console.log("court")', { headers: {
     "Content-Type": "text/javascript", ETag: '"script-asset"', "Content-Length": "20",
   } });
