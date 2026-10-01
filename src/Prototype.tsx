@@ -1948,7 +1948,11 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
   const sheetOpen=toolPalette!==null||fileSurface!==null||historyOpen||frameOpen||helpOpen;
   const sheetFeedback=(error||notice)&&<p className={`board-sheet-feedback ${error?"is-error":"is-status"}`} role={error?"alert":"status"} aria-live={error?"assertive":"polite"} aria-atomic="true">{error||notice}</p>;
   const saveLabel=saveState==="clean"?"修改后保存":saveState==="saving"?"保存中":saveState==="saved"?"已保存":saveState==="error"?"未保存":"待保存";
-  return <div ref={editorRef} className={`board-editor ${previewing?"is-previewing":"is-editing"} ${immersive?"is-immersive":""} ${courtNoteEditor?"is-note-editing":""} ${noteBoardHeight!==null?"is-note-viewport-locked":""}`} data-immersive={immersive?"true":"false"} style={noteBoardHeight!==null?{"--board-note-frozen-height":`${noteBoardHeight}px`,"--board-note-visible-height":`${noteViewport?.height??window.innerHeight}px`,"--board-note-visible-top":`${noteViewport?.top??0}px`} as CSSProperties:undefined}>
+  // Board gestures have their own edge-back handler above. Sheets render in
+  // a DOM portal, but React still bubbles their touch/pointer starts through
+  // this editor to FlowStack. Let each board surface handle its gesture first,
+  // then stop that propagation without cancelling native focus or pinch.
+  return <div ref={editorRef} onTouchStart={event=>event.stopPropagation()} onPointerDown={event=>event.stopPropagation()} className={`board-editor ${previewing?"is-previewing":"is-editing"} ${immersive?"is-immersive":""} ${courtNoteEditor?"is-note-editing":""} ${noteBoardHeight!==null?"is-note-viewport-locked":""}`} data-immersive={immersive?"true":"false"} style={noteBoardHeight!==null?{"--board-note-frozen-height":`${noteBoardHeight}px`,"--board-note-visible-height":`${noteViewport?.height??window.innerHeight}px`,"--board-note-visible-top":`${noteViewport?.top??0}px`} as CSSProperties:undefined}>
     <span className={`board-save-live board-save-status is-${saveState}`} data-testid="board-save-live" role="status" aria-live="polite" aria-atomic="true">{`画板${saveLabel}`}</span>
     <div className="board-canvas-shell">
       <div className="board-immersive-toolbar" role="toolbar" aria-label="战术板操作">

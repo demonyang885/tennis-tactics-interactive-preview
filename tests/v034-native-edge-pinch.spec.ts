@@ -7,10 +7,14 @@ const base = createStarterBoard();
 const ballId = base.actors.find(actor => actor.kind === "ball")!.id;
 const starter = { ...base, id: "v034-edge-input", title: "双指输入检查", smartRally: undefined, updatedAt: "2026-10-01T23:00:00.000Z", frames: [{ ...base.frames[0], paths: [{ id: "edge-shot", kind: "shot" as const, actorId: ballId, from: [.64, .96], to: [.28, .18] }] }] };
 const current = (page: Page) => page.locator('.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting)');
+const pageErrors = new WeakMap<Page, string[]>();
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
 test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  pageErrors.set(page, errors);
+  page.on("pageerror", error => errors.push(error.stack ?? `${error.name}: ${error.message}`));
   await page.goto("/");
   await page.evaluate(({ key, value }) => {
     localStorage.clear();
@@ -20,6 +24,10 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole("button", { name: `接着画${starter.title}`, exact: true }).tap();
   await expect(current(page).getByTestId("board-canvas")).toBeVisible();
   await expect.poll(() => current(page).evaluate(element => Math.abs(new DOMMatrixReadOnly(getComputedStyle(element).transform).m41))).toBeLessThan(.01);
+});
+
+test.afterEach(({ page }) => {
+  expect(pageErrors.get(page), "Native edge and text gestures must not throw browser errors").toEqual([]);
 });
 
 async function snapshot(page: Page) {

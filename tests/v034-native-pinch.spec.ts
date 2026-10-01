@@ -11,6 +11,19 @@ const board = {
   frames: [{ ...starter.frames[0], paths: [{ id: "serve", kind: "shot" as const, actorId: ballId, from: [.64, .96], to: [.28, .18] }] }],
 };
 const current = (page: Page) => page.locator('.flow-screen[data-flow-current="true"]:not(.flow-pop-exiting)');
+const pageErrors = new WeakMap<Page, string[]>();
+
+test.beforeEach(({ page }) => {
+  const errors: string[] = [];
+  pageErrors.set(page, errors);
+  page.on("pageerror", error => errors.push(error.stack ?? `${error.name}: ${error.message}`));
+});
+
+test.afterEach(({ page }) => {
+  // Geometry and storage can appear correct after an uncaught pointer error.
+  // Every native input case must also finish without browser-side exceptions.
+  expect(pageErrors.get(page), "Native text input and zoom must not throw browser errors").toEqual([]);
+});
 
 async function openBoard(page: Page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -142,6 +155,7 @@ test.describe("native Chromium two-finger discovery zoom", () => {
       await field.fill("test：放大后可以缩回，文字还在");
       const session = await context.newCDPSession(page);
       await pinch(page, session, field, true);
+      expect(pageErrors.get(page), "Two-finger zoom must not throw browser errors").toEqual([]);
       await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBeGreaterThan(1.2);
       await expect.poll(() => layer.evaluate(element => {
         const viewport = window.visualViewport!;
@@ -154,6 +168,7 @@ test.describe("native Chromium two-finger discovery zoom", () => {
       await expect(field).toBeFocused();
       await expect(field).toHaveValue("test：放大后可以缩回，文字还在");
       await pinch(page, session, field, false);
+      expect(pageErrors.get(page), "Pinching back must not throw browser errors").toEqual([]);
       await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBeLessThanOrEqual(1.08);
       await expect(field).toBeFocused();
       await expect(field).toHaveValue("test：放大后可以缩回，文字还在");
