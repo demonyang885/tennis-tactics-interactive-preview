@@ -166,8 +166,8 @@ function AppHeader({ title, back, menu }: { title: string; back?: () => void; me
 function HomeHeader({ menu }: { menu: () => void }) {
   return <div className="home-header">
     <ProductWordmark />
-    <CloudAccountButton />
     <button className="home-header-info" aria-label="打开内容说明" onClick={menu}><InfoCircledIcon/></button>
+    <CloudAccountButton />
   </div>;
 }
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;

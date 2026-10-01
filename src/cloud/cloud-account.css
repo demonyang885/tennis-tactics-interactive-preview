@@ -1,5 +1,4 @@
-.home-header .product-wordmark { margin-right:auto; }
-.tennis-app .home-header-account { position:relative; display:grid; place-items:center; flex:none; width:40px; height:44px; padding:0; border:0; border-radius:12px; background:transparent; color:#74877b; }
+.tennis-app .home-header-account { position:relative; display:grid; place-items:center; flex:none; width:40px; height:44px; margin-left:auto; padding:0; border:0; border-radius:12px; background:transparent; color:#74877b; }
 .home-header-account > svg { width:18px; height:18px; }
 .cloud-account-indicator { display:none; position:absolute; top:9px; right:7px; width:6px; height:6px; border-radius:50%; background:#b96935; }
 .home-header-account.has-attention .cloud-account-indicator { display:block; }
