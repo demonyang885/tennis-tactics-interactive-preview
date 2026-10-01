@@ -26,6 +26,7 @@ type DiscoveryEditorProps = {
 /** Optional learning notes are linked to the saved board, never court marks. */
 export function DiscoveryEditor({ open, kind, board, frameId, skillId, progress, prepareBoard, onOpenChange, onSaved }: DiscoveryEditorProps) {
   const keyboard = useKeyboard();
+  const editorRef = useRef<HTMLFormElement>(null);
   const expectedRef = useRef<DiscoveryRecord | undefined>(undefined);
   const [note, setNote] = useState("");
   const [nextTry, setNextTry] = useState("");
@@ -38,6 +39,68 @@ export function DiscoveryEditor({ open, kind, board, frameId, skillId, progress,
   // Capture the record once when this sheet opens. A concurrent tab must not
   // silently become the new expected value while the child is editing.
   const sessionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const editor = editorRef.current;
+    const sheet = editor?.closest<HTMLElement>(".bottom-sheet");
+    const screen = sheet?.closest<HTMLElement>(".device-screen");
+    const visual = window.visualViewport;
+    if (!editor || !sheet || !screen || !visual) return;
+    const properties = ["--discovery-sheet-bottom", "--discovery-sheet-max-height", "--discovery-field-height"];
+    const previous = properties.map(property => [property, sheet.style.getPropertyValue(property), sheet.style.getPropertyPriority(property)]);
+    const previousCompact = sheet.getAttribute("data-discovery-compact");
+    const previousViewport = sheet.getAttribute("data-discovery-viewport");
+    let animation = 0;
+    const update = () => {
+      // Safari's keyboard shortens the visual viewport without resizing the
+      // layout viewport. Follow that visible area, leaving native pinch zoom
+      // and its panning entirely under the browser's control.
+      if (Math.abs(visual.scale - 1) > .02 || !window.matchMedia("(max-width:600px), (any-pointer:coarse)").matches) return;
+      const bounds = screen.getBoundingClientRect();
+      const top = Math.max(bounds.top, visual.offsetTop);
+      const bottom = Math.min(bounds.bottom, visual.offsetTop + visual.height);
+      if (bottom <= top) return;
+      sheet.setAttribute("data-discovery-viewport", "true");
+      sheet.style.setProperty(properties[0], `${Math.max(0, bounds.bottom - bottom)}px`);
+      sheet.style.setProperty(properties[1], `${Math.max(0, bottom - top - 8)}px`);
+      sheet.setAttribute("data-discovery-compact", String(bottom - top < 320));
+      const active = document.activeElement;
+      const content = editor.closest<HTMLElement>(".sheet-content");
+      if (!(active instanceof HTMLElement) || !editor.contains(active) || !active.matches("textarea, input, select") || !content) return;
+      const visible = content.getBoundingClientRect();
+      const actions = editor.querySelector<HTMLElement>(".discovery-actions")?.getBoundingClientRect();
+      const visibleBottom = Math.min(visible.bottom, (actions?.top ?? visible.bottom) - 8);
+      // In the smallest keyboard viewports the native textarea scrolls its
+      // text internally so its box and the actions can remain visible.
+      sheet.style.setProperty(properties[2], `${Math.max(44, Math.min(72, visibleBottom - visible.top))}px`);
+      const field = active.getBoundingClientRect();
+      if (field.bottom > visibleBottom) content.scrollTop += field.bottom - visibleBottom;
+      const shifted = active.getBoundingClientRect();
+      if (shifted.top < visible.top) content.scrollTop -= visible.top - shifted.top;
+    };
+    const schedule = () => { window.cancelAnimationFrame(animation); animation = window.requestAnimationFrame(update); };
+    schedule();
+    visual.addEventListener("resize", schedule);
+    visual.addEventListener("scroll", schedule);
+    window.addEventListener("resize", schedule);
+    editor.addEventListener("focusin", schedule);
+    return () => {
+      window.cancelAnimationFrame(animation);
+      visual.removeEventListener("resize", schedule);
+      visual.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      editor.removeEventListener("focusin", schedule);
+      for (const [property, value, priority] of previous) {
+        if (value) sheet.style.setProperty(property, value, priority);
+        else sheet.style.removeProperty(property);
+      }
+      if (previousCompact === null) sheet.removeAttribute("data-discovery-compact");
+      else sheet.setAttribute("data-discovery-compact", previousCompact);
+      if (previousViewport === null) sheet.removeAttribute("data-discovery-viewport");
+      else sheet.setAttribute("data-discovery-viewport", previousViewport);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) { sessionRef.current = null; return; }
@@ -104,7 +167,7 @@ export function DiscoveryEditor({ open, kind, board, frameId, skillId, progress,
   };
 
   return <BottomSheet open={open} onOpenChange={value => { if (!value) keyboard.hide(); onOpenChange(value); }} title={title} description="可选，不写也能继续。保存后可从这块画板找回。" snap={.625}>
-    <form className="discovery-editor" data-testid="discovery-editor" onSubmit={event => { event.preventDefault(); save(); }}>
+    <form ref={editorRef} className="discovery-editor" data-testid="discovery-editor" onSubmit={event => { event.preventDefault(); save(); }}>
       <button className="discovery-close" type="button" aria-label={`关闭${title}`} onClick={close}><Cross2Icon/></button>
       <p className="discovery-board-context">{board.title}</p>
       <label className="discovery-field"><span>记录在哪一拍</span><select aria-label="记录在哪一拍" value={selectedFrameId} onChange={event => setSelectedFrameId(event.currentTarget.value)}>

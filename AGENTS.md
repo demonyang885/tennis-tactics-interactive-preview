@@ -69,6 +69,9 @@
 - Keep one point discovery and one practice discovery per board under the existing schema. Preserve IDs, creation dates, valid frame references, and progress on same-frame edits. Saving checks the current board and note snapshots; stale, deleted, corrupt, or quota-failed writes must show failure and preserve existing records.
 - During smart-rally continuation, resolve overlapping ball/player gestures from the actual next action even after deselection or reopening. A receiver already at the landing point can hit immediately. Explicitly selected old route handles remain editable; cancelling a gesture restores content and continuation.
 - Count actual playable frames, excluding the waiting empty tail; the frame list must clearly state which next action is waiting. Validate at least two shots through normal gestures before claiming multi-shot authoring works.
+- The user accepted v0.3.2 point/practice notes, two-shot authoring, and the six UI fixes. Follow-up #15 concerns iPhone Safari note entry and accidental old shot-handle gestures; preserve those accepted behaviors.
+- Discovery sheets must keep the focused native field and save/cancel actions reachable when the browser visual viewport shrinks or pans for its keyboard. Keep text inputs at least 16px, preserve native pinch zoom, and remove app-owned viewport overrides/listeners on close. Headless or injected viewport checks do not establish physical iPhone Safari acceptance.
+- While smart continuation waits for receiver movement, automatically selected previous-shot endpoints must not silently rewrite that shot. Reject the stale endpoint gesture before changing document, selection or undo history, with visible recovery guidance. Explicit old-route selection/curve editing and gestures from the actual current ball remain available.
 
 ## Prototype Instructions
 
