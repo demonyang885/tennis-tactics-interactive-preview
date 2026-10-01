@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { BoardDocument } from "../src/board/model";
+import { confirmBoardDeletion } from "./board-library-helpers";
 
 const STORAGE_KEY = "tennis-tactics:board-drafts:v1";
 
@@ -355,6 +356,7 @@ test("retries the original deletion instead of refreshing the library", async ({
   const library = page.getByTestId("flow-current");
   const removableRow = library.locator("article").filter({ hasText: removableDraft.title });
   await press(removableRow.getByRole("button", { name: `删除${removableDraft.title}`, exact: true }));
+  await confirmBoardDeletion(page);
   const failure = library.getByRole("alert");
   await expect(failure).toContainText("暂时无法删除「待删除草稿」，请重试");
   await expect(failure.getByRole("button", { name: "再试一次", exact: true })).toBeVisible();
@@ -362,6 +364,7 @@ test("retries the original deletion instead of refreshing the library", async ({
   await expect(removableRow).toBeVisible();
 
   await press(failure.getByRole("button", { name: "再试一次", exact: true }));
+  await confirmBoardDeletion(page);
   await expect(failure).toHaveCount(0);
   await expect(removableRow).toHaveCount(0);
   await expect(library.getByRole("status")).toContainText(`已删除「${removableDraft.title}」`);

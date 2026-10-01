@@ -16,6 +16,7 @@ export const DEFAULT_BOARD_DISPLAY_PREFERENCES: BoardDisplayPreferences = {
 };
 
 let cachedPreferences: BoardDisplayPreferences | null = null;
+let cachedStoredValue: string | null | undefined;
 
 function isSurface(value: unknown): value is BoardSurface {
   return value === "hard" || value === "clay" || value === "grass";
@@ -34,16 +35,17 @@ function normalizePreferences(value: unknown): BoardDisplayPreferences {
 }
 
 export function getBoardDisplayPreferences(): BoardDisplayPreferences {
-  if (cachedPreferences) return { ...cachedPreferences };
   if (typeof window === "undefined") {
     cachedPreferences = { ...DEFAULT_BOARD_DISPLAY_PREFERENCES };
     return { ...cachedPreferences };
   }
   try {
     const stored = window.localStorage.getItem(BOARD_DISPLAY_STORAGE_KEY);
+    if (cachedPreferences && stored === cachedStoredValue) return { ...cachedPreferences };
     cachedPreferences = stored ? normalizePreferences(JSON.parse(stored)) : { ...DEFAULT_BOARD_DISPLAY_PREFERENCES };
+    cachedStoredValue = stored;
   } catch {
-    cachedPreferences = { ...DEFAULT_BOARD_DISPLAY_PREFERENCES };
+    cachedPreferences ??= { ...DEFAULT_BOARD_DISPLAY_PREFERENCES };
   }
   return { ...cachedPreferences };
 }
@@ -55,7 +57,9 @@ export function setBoardDisplayPreferences(
   cachedPreferences = next;
   if (typeof window !== "undefined") {
     try {
-      window.localStorage.setItem(BOARD_DISPLAY_STORAGE_KEY, JSON.stringify(next));
+      const stored = JSON.stringify(next);
+      window.localStorage.setItem(BOARD_DISPLAY_STORAGE_KEY, stored);
+      cachedStoredValue = stored;
     } catch {
       // Display preferences are optional and must never block board editing.
     }
@@ -66,4 +70,5 @@ export function setBoardDisplayPreferences(
 
 export function resetBoardDisplayPreferencesCache() {
   cachedPreferences = null;
+  cachedStoredValue = undefined;
 }

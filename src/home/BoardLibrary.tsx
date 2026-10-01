@@ -24,7 +24,8 @@ import { BOARD_ALTERNATIVES_EVENT, BOARD_ALTERNATIVES_STORAGE_KEY, deleteBoardAl
 import { BOARD_DELETE_JOURNAL_KEY, clearBoardDeleteJournal, readBoardDeleteJournal, recoverPendingBoardDelete, saveBoardDeleteJournal } from "../learning/deleteJournal";
 import { BOARD_IMPORT_JOURNAL_KEY, boardBackupSignature, clearBoardImportJournal, readBoardImportJournal, readRecoverableBoardImportJournal, saveBoardImportJournal, type BoardImportJournal } from "../learning/importJournal";
 import { BOARD_COPY_JOURNAL_KEY, BOARD_COPY_RECOVERY_EVENT, readBoardCopyJournal, recoverPendingBoardCopy } from "../learning/copyJournal";
-import { MobileScroll } from "../mobile";
+import { BottomSheet, MobileScroll, useKeyboard } from "../mobile";
+import "./board-delete-confirmation.css";
 
 export const BOARD_DRAFTS_EVENT = "tennis-board-drafts-changed";
 
@@ -113,6 +114,7 @@ export function BoardLibrary({
   const [alternativeLoadError, setAlternativeLoadError] = useState("");
   const [loadState, setLoadState] = useState<DraftsLoadState>("loading");
   const [storageFailure, setStorageFailure] = useState<StorageFailure | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<BoardDocument | null>(null);
   const [storageStatus, setStorageStatus] = useState("");
   const [pendingImportMessage, setPendingImportMessage] = useState("");
   const [pendingImportId, setPendingImportId] = useState("");
@@ -130,6 +132,34 @@ export function BoardLibrary({
   const [legacyLoadError, setLegacyLoadError] = useState("");
   const [showLegacy, setShowLegacy] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const deleteOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const draftsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const deleteFocusTimerRef = useRef<number | undefined>(undefined);
+  const keyboard = useKeyboard();
+
+  useEffect(() => () => window.clearTimeout(deleteFocusTimerRef.current), []);
+
+  const requestDraftDeletion = (board: BoardDocument, opener: HTMLButtonElement) => {
+    window.clearTimeout(deleteFocusTimerRef.current);
+    deleteOpenerRef.current = opener;
+    keyboard.hide();
+    // Keep the displayed snapshot: storage can change while confirmation is
+    // open, and removeDraft must still reject a changed or deleted board.
+    setDeleteConfirmation(board);
+  };
+
+  const closeDeleteConfirmation = () => {
+    setDeleteConfirmation(null);
+    window.clearTimeout(deleteFocusTimerRef.current);
+    // BottomSheet's exit animation releases the Radix focus trap. There is
+    // no Dialog.Trigger here, so explicitly return focus to this row (or the
+    // draft heading if a confirmed deletion removed the row).
+    deleteFocusTimerRef.current = window.setTimeout(() => {
+      const opener = deleteOpenerRef.current;
+      if (opener?.isConnected && !opener.disabled) opener.focus({ preventScroll: true });
+      else draftsHeadingRef.current?.focus({ preventScroll: true });
+    }, 250);
+  };
 
   const refresh = useCallback(() => {
     const deletionJournal = readBoardDeleteJournal();
@@ -601,7 +631,7 @@ export function BoardLibrary({
     }
   };
 
-  const retryFailure = () => {
+  const retryFailure = (opener: HTMLButtonElement) => {
     if (!storageFailure) return;
     if (storageFailure.kind === "load") {
       refresh();
@@ -623,7 +653,7 @@ export function BoardLibrary({
       importRef.current?.click();
       return;
     }
-    removeDraft(storageFailure.board);
+    requestDraftDeletion(storageFailure.board, opener);
   };
 
   const retryRecovery = () => {
@@ -667,6 +697,7 @@ export function BoardLibrary({
   };
 
   return (
+    <>
     <MobileScroll className="board-home-scroll board-library-scroll">
       <main className="board-home board-library">
         <section className="board-home-hero board-library-hero">
@@ -696,7 +727,7 @@ export function BoardLibrary({
           />
         </section>
 
-        {storageFailure && !recoveryBlocked && <div className="board-error-action" role="alert"><span>{storageFailure.message}</span>{storageFailure.kind === "restore" && storageFailure.board && <><button onClick={() => exportBoardRecovery(storageFailure.board!)}>下载画板备份</button><button onClick={exportRawRecovery}>导出原始资料</button></>}<button onClick={retryFailure}>{failureAction}</button></div>}
+        {storageFailure && !recoveryBlocked && <div className="board-error-action" role="alert"><span>{storageFailure.message}</span>{storageFailure.kind === "restore" && storageFailure.board && <><button onClick={() => exportBoardRecovery(storageFailure.board!)}>下载画板备份</button><button onClick={exportRawRecovery}>导出原始资料</button></>}<button onClick={event => retryFailure(event.currentTarget)}>{failureAction}</button></div>}
         {recoveryBlocked ? (
           <div className="board-error-action board-library-recovery" role="alert">
             <span>
@@ -737,7 +768,7 @@ export function BoardLibrary({
           <div className="board-section-heading">
             <div>
               <span>本机草稿</span>
-              <h3 id="board-library-drafts-title">全部画板</h3>
+              <h3 id="board-library-drafts-title" ref={draftsHeadingRef} tabIndex={-1}>全部画板</h3>
             </div>
             <small>{loadState === "loading" ? "读取中" : initialLoadFailed ? "未读取" : recoveryBlocked ? `${visibleDrafts.length} 份待确认` : `${visibleDrafts.length} 份`}</small>
           </div>
@@ -771,7 +802,7 @@ export function BoardLibrary({
                     className="board-draft-delete"
                     aria-label={recoveryBlocked ? `${board.title}待确认，暂时不能删除` : board.id === activeBoardId ? `${board.title}正在打开，暂时不能删除` : `删除${board.title}`}
                     disabled={recoveryBlocked || board.id === activeBoardId}
-                    onClick={() => removeDraft(board)}
+                    onClick={event => requestDraftDeletion(board, event.currentTarget)}
                   >
                     <TrashIcon />
                   </button>
@@ -802,5 +833,31 @@ export function BoardLibrary({
         {orphanAlternatives.length>0&&<section className="board-home-section board-library-drafts" aria-label="原分已不在本机的试法"><div className="board-section-heading"><div><span>另一种打法</span><h3>原分已不在本机</h3></div><small>{orphanAlternatives.length} 份</small></div><div className="board-draft-list">{orphanAlternatives.map(record=><article key={record.id}><button className="board-draft-open" disabled={recoveryBlocked||!openAlternative} onClick={()=>openAlternative?.(record,true)}><span className="board-draft-icon"><LayersIcon/></span><span><span className="board-draft-title"><strong>{record.board.title}</strong></span><small>保留当时起点 · {boardDate(record.updatedAt)}</small></span></button></article>)}</div></section>}
       </main>
     </MobileScroll>
+    <BottomSheet
+      open={deleteConfirmation !== null}
+      onOpenChange={open => { if (!open) closeDeleteConfirmation(); }}
+      title="删除画板？"
+      description="画板与关联的技能选择、旧记录会从本机删除，无法撤销。"
+      snap={.4}
+    >
+      <div className="board-delete-confirmation">
+        <p className="board-delete-confirmation-title">{deleteConfirmation?.title}</p>
+        <div className="board-delete-confirmation-actions">
+          <button type="button" onClick={closeDeleteConfirmation}>取消</button>
+          <button
+            type="button"
+            className="board-delete-confirmation-confirm"
+            disabled={recoveryBlocked || deleteConfirmation?.id === activeBoardId}
+            onClick={() => {
+              const board = deleteConfirmation;
+              if (!board || recoveryBlocked || board.id === activeBoardId) return;
+              closeDeleteConfirmation();
+              removeDraft(board);
+            }}
+          >确认删除</button>
+        </div>
+      </div>
+    </BottomSheet>
+    </>
   );
 }
