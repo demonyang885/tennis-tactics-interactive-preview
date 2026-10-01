@@ -307,3 +307,39 @@ test("the cloud wrapper preserves the protected static worker's asset and SPA be
   assert.equal(await response.text(), "app");
   assert.deepEqual(seen, ["/boards/abc", "/index.html"]);
 });
+
+test("public HTML advertises the cloud API without granting anonymous account access", async () => {
+  const html = '<!doctype html><html><HEAD data-layout="court"><title>RallyPath</title></HEAD><body><main>画板</main></body></html>';
+  const incoming = request("/", { user: null });
+  const response = await worker.fetch(incoming, { ASSETS: { fetch: async () => new Response(html, {
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=0",
+      "Content-Length": String(new TextEncoder().encode(html).byteLength), ETag: '"original-asset"' },
+  }) } });
+  assert.equal(response.status, 200);
+  const rendered = await response.text();
+  const marker = '<meta name="rallypath-cloud-api" content="v1">';
+  assert.ok(rendered.includes('<HEAD data-layout="court">' + marker));
+  assert.equal(rendered.replace(marker, ""), html);
+  assert.equal(response.headers.get("etag"), null);
+  assert.equal(response.headers.get("content-length"), null);
+  assert.equal(response.headers.get("cache-control"), "public, max-age=0");
+  const account = await worker.fetch(request("/api/account", { user: null }), {});
+  assert.equal(account.status, 401);
+  assert.equal((await account.json()).error, "unauthenticated");
+});
+
+test("cloud capability injection leaves JavaScript assets and HEAD responses unchanged", async () => {
+  const script = new Response('console.log("court")', { headers: {
+    "Content-Type": "text/javascript", ETag: '"script-asset"', "Content-Length": "20",
+  } });
+  const delivered = await worker.fetch(request("/assets/app.js", { user: null }), { ASSETS: { fetch: async () => script } });
+  assert.equal(delivered, script);
+  assert.equal(await delivered.text(), 'console.log("court")');
+  assert.equal(delivered.headers.get("etag"), '"script-asset"');
+  const head = new Response(null, { headers: { "Content-Type": "text/html", ETag: '"html-asset"', "Content-Length": "100" } });
+  const headResult = await worker.fetch(request("/", { user: null, method: "HEAD" }), { ASSETS: { fetch: async () => head } });
+  assert.equal(headResult, head);
+  assert.equal(await headResult.text(), "");
+  assert.equal(headResult.headers.get("content-length"), "100");
+  assert.equal(headResult.headers.get("etag"), '"html-asset"');
+});

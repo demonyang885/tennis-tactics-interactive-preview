@@ -8,6 +8,7 @@ import { BOARD_DISCOVERY_EVENT } from "../learning/discovery";
 import { BOARD_ALTERNATIVES_EVENT } from "../learning/alternative";
 import { createCloudSyncClient, type CloudSyncState } from "./sync";
 import { CLOUD_BACKUP_MAX_BYTES } from "./snapshot";
+import { hasCloudBackend } from "./capability";
 import "./cloud-account.css";
 
 type AccountContext = { state: CloudSyncState; openAccount: () => void };
@@ -31,6 +32,11 @@ function accountStatus(state: CloudSyncState, online: boolean) {
 }
 
 export function CloudAccountProvider({ children }: PropsWithChildren) {
+  if (!hasCloudBackend(document)) return children;
+  return <CloudAccountControls>{children}</CloudAccountControls>;
+}
+
+function CloudAccountControls({ children }: PropsWithChildren) {
   const applyingCloud = useRef(false);
   const [editorRefreshNotice, setEditorRefreshNotice] = useState("");
   const [client] = useState(() => createCloudSyncClient({ onLocalChange: reason => {

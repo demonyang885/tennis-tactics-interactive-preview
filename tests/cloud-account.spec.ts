@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { createStarterBoard, type BoardDocument } from "../src/board/model";
 import { CLOUD_BACKUP_MAX_BYTES, type CloudSnapshot } from "../src/cloud/snapshot";
+import { CLOUD_API_META_TAG } from "../src/cloud/capability";
 
 const BOARD_KEY = "tennis-tactics:board-drafts:v1";
 const user = { id: "account-one", email: "player@example.com", name: "网球练习者" };
@@ -16,7 +17,11 @@ function board(id: string, title: string): BoardDocument {
 function snapshot(boards: BoardDocument[]): CloudSnapshot {
   return { version: 1, boards: boards.map(item => ({ kind: "rallypath-board-backup", version: 2, board: item })) };
 }
-async function openHome(page: Page, boards: BoardDocument[] = []) {
+async function openHome(page: Page, boards: BoardDocument[] = [], cloudBackend = true) {
+  if (cloudBackend) await page.route(url => url.pathname === "/", async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: (await response.text()).replace("<head>", "<head>" + CLOUD_API_META_TAG) });
+  });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(({ key, boards }) => {
     window.localStorage.clear();
@@ -59,13 +64,18 @@ test("anonymous players keep local boards and enter login through the account sh
 
 test("static hosting keeps the original local flow and hides an unavailable login route", async ({ page }) => {
   const local = board("static-local", "本机战术");
-  await page.route("**/api/account", route => route.fulfill({ status: 404, body: "Not Found" }));
-  await openHome(page, [local]);
+  const errors: string[] = [], accountRequests: string[] = [];
+  page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("pageerror", error => errors.push(error.message));
+  page.on("request", request => { if (new URL(request.url()).pathname.startsWith("/api/")) accountRequests.push(request.url()); });
+  await openHome(page, [local], false);
   await expect(page.getByRole("button", { name: "打开账户与同步", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "使用 ChatGPT 登录", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "接着画本机战术", exact: true }).click();
   await expect(page.getByTestId("board-canvas")).toBeVisible();
   expect((await storedBoards(page))[0].id).toBe(local.id);
+  expect(accountRequests).toEqual([]);
+  expect(errors).toEqual([]);
 });
 
 test("the first device explicitly uploads its local library and shows the signed-in account", async ({ page }, testInfo) => {
