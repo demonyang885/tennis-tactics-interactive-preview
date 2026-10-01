@@ -1,0 +1,9 @@
+.device-screen .bottom-sheet:has(.board-delete-confirmation) { min-height:min(260px,62.5dvh); max-height:62.5dvh !important; }
+.device-screen .bottom-sheet:has(.board-delete-confirmation) .sheet-content { min-height:0; }
+.board-delete-confirmation { padding:0 0 var(--mobile-safe-area-height, 0px); }
+.board-delete-confirmation-title { margin:2px 0 22px; overflow-wrap:anywhere; color:#263e32; font-size:17px; font-weight:700; line-height:1.5; }
+.board-delete-confirmation-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.device-screen .bottom-sheet .board-delete-confirmation-actions button { min-height:48px; padding:12px; border:1px solid #dbe3d8; border-radius:12px; background:#f4f7f1; color:#2d4a38; font:inherit; font-size:14px; font-weight:650; cursor:pointer; }
+.device-screen .bottom-sheet .board-delete-confirmation-actions .board-delete-confirmation-confirm { border-color:#ac4438; background:#ac4438; color:#fff; }
+.device-screen .bottom-sheet .board-delete-confirmation-actions button:disabled { opacity:.45; }
+.device-screen .bottom-sheet .board-delete-confirmation-actions button:focus-visible { outline:3px solid #a6c06b; outline-offset:3px; }

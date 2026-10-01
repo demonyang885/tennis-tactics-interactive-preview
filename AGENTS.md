@@ -52,6 +52,17 @@
 - The `feature/interactive-combination-rally` branch changes combination cards into interactive rallies: play one segment automatically, pause for a signal-based choice directly below the court, then continue the same session and retain a visible choice history. Stop each segment before the viewer's next decision, and bridge the exact previous end positions into the selected tactic instead of remounting or jumping the court. Keep the linear combination explanation available as a secondary “思路” view.
 - The `feature/signal-anchored-decision-practice` branch validates the next product direction in “发球后抢先手”: freeze one explicit court state, show ball/self/opponent observations once, then offer 2–3 tactics for that same state. Each selected action continues from the exact frozen positions and explains its benefit and caution during playback. After three decisions, show a compact signal → choice → consequence recap. Keep this as a focused slice; do not add scoring, right/wrong states, accounts, or new navigation. Product rationale and acceptance criteria live in `PRODUCT_VNEXT.md`.
 
+## Delivery Requirements — 2026-10-01
+
+- For every public deployment, increment the release version in `package.json` and the lockfile; generate `version.json` from that version and the exact deployed commit. Show the version visibly on Home and in the usage explanation. A changed timestamp or commit alone is not a version increment.
+- Work is complete only when the fixes are committed to `main`, the public deployment succeeds, and the publicly fetched `version.json` reflects the new version. A local change, an open PR, or a verbal completion claim is insufficient. Do not announce completion before that evidence exists.
+- On taking an issue, label it, assign it to the available repository maintainer account, and post the work scope and a realistic delivery estimate. Update the issue if verification or deployment blocks that estimate.
+- Report acceptance results separately for each checklist item, including the environment, actions, and observed results. Close the issue only after the public release has been verified.
+- Maintain `CHANGELOG.md` with a few concrete changes for each release; record historical entries as reconstructed when necessary rather than inventing verification.
+- Board deletion requires a named confirmation; cancelling must preserve the board and its linked learning data. Retrying a failed deletion requires confirmation again.
+- Court surface, zone colors, and zone names remain device-local visual preferences. Zone color and name controls are independent and clearly state whether they are on. Skill practice must preserve the user's current surface.
+- Reopening a board restores its last valid frame and route selection without autoplay or changes to document content. A newly drawn route stays selected so its deletion label and actual target match, while smart rally continuation remains available.
+
 ## Prototype Instructions
 
 In ChatGPT Work Mode, run `sites-preview start "$PWD"`, open `http://terminal.local:4173/` in the cloud browser, and verify the rendered app and its primary interactions. Keep that preview open and tell the user to inspect it in the cloud browser; do not present the local URL as a user-facing chat link. In Codex Desktop, run the local server yourself, open the preview in the in-app browser, and provide the clickable local URL. Do not deploy to Sites unless the user explicitly asks to share, publish, or deploy. Do not give the user server-start instructions when you can run it.

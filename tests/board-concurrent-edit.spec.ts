@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { confirmBoardDeletion } from "./board-library-helpers";
 import { createStarterBoard, type BoardDocument } from "../src/board/model";
 import { parseBoardBackupJSON } from "../src/learning/storage";
 
@@ -187,6 +188,7 @@ test("a deleted board cannot enter skill selection from an unchanged stale tab",
     await other.getByTestId("home-scroll-cue").click();
     await other.getByRole("button", { name: "全部画板" }).click();
     await other.getByRole("button", { name: "删除并行编辑测试" }).click();
+    await confirmBoardDeletion(other);
     await expect.poll(() => page.evaluate(key => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
 
     await page.getByTestId("board-learning-entry").click();
@@ -216,6 +218,7 @@ test("a stale editor can save an independent copy after another tab deletes the 
     await other.getByTestId("home-scroll-cue").click();
     await other.getByRole("button", { name: "全部画板" }).click();
     await other.getByRole("button", { name: "删除并行编辑测试" }).click();
+    await confirmBoardDeletion(other);
     await expect.poll(() => page.evaluate(key => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
 
     await renameFromBoard(page, "删除后尚未保存的修改");
@@ -273,6 +276,7 @@ test("deleting a board does not remove a newer learning choice written during de
     };
   }, { learningKey: LEARNING_KEY, newerChoice });
   await page.getByRole("button", { name: "删除并行编辑测试" }).click();
+  await confirmBoardDeletion(page);
 
   await expect(page.getByRole("alert")).toContainText("另一页改变");
   expect(await storedTitle(page)).toBe("并行编辑测试");
@@ -309,6 +313,7 @@ test("deleting an unlinked board does not orphan a choice created just after the
   }, { learningKey: LEARNING_KEY, choice: newChoice });
 
   await page.getByRole("button", { name: "删除并行编辑测试" }).click();
+  await confirmBoardDeletion(page);
   await expect(page.getByRole("alert")).toContainText("另一页");
   expect(await storedTitle(page)).toBe("并行编辑测试");
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? "null"), LEARNING_KEY);
@@ -339,6 +344,7 @@ test("deleting an unlinked board restores it when a choice appears during the bo
   }, { boardKey: STORAGE_KEY, learningKey: LEARNING_KEY, choice: newChoice });
 
   await page.getByRole("button", { name: "删除并行编辑测试" }).click();
+  await confirmBoardDeletion(page);
   await expect(page.getByRole("alert")).toContainText("另一页改变");
   expect(await storedTitle(page)).toBe("并行编辑测试");
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? "null"), LEARNING_KEY);
@@ -375,6 +381,7 @@ test("a failed post-delete restore offers the original board as an editable back
   }, { boardKey: STORAGE_KEY, learningKey: LEARNING_KEY, choice: newChoice });
 
   await page.getByRole("button", { name: "删除并行编辑测试" }).click();
+  await confirmBoardDeletion(page);
   await expect(page.getByRole("alert")).toContainText("画板暂时无法恢复");
   await expect(page.getByRole("status").filter({ hasText: "已删除" })).toHaveCount(0);
   await page.evaluate(key => window.dispatchEvent(new StorageEvent("storage", { key })), STORAGE_KEY);
@@ -445,6 +452,7 @@ test("deleting a board restores its old choice when another link type appears mi
   }, newDiscovery);
 
   await page.getByRole("button", { name: "删除并行编辑测试" }).click();
+  await confirmBoardDeletion(page);
   await expect(page.getByRole("alert")).toContainText("另一页");
   expect(await storedTitle(page)).toBe("并行编辑测试");
   const records = await page.evaluate(({ learningKey }) => ({
@@ -495,6 +503,7 @@ for (const linked of [
       };
     }, { linkedKey: linked.key, newer });
     await page.getByRole("button", { name: "删除并行编辑测试" }).click();
+    await confirmBoardDeletion(page);
 
     await expect(page.getByRole("alert")).toContainText("另一页改变");
     expect(await storedTitle(page)).toBe("并行编辑测试");
@@ -533,6 +542,7 @@ test("a changed discovery aborts a partly completed delete and restores only the
     };
   }, newerDiscovery);
   await page.getByRole("button", { name: "删除并行编辑测试" }).click();
+  await confirmBoardDeletion(page);
 
   await expect(page.getByRole("alert")).toContainText("另一页改变");
   expect(await storedTitle(page)).toBe("并行编辑测试");
@@ -564,6 +574,7 @@ test("a practice choice cannot attach to a board deleted while its demo is open"
     await other.getByTestId("home-scroll-cue").click();
     await other.getByRole("button", { name: "全部画板" }).click();
     await other.getByRole("button", { name: "删除并行编辑测试" }).click();
+    await confirmBoardDeletion(other);
     await expect.poll(() => page.evaluate(key => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
 
     await page.getByRole("button", { name: /打开击球后回位训练说明/ }).click();
@@ -620,6 +631,7 @@ test("a tactic choice cannot attach to a board deleted while its demo is open", 
     await other.getByTestId("home-scroll-cue").click();
     await other.getByRole("button", { name: "全部画板" }).click();
     await other.getByRole("button", { name: "删除并行编辑测试" }).click();
+    await confirmBoardDeletion(other);
     await expect.poll(() => page.evaluate(key => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
 
     await page.getByRole("button", { name: "选这个打法" }).click();
@@ -705,8 +717,17 @@ test("retrying deletion from a stale library does not remove another tab's newer
     };
   }, STORAGE_KEY);
   await page.getByRole("button", { name: "删除并行编辑测试" }).click();
+  await confirmBoardDeletion(page);
   const failure = page.getByRole("alert");
   await expect(failure).toContainText("暂时无法删除");
+
+  await failure.getByRole("button", { name: "再试一次" }).click();
+  const retryConfirmation = page.getByRole("dialog", { name: "删除画板？", exact: true });
+  await expect(retryConfirmation).toContainText("并行编辑测试");
+  await retryConfirmation.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(retryConfirmation).toBeHidden();
+  await expect(failure).toBeVisible();
+  expect(await storedTitle(page)).toBe("并行编辑测试");
 
   const other = await page.context().newPage();
   try {
@@ -717,6 +738,7 @@ test("retrying deletion from a stale library does not remove another tab's newer
     await expect.poll(() => storedTitle(page)).toBe("另一页改名后的画板");
 
     await failure.getByRole("button", { name: "再试一次" }).click();
+    await confirmBoardDeletion(page);
     await expect.poll(() => storedTitle(page)).toBe("另一页改名后的画板");
     await expect(page.getByRole("status")).toContainText("另一页");
   } finally {

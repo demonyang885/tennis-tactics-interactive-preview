@@ -129,7 +129,7 @@ function zoneDivider(ctx: CanvasRenderingContext2D, geometry: Geometry, y: numbe
   ctx.restore();
 }
 
-function drawPositioningZones(ctx: CanvasRenderingContext2D, geometry: Geometry, showLabels: boolean, palette: SurfacePalette) {
+function drawPositioningZones(ctx: CanvasRenderingContext2D, geometry: Geometry, showColors: boolean, showLabels: boolean, palette: SurfacePalette) {
   const single = (10.97 - 8.23) / (2 * 10.97);
   const service = (23.77 / 2 - 6.4) / 23.77;
   const rallyEnd = .16;
@@ -138,24 +138,26 @@ function drawPositioningZones(ctx: CanvasRenderingContext2D, geometry: Geometry,
   const drawHalf = (top: boolean) => {
     const y = (value: number) => top ? value : mirror(value);
     const defenseStart = -geometry.runOff;
-    fillBand(ctx, geometry, Math.min(y(defenseStart), y(0)), Math.max(y(defenseStart), y(0)), ZONES.defense);
-    fillBand(ctx, geometry, Math.min(y(0), y(rallyEnd)), Math.max(y(0), y(rallyEnd)), ZONES.rally);
-    fillBand(ctx, geometry, Math.min(y(rallyEnd), y(service)), Math.max(y(rallyEnd), y(service)), ZONES.pressure);
-    fillBand(ctx, geometry, Math.min(y(service), y(attackEnd)), Math.max(y(service), y(attackEnd)), ZONES.attack);
-    fillBand(ctx, geometry, Math.min(y(attackEnd), y(.5)), Math.max(y(attackEnd), y(.5)), ZONES.net);
+    if (showColors) {
+      fillBand(ctx, geometry, Math.min(y(defenseStart), y(0)), Math.max(y(defenseStart), y(0)), ZONES.defense);
+      fillBand(ctx, geometry, Math.min(y(0), y(rallyEnd)), Math.max(y(0), y(rallyEnd)), ZONES.rally);
+      fillBand(ctx, geometry, Math.min(y(rallyEnd), y(service)), Math.max(y(rallyEnd), y(service)), ZONES.pressure);
+      fillBand(ctx, geometry, Math.min(y(service), y(attackEnd)), Math.max(y(service), y(attackEnd)), ZONES.attack);
+      fillBand(ctx, geometry, Math.min(y(attackEnd), y(.5)), Math.max(y(attackEnd), y(.5)), ZONES.net);
 
-    const leftBase = geometry.toCanvas([single, y(0)]), leftInner = geometry.toCanvas([.31, y(rallyEnd)]), leftOuter = geometry.toCanvas([single, y(rallyEnd)]);
-    const rightBase = geometry.toCanvas([1 - single, y(0)]), rightInner = geometry.toCanvas([.69, y(rallyEnd)]), rightOuter = geometry.toCanvas([1 - single, y(rallyEnd)]);
-    ctx.fillStyle = ZONES.angle;
-    ctx.beginPath(); ctx.moveTo(...leftBase); ctx.lineTo(...leftInner); ctx.lineTo(...leftOuter); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(...rightBase); ctx.lineTo(...rightInner); ctx.lineTo(...rightOuter); ctx.closePath(); ctx.fill();
-    ctx.save(); ctx.setLineDash([5, 5]);
-    line(ctx, leftBase, leftInner, "rgba(191,224,232,.72)", 1.15);
-    line(ctx, rightBase, rightInner, "rgba(191,224,232,.72)", 1.15);
-    ctx.restore();
+      const leftBase = geometry.toCanvas([single, y(0)]), leftInner = geometry.toCanvas([.31, y(rallyEnd)]), leftOuter = geometry.toCanvas([single, y(rallyEnd)]);
+      const rightBase = geometry.toCanvas([1 - single, y(0)]), rightInner = geometry.toCanvas([.69, y(rallyEnd)]), rightOuter = geometry.toCanvas([1 - single, y(rallyEnd)]);
+      ctx.fillStyle = ZONES.angle;
+      ctx.beginPath(); ctx.moveTo(...leftBase); ctx.lineTo(...leftInner); ctx.lineTo(...leftOuter); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(...rightBase); ctx.lineTo(...rightInner); ctx.lineTo(...rightOuter); ctx.closePath(); ctx.fill();
+      ctx.save(); ctx.setLineDash([5, 5]);
+      line(ctx, leftBase, leftInner, "rgba(191,224,232,.72)", 1.15);
+      line(ctx, rightBase, rightInner, "rgba(191,224,232,.72)", 1.15);
+      ctx.restore();
 
-    zoneDivider(ctx, geometry, y(rallyEnd), "rgba(212,236,91,.72)");
-    zoneDivider(ctx, geometry, y(attackEnd), "rgba(245,151,73,.72)");
+      zoneDivider(ctx, geometry, y(rallyEnd), "rgba(212,236,91,.72)");
+      zoneDivider(ctx, geometry, y(attackEnd), "rgba(245,151,73,.72)");
+    }
 
     if (!showLabels) return;
     const zoneLabel = (text: string, point: Point, size = 10) => label(ctx, text, geometry.toCanvas(point), size, "center", palette.surround);
@@ -196,7 +198,7 @@ function drawCourt(ctx: CanvasRenderingContext2D, geometry: Geometry, surface: B
   const palette = BOARD_SURFACE_PALETTES[surface];
   ctx.fillStyle = palette.court; ctx.fillRect(court.x, court.y, court.width, court.height);
   drawSurfaceTexture(ctx, geometry, surface, palette);
-  if (showZones) drawPositioningZones(ctx, geometry, showZoneLabels, palette);
+  if (showZones || showZoneLabels) drawPositioningZones(ctx, geometry, showZones, showZoneLabels, palette);
   ctx.strokeStyle = palette.line; ctx.lineWidth = 1.65; ctx.strokeRect(court.x, court.y, court.width, court.height);
   const single = (10.97 - 8.23) / (2 * 10.97), service = (23.77 / 2 - 6.4) / 23.77;
   line(ctx, px([single, 0]), px([single, 1]), palette.line);

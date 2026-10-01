@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { confirmBoardDeletion } from "./board-library-helpers";
 import { getShotDurationForPace, type BoardDocument, type BoardPath } from "../src/board/model";
 import { getBoardGeometry, pointOnBoardPath } from "../src/board/render";
 import { boardBackupSignature } from "../src/learning/importJournal";
@@ -608,6 +609,7 @@ test("keeps a board and its skill choice when linked deletion cannot be complete
   const library = page.getByTestId("flow-current");
   const row = library.locator("article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
+  await confirmBoardDeletion(page);
 
   await expect(library.getByRole("alert")).toContainText(`暂时无法删除「${pointBoard.title}」，请重试`);
   await expect(row).toBeVisible();
@@ -634,6 +636,7 @@ test("rolls back the skill choice when deleting its observation fails", async ({
   const library = page.getByTestId("flow-current");
   const row = library.locator("article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
+  await confirmBoardDeletion(page);
   await expect(library.getByRole("alert")).toContainText(`暂时无法删除「${pointBoard.title}」，请重试`);
   await expect(row).toBeVisible();
   expect(await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key) ?? "null"), LEARNING_KEY)).toMatchObject({ records: [{ boardId: pointBoard.id, skillId: "recovery" }] });
@@ -645,6 +648,7 @@ test("removes the linked skill choice only after its board can be deleted", asyn
   const library = page.getByTestId("flow-current");
   const row = library.locator("article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
+  await confirmBoardDeletion(page);
 
   await expect(row).toHaveCount(0);
   await expect(library.getByRole("status")).toContainText(`已删除「${pointBoard.title}」`);
@@ -675,6 +679,7 @@ test("restores the linked skill choice when the board deletion write fails", asy
   const library = page.getByTestId("flow-current");
   const row = library.locator("article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
+  await confirmBoardDeletion(page);
 
   await expect(library.getByRole("alert")).toContainText(`暂时无法删除「${pointBoard.title}」，请重试`);
   await expect(row).toBeVisible();
@@ -708,6 +713,7 @@ test("recovers linked records after deleting the board and restoring its choice 
   const library = page.getByTestId("flow-current");
   const row = library.locator("article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
+  await confirmBoardDeletion(page);
   await expect(library.getByRole("alert")).toContainText("关联记录未能完整恢复");
   await expect(row).toBeVisible();
   await expect(library.getByText(/已删除/)).toHaveCount(0);
@@ -735,6 +741,7 @@ test("does not start linked deletion if its recovery journal cannot be saved", a
   const library = page.getByTestId("flow-current");
   const row = library.locator("article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
+  await confirmBoardDeletion(page);
   await expect(library.getByRole("alert")).toContainText("未开始删除");
   await expect(row).toBeVisible();
   expect(await page.evaluate((key) => window.localStorage.getItem(key), DELETE_JOURNAL_KEY)).toBeNull();
@@ -757,6 +764,7 @@ test("can delete an unlinked board even when journal writes are unavailable", as
   const library = page.getByTestId("flow-current");
   const row = library.locator("article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
+  await confirmBoardDeletion(page);
   await expect(row).toHaveCount(0);
   await expect(library.getByRole("status")).toContainText(`已删除「${pointBoard.title}」`);
   expect(await page.evaluate((key) => window.localStorage.getItem(key), DELETE_JOURNAL_KEY)).toBeNull();
@@ -775,6 +783,7 @@ test("reports incomplete cleanup without resurrecting a successfully deleted boa
   const library = page.getByTestId("flow-current");
   const row = library.locator("article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
+  await confirmBoardDeletion(page);
   await expect(row).toHaveCount(0);
   await expect(library.getByRole("alert")).toContainText("删除记录尚未清理");
   await expect(library.locator(".board-draft-open").filter({ hasText: "仍在打开的画板" })).toBeEnabled();
@@ -2001,6 +2010,7 @@ test("a saved alternative remains reachable after its original point is deleted"
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await library.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
+  await confirmBoardDeletion(page);
   await expect(library.getByRole("status")).toContainText(`已删除「${pointBoard.title}」`);
   await expect(library.getByRole("region", { name: "原分已不在本机的试法" })).toBeVisible();
   await library.getByRole("region", { name: "原分已不在本机的试法" }).getByRole("button", { name: /我记住的这一分/ }).click();

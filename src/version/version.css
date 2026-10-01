@@ -1,0 +1,26 @@
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  color: #68736f;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.version-badge-commit {
+  padding-inline-start: 7px;
+  border-inline-start: 1px solid #d8dfdb;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+}
+
+.home-version-badge {
+  margin-left: auto;
+}
+
+.about-version {
+  margin: 12px 0 0;
+}

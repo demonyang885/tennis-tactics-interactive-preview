@@ -1,6 +1,6 @@
 # RallyPath — 唯一倉庫與發布入口
 
-最後整理：2026-09-30。這份文件用於確認來源與交接，不把歷史分支、舊預覽埠或工作目錄當作最新版。
+最後整理：2026-10-01。這份文件用於確認來源與交接，不把歷史分支、舊預覽埠或工作目錄當作最新版。
 
 | 項目 | 有效入口 |
 | --- | --- |
@@ -9,6 +9,7 @@
 | 正式分支 | `main` |
 | 正式網站 | [RallyPath on GitHub Pages](https://demonyang885.github.io/tennis-tactics-interactive-preview/) |
 | 線上版本核對 | [version.json](https://demonyang885.github.io/tennis-tactics-interactive-preview/version.json) 的 product、version、commit，並對照成功部署的 Actions |
+| 各版變更 | [CHANGELOG.md](./CHANGELOG.md)；首頁與使用說明顯示相同發布版本 |
 | 目前產品範圍與已知風險 | [v0.3 發布與後續工作](./docs/product/V0_3_CANDIDATE_AND_NEXT.md) |
 | 開發規則 | [AGENTS.md](./AGENTS.md) |
 
@@ -27,6 +28,8 @@
 5. [PRODUCT_VNEXT.md](./PRODUCT_VNEXT.md)、`docs/maintenance/`、`docs/archive/`：舊版規格與演進證據，不是自動待辦清單。
 
 ## 保存與發布
+
+每次公開部署必須遞增版本，更新 `package.json`、鎖檔及 CHANGELOG；工作流在發布前核對來源與已上線版本，未遞增即停止。Issue 開始處理時須標籤、認領及回覆範圍和預計時間；驗收紀錄逐項列出環境、操作與結果。交付完成的判準是修正已進 main、公開部署成功且線上 `version.json.version` 已更新，再結案 Issue。
 
 畫板及學習選擇目前只保存在當前瀏覽器；JSON 可編輯備份不同於 PNG／GIF／影片分享輸出。為相容舊資料，保留既有 `tennis-tactics:board-drafts:v1` 等儲存鍵；產品改名不等於存檔格式升版。
 
