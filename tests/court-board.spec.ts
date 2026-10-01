@@ -795,13 +795,15 @@ test("keeps the armed actor draggable when the ball and receiver share a point",
   const board = currentBoardCanvas(page);
   const ballStart = starterPoint("网球");
   const receiverPoint = starterPoint("对手");
+  const landing: Point = [.70, .25];
 
-  // A realistic serve often ends exactly on the receiver. The guided actor
-  // must win this ambiguous hit target on both the movement and return steps.
-  await dragBoardPoint(page, board, ballStart, receiverPoint);
+  // Move the receiver to the incoming landing, then draw the return from the
+  // shared ball/player point. A receiver already at the landing now skips the
+  // movement phase, which is covered by v032-rally-authoring.spec.ts.
+  await dragBoardPoint(page, board, ballStart, landing);
   await expect(currentBoardGuide(page)).toContainText(/拖动接球球员.*画出跑位/);
 
-  await dragBoardPoint(page, board, receiverPoint, [.66, .34]);
+  await dragBoardPoint(page, board, receiverPoint, landing);
   await expect(currentBoardGuide(page)).toContainText("跑位已记下。再拖动网球，画下一拍。");
   await expect(currentBoardGuide(page)).toContainText(/再拖动网球.*画下一拍/);
   let saved = await saveAndRead(page);
@@ -810,8 +812,9 @@ test("keeps the armed actor draggable when the ball and receiver share a point",
   expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
   expect(saved.frames[0].paths.find((path) => path.kind === "move")).toMatchObject({ actorId: opponent.id });
   expect(saved.frames[1].paths).toEqual([]);
+  expect(saved.frames[1].poses[opponent.id]).toEqual(saved.frames[1].poses[ball.id]);
 
-  await dragBoardPoint(page, board, receiverPoint, [.32, .75]);
+  await dragBoardPoint(page, board, landing, [.32, .75]);
   await expect(currentBoardGuide(page)).toContainText(/拖动接球球员.*画出跑位/);
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(3);

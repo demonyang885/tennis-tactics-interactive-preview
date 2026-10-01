@@ -214,6 +214,9 @@ test("persists a genuinely edited recall board as a match review and finds it fr
   await openHomepage(page);
 
   await page.getByRole("button", { name: "记下刚才一分", exact: true }).click();
+  const discovery = page.getByRole("dialog", { name: "一分的发现", exact: true });
+  await expect(discovery).toBeVisible();
+  await discovery.getByRole("button", { name: "先不记", exact: true }).click();
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
   expect(await storedBoards(page)).toHaveLength(0);
 

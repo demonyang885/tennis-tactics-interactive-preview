@@ -1140,3 +1140,11 @@
   .board-editor.is-immersive .board-tool-rail > button,
   .board-editor.is-immersive .board-primary-play { min-height:48px; }
 }
+
+.practice-discovery-entry,.rally-discovery-entry { display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:10px 12px; border:1px solid var(--line,#e3e7eb); border-radius:12px; background:#fff; color:#1e3548; text-align:left; }
+.practice-discovery-entry > span { display:grid; gap:3px; }
+.practice-discovery-entry small,.rally-discovery-entry small { color:#63717d; font-size:12px; }
+.rally-discovery-entry { margin-top:10px; flex-wrap:wrap; }
+.rally-discovery-entry small { margin-left:auto; }
+.learning-discovery-actions { display:flex; gap:8px; margin:10px 0; }
+.learning-discovery-actions button { display:flex; align-items:center; justify-content:center; gap:6px; flex:1; min-height:48px; padding:8px; border:1px solid #dce3e8; border-radius:10px; background:#fff; color:#324d60; }
