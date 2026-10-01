@@ -15,7 +15,9 @@ RallyPath 是給青少年使用的網球戰術畫板：先畫出自己記得的�
 
 公開 v0.3.0 的畫板和學習選擇自動保存在**目前瀏覽器**，不是雲端帳號或跨裝置同步。換裝置前請先匯出可編輯備份；PNG、GIF、影片不是可編輯備份。瀏覽器儲存空間損壞、清除網站資料或跨分頁同時編輯，仍有資料風險。
 
-登入與跨裝置同步正在獨立私有測試站驗證：用同一個 ChatGPT 帳號登入後，可將本機畫板與練習記錄同步到個人畫板庫。首次上傳需明確操作；兩端都有修改時保留兩份，JSON 畫板與完整畫板庫備份皆可匯入。公開 GitHub Pages 的 v0.3.0 仍使用上述本機保存方式。
+2026-10-01，依使用者要求，[獨立雲端測試站](https://rallypath-cloud-test.fedyxxxxd.chatgpt.site) 已公開，可直接轉發連結。未登入訪客可使用前端與畫板，成果保存在目前瀏覽器。
+
+需要跨裝置同步時，用同一個 ChatGPT 帳號登入後，可將本機畫板與練習記錄同步到 D1 中的個人畫板庫。首次上傳需明確操作；兩端都有修改時保留兩份，JSON 畫板與完整畫板庫備份皆可匯入。正式 GitHub Pages 網址與 v0.3.0 版本維持原狀，仍使用上述本機保存方式。
 
 v0.3.0 已通過自動化與 GitHub CI；產品負責人批准直接發布，**尚未完成實體 iPhone／iPad Safari 及青少年獨立使用驗收**。這兩項後續工作分別追蹤在 [#7](https://github.com/demonyang885/tennis-tactics-interactive-preview/issues/7) 與 [#8](https://github.com/demonyang885/tennis-tactics-interactive-preview/issues/8)。詳細範圍與限制見 [v0.3 發布與後續工作](./docs/product/V0_3_CANDIDATE_AND_NEXT.md)。
 

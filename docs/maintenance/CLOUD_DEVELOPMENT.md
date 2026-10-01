@@ -64,9 +64,11 @@ npm run dev -- --port 5173
 
 憑證由執行環境提供，不寫入程式、文件、Git 提交或交接內容。公開 GitHub Pages 的 v0.3.0 仍使用本機畫板保存。
 
-## 登入與同步測試站
+## 公開測試站與登入同步
 
-2026-09-30 使用者追加要求：測試連結、登入與跨裝置同步。私有測試站使用平台的 ChatGPT 登入與 D1；公開 GitHub Pages 仍按正式版本規則處理。本機畫板保留為可離線編輯的副本，登入後的個人畫板庫以 D1 為持久來源。
+2026-09-30 使用者追加要求：測試連結、登入與跨裝置同步。2026-10-01 使用者進一步要求可直接轉發、無須先登入的測試入口；獨立測試站已調整為公開（Sites `access_mode: public`）。未登入訪客可直接開啟前端與畫板，成果保存在目前瀏覽器。正式 GitHub Pages 的網址、版本與發布流程維持原狀。
+
+需要個人畫板跨裝置同步時，在測試站使用平台的 ChatGPT 登入；同步 API 持續驗證登入身分，D1 中每個帳號的畫板庫獨立保存。本機畫板保留為可離線編輯的副本，登入後的個人畫板庫以 D1 為持久來源。
 
 測試站入口：[RallyPath 測試站](https://rallypath-cloud-test.fedyxxxxd.chatgpt.site)。Sites project ID 為 `appgprj_6abd9c7ffc548191adc281b46cc157c8`，後續發布沿用此站點；發布 checkout 的 `.openai/hosting.json` 保存該 ID，GitHub 仍是程式整合來源。
 
