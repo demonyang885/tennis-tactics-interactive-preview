@@ -2215,7 +2215,9 @@ export default function Prototype() {
     </ol>
     <details className="about-legend"><summary>画板颜色与线条</summary><div className="about-court-key" aria-label="画板颜色说明"><span><i className="is-me"/>我方</span><span><i className="is-opponent"/>对手</span><span><i className="is-ball"/>网球</span><span>亮线＝球路 · 虚线＝跑位</span></div><p className="about-note">战术示意不保证得分，场上仍要按实际情况判断。</p></details>
     {previewIdentity&&<details className="about-legend about-build"><summary>测试版本</summary><div className="about-build-identity"><code>{previewIdentity.host} · {previewIdentity.asset}</code></div></details>}
-    <p className="about-version"><VersionBadge showCommit /></p>
-    <button className="sheet-done" onClick={()=>setInfo(false)}>知道了</button>
+    <div className="about-version-actions">
+      <p className="about-version"><VersionBadge showCommit /></p>
+      <button className="sheet-done" onClick={()=>setInfo(false)}>知道了</button>
+    </div>
   </div></BottomSheet></div>;
 }
