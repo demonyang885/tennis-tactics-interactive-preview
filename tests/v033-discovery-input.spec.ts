@@ -3,6 +3,9 @@ import { createStarterBoard } from "../src/board/model";
 
 const BOARD_KEY = "tennis-tactics:board-drafts:v1";
 const NOTE_KEYS = ["rallypath:board-discovery:v1", "rallypath:board-follow-up:v1"];
+// DOMRect subtraction under a translated sheet can produce 43.999969 for a
+// 44px control. Keep its integer layout height strict and allow only roundoff.
+const CSS_PIXEL_EPSILON = .001;
 const starter = createStarterBoard();
 const ballId = starter.actors.find(actor => actor.kind === "ball")!.id;
 const board = { ...starter, id: "v033-native-input", title: "原生输入检查", smartRally: undefined, updatedAt: "2026-10-01T12:00:00.000Z", frames: [{ ...starter.frames[0], paths: [{ id: "serve", kind: "shot" as const, actorId: ballId, from: [.64, .96], to: [.28, .18] }] }] };
@@ -21,10 +24,12 @@ async function assertNativeField(page: Page, field: Locator) {
     fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
     width: element.getBoundingClientRect().width,
     height: element.getBoundingClientRect().height,
+    layoutHeight: (element as HTMLElement).offsetHeight,
   }));
   expect(metrics.fontSize).toBeGreaterThanOrEqual(16);
   expect(metrics.width).toBeGreaterThan(0);
-  expect(metrics.height).toBeGreaterThanOrEqual(44);
+  expect(metrics.layoutHeight).toBeGreaterThanOrEqual(44);
+  expect(metrics.height).toBeGreaterThanOrEqual(44 - CSS_PIXEL_EPSILON);
   await field.focus();
   await expect(field).toBeFocused();
   expect(await field.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
@@ -106,20 +111,26 @@ for (const viewport of [{ width: 320, height: 700 }, { width: 390, height: 844 }
         await field.fill("键盘出现时仍能看见正在输入的文字");
         for (const height of [360, 260, 240, 220]) {
           await keyboardViewport(page, height, 70);
-          await expect.poll(() => sheet.evaluate(element => {
-          const viewport = window.visualViewport!;
-          const top = viewport.offsetTop, bottom = top + viewport.height;
-          const fields = [document.activeElement, ...element.querySelectorAll(".discovery-actions button")];
-          const visible = fields.every(field => {
-            if (!(field instanceof HTMLElement)) return false;
-            const rect = field.getBoundingClientRect();
-            return rect.top >= top - 1 && rect.bottom <= bottom + 1 && rect.height >= 44;
-          });
-          const field = document.activeElement!.getBoundingClientRect();
-          const content = element.querySelector(".sheet-content")!.getBoundingClientRect();
-          const actions = element.querySelector(".discovery-actions")!.getBoundingClientRect();
-          return visible && field.top >= content.top - 1 && field.bottom <= actions.top - 4;
-          })).toBe(true);
+          await expect.poll(() => sheet.evaluate((element, epsilon) => {
+            const viewport = window.visualViewport!;
+            const top = viewport.offsetTop, bottom = top + viewport.height;
+            const bounds = element.getBoundingClientRect();
+            const heightLimit = Math.min(window.innerHeight * .625, viewport.height - 8);
+            // Fields can already fit during the previous viewport's layout.
+            // Require the whole sheet to finish adapting before a later
+            // pinch-zoom assertion captures its unchanged geometry.
+            const sheetVisible = bounds.top >= top - 1 && bounds.bottom <= bottom + 1 && bounds.height <= heightLimit + epsilon;
+            const fields = [document.activeElement, ...element.querySelectorAll(".discovery-actions button")];
+            const visible = fields.every(field => {
+              if (!(field instanceof HTMLElement)) return false;
+              const rect = field.getBoundingClientRect();
+              return rect.top >= top - 1 && rect.bottom <= bottom + 1 && rect.height >= 44 - epsilon && field.offsetHeight >= 44;
+            });
+            const field = document.activeElement!.getBoundingClientRect();
+            const content = element.querySelector(".sheet-content")!.getBoundingClientRect();
+            const actions = element.querySelector(".discovery-actions")!.getBoundingClientRect();
+            return sheetVisible && visible && field.top >= content.top - 1 && field.bottom <= actions.top - 4;
+          }, CSS_PIXEL_EPSILON)).toBe(true);
         }
         await expect(field).toBeFocused();
         await expect(field).toHaveValue("键盘出现时仍能看见正在输入的文字");
@@ -127,6 +138,7 @@ for (const viewport of [{ width: 320, height: 700 }, { width: 390, height: 844 }
         expect(keyboardBounds!.height).toBeLessThanOrEqual(viewport.height * .625 + 1);
         await testInfo.attach(`${kind}-shortened-viewport-${viewport.width}.png`, { body: await page.screenshot(), contentType: "image/png" });
         await keyboardViewport(page, 240, 110, 1.75);
+        await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
         const pinchedBounds = await sheet.boundingBox();
         expect(pinchedBounds!.y).toBeCloseTo(keyboardBounds!.y, 0);
         expect(pinchedBounds!.height).toBeCloseTo(keyboardBounds!.height, 0);
