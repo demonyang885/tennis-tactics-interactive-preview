@@ -607,7 +607,7 @@ test("keeps a board and its skill choice when linked deletion cannot be complete
   }, LEARNING_KEY);
 
   const library = page.getByTestId("flow-current");
-  const row = library.locator("article").filter({ hasText: pointBoard.title });
+  const row = library.getByRole("region", { name: "全部画板", exact: true }).locator(".board-draft-list > article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
   await confirmBoardDeletion(page);
 
@@ -634,7 +634,7 @@ test("rolls back the skill choice when deleting its observation fails", async ({
     };
   }, FOLLOW_UP_KEY);
   const library = page.getByTestId("flow-current");
-  const row = library.locator("article").filter({ hasText: pointBoard.title });
+  const row = library.getByRole("region", { name: "全部画板", exact: true }).locator(".board-draft-list > article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
   await confirmBoardDeletion(page);
   await expect(library.getByRole("alert")).toContainText(`暂时无法删除「${pointBoard.title}」，请重试`);
@@ -646,7 +646,7 @@ test("rolls back the skill choice when deleting its observation fails", async ({
 test("removes the linked skill choice only after its board can be deleted", async ({ page }) => {
   await seedLinkedBoardAndOpenLibrary(page);
   const library = page.getByTestId("flow-current");
-  const row = library.locator("article").filter({ hasText: pointBoard.title });
+  const row = library.getByRole("region", { name: "全部画板", exact: true }).locator(".board-draft-list > article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
   await confirmBoardDeletion(page);
 
@@ -677,7 +677,7 @@ test("restores the linked skill choice when the board deletion write fails", asy
   }, BOARD_KEY);
 
   const library = page.getByTestId("flow-current");
-  const row = library.locator("article").filter({ hasText: pointBoard.title });
+  const row = library.getByRole("region", { name: "全部画板", exact: true }).locator(".board-draft-list > article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
   await confirmBoardDeletion(page);
 
@@ -711,7 +711,7 @@ test("recovers linked records after deleting the board and restoring its choice 
   }, { boardKey: BOARD_KEY, learningKey: LEARNING_KEY });
 
   const library = page.getByTestId("flow-current");
-  const row = library.locator("article").filter({ hasText: pointBoard.title });
+  const row = library.getByRole("region", { name: "全部画板", exact: true }).locator(".board-draft-list > article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
   await confirmBoardDeletion(page);
   await expect(library.getByRole("alert")).toContainText("关联记录未能完整恢复");
@@ -739,7 +739,7 @@ test("does not start linked deletion if its recovery journal cannot be saved", a
   }, DELETE_JOURNAL_KEY);
 
   const library = page.getByTestId("flow-current");
-  const row = library.locator("article").filter({ hasText: pointBoard.title });
+  const row = library.getByRole("region", { name: "全部画板", exact: true }).locator(".board-draft-list > article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
   await confirmBoardDeletion(page);
   await expect(library.getByRole("alert")).toContainText("未开始删除");
@@ -762,7 +762,7 @@ test("can delete an unlinked board even when journal writes are unavailable", as
   }, { learningKey: LEARNING_KEY, followUpKey: FOLLOW_UP_KEY, journalKey: DELETE_JOURNAL_KEY });
 
   const library = page.getByTestId("flow-current");
-  const row = library.locator("article").filter({ hasText: pointBoard.title });
+  const row = library.getByRole("region", { name: "全部画板", exact: true }).locator(".board-draft-list > article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
   await confirmBoardDeletion(page);
   await expect(row).toHaveCount(0);
@@ -781,7 +781,7 @@ test("reports incomplete cleanup without resurrecting a successfully deleted boa
   }, DELETE_JOURNAL_KEY);
 
   const library = page.getByTestId("flow-current");
-  const row = library.locator("article").filter({ hasText: pointBoard.title });
+  const row = library.getByRole("region", { name: "全部画板", exact: true }).locator(".board-draft-list > article").filter({ hasText: pointBoard.title });
   await row.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
   await confirmBoardDeletion(page);
   await expect(row).toHaveCount(0);
