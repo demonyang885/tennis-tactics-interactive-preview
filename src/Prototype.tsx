@@ -919,7 +919,7 @@ type BoardCanvasCompletion = {
   path?:BoardDrag["path"];
 };
 
-function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,pathKind,markPreset,curved,smartEnabled,preferredActorId,contextPaths,contextFrameIndex,previewing,elapsed,display,preview,commit,finishPreview,onComplete,onOverride,onCancel,onNudge,onDelete,onError,onTogglePathCurve,onPlaceText,onEditText}: {
+function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,pathKind,markPreset,curved,smartEnabled,protectPreviousEndpoints,preferredActorId,contextPaths,contextFrameIndex,previewing,elapsed,display,preview,commit,finishPreview,onComplete,onOverride,onCancel,onNudge,onDelete,onError,onTogglePathCurve,onPlaceText,onEditText}: {
   board:BoardDocument;
   frameIndex:number;
   selection:BoardSelection|null;
@@ -930,6 +930,7 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
   markPreset:MarkPreset;
   curved:boolean;
   smartEnabled:boolean;
+  protectPreviousEndpoints:boolean;
   preferredActorId?:string;
   contextPaths:BoardPath[];
   contextFrameIndex:number|null;
@@ -1018,6 +1019,11 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
       if(hit?.kind==="handle"){
         const sourceFrameIndex=hit.frameIndex??frameIndex,path=board.frames[sourceFrameIndex]?.paths.find(item=>item.id===hit.id),handlePoint=hit.handle==="control"&&!path?.control&&path?[(path.from[0]+path.to[0])/2,(path.from[1]+path.to[1])/2] as BoardPoint:path?.[hit.handle];
         if(!handlePoint)return;
+        // The previous shot stays selected for Delete. Its old endpoints are
+        // not a return-shot origin until the user deliberately selects it.
+        if(protectPreviousEndpoints&&sourceFrameIndex!==frameIndex&&hit.handle!=="control"){
+          onError("先拖动接球球员画跑位，再从当前网球画下一拍。要修改上一拍，请先点选那条球路。");return;
+        }
         dragRef.current={pointerId:event.pointerId,base:board,kind:"handle",id:hit.id,handle:hit.handle,sourceFrameIndex,startClient:[event.clientX,event.clientY],offset:[handlePoint[0]-point[0],handlePoint[1]-point[1]],moved:false,selectionBefore:selection,automaticSelectionBefore:Boolean(preferredActorId&&selection?.kind==="element")};
         setSelection({kind:"element",id:hit.id,...(sourceFrameIndex===frameIndex?{}:{frameIndex:sourceFrameIndex})});event.currentTarget.setPointerCapture(event.pointerId);return;
       }
@@ -1944,7 +1950,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
           <button aria-label={`打开${board.title}的画板菜单`} aria-haspopup="dialog" aria-expanded={fileSurface==="menu"} onClick={event=>{rememberSheetOpener(event.currentTarget);setFileSurface("menu");}}><DotsHorizontalIcon/></button>
         </div>
       </div>
-      <BoardCanvas board={previewing?playbackBoard:board} frameIndex={frameIndex} selection={selection} setSelection={next=>{setAutomaticRouteSelection(false);setSelection(next);}} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} smartEnabled={!!activeSmart} preferredActorId={!selection||automaticRouteSelection&&selection.kind==="element"?activeSmart?.actorId:undefined} contextPaths={previousBeatPaths} contextFrameIndex={contextFrameIndex} previewing={previewing} elapsed={elapsed} display={display} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onOverride={overrideSmartActor} onCancel={cancelCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError} onTogglePathCurve={toggleCurve} onPlaceText={placeCourtNote} onEditText={editCourtNote}/>
+      <BoardCanvas board={previewing?playbackBoard:board} frameIndex={frameIndex} selection={selection} setSelection={next=>{setAutomaticRouteSelection(false);setSelection(next);}} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} smartEnabled={!!activeSmart} protectPreviousEndpoints={automaticRouteSelection&&activeSmart?.phase==="move"} preferredActorId={!selection||automaticRouteSelection&&selection.kind==="element"?activeSmart?.actorId:undefined} contextPaths={previousBeatPaths} contextFrameIndex={contextFrameIndex} previewing={previewing} elapsed={elapsed} display={display} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onOverride={overrideSmartActor} onCancel={cancelCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError} onTogglePathCurve={toggleCurve} onPlaceText={placeCourtNote} onEditText={editCourtNote}/>
       {isAlternative&&!previewing&&<div className="board-alternative-label" role="status">从第 {alternativeStartIndex+1} 拍试试 · {saveState==="saved"?"已保存":saveState==="error"?"未保存":"调整中"}</div>}
       {previewing&&(alternative||alternativeSeed&&saveState==="saved")&&<div className="board-compare-switch" role="group" aria-label="比较两条打法"><button aria-pressed={compareMode==="original"} onClick={()=>{setCompareMode("original");setElapsed(0);setIsPlaying(false);}}>原来</button><button aria-pressed={compareMode==="try"} onClick={()=>{setCompareMode("try");setElapsed(0);setIsPlaying(false);}}>试试</button>{alternativeSourceChanged&&<small>原分已改，按当时起点比较</small>}</div>}
       {previewing&&chosenSkill&&<div className="board-practice-context" aria-label={`正在观察${chosenSkill.label}`}>{chosenSkill.label}</div>}
