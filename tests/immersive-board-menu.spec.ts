@@ -322,8 +322,8 @@ test.describe("immersive tactical-board menu", () => {
     const rootMenu = page.getByRole("dialog", { name: "画板菜单", exact: true });
     await waitForSheetSettled(page, rootMenu);
     await expect(rootMenu.locator(".board-menu-edit-section .board-menu-list > button, .board-menu-manage-section .board-menu-list > button")).toHaveCount(4);
-    await expect(rootMenu.getByRole("button", { name: "一分的发现", exact: true })).toBeVisible();
-    await expect(rootMenu.getByRole("button", { name: "练后发现", exact: true })).toBeVisible();
+    await expect(rootMenu.getByRole("button", { name: "一分的发现", exact: true })).toHaveCount(0);
+    await expect(rootMenu.getByRole("button", { name: "练后发现", exact: true })).toHaveCount(0);
     await expect(rootMenu).not.toContainText("找打法");
     const zones = rootMenu.getByRole("button", { name: /站位分区/ });
     const labels = rootMenu.getByRole("button", { name: /区域名称/ });

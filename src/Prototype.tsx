@@ -99,7 +99,6 @@ import { FIXED_SKILLS, fixedSkillById, type BoardLearningChoice, type FixedSkill
 import { skillPracticeById, visiblePracticeContextPaths, type SkillPracticePlan, type SkillPracticeStage } from "./learning/practice";
 import { BOARD_FOLLOW_UP_EVENT, readBoardFollowUp, saveBoardFollowUp } from "./learning/followUp";
 import { readBoardDiscovery, saveBoardDiscovery } from "./learning/discovery";
-import { DiscoveryEditor, type DiscoveryKind } from "./learning/DiscoveryEditor";
 import {
   BOARD_LEARNING_EVENT,
   BOARD_LEARNING_STORAGE_KEY,
@@ -123,10 +122,6 @@ import.meta.hot?.dispose((data) => {
 });
 const BOARD_MARK_NAMES:Record<BoardMark["kind"],string>={target:"目标区",cone:"标志碟",basket:"球筐",text:"文字备注",freehand:"自由笔"};
 const COURT_NOTE_SUGGESTIONS=["先回位","看对手站位","落点再深一点","下一拍抢空当"] as const;
-const BOARD_DISCOVERY_OPEN_EVENT="rallypath-board-discovery-open";
-function requestPointDiscovery(boardId:string,kind:DiscoveryKind,skillId?:FixedSkillId) {
-  window.requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent(BOARD_DISCOVERY_OPEN_EVENT,{detail:{boardId,kind,skillId}})));
-}
 function numberedActorLabel(actors:BoardActor[],actor:BoardActor) {
   const matches=actors.filter(item=>item.kind===actor.kind&&item.label===actor.label);
   if(matches.length<2)return actor.label;
@@ -360,7 +355,7 @@ function SkillPracticeBoard({ stage }: { stage: SkillPracticeStage }) {
   </div>;
 }
 
-function SkillPracticePlayer({ plan, selectedForPoint, useForPoint, openDiscovery, back }: { plan:SkillPracticePlan;selectedForPoint:boolean;useForPoint:()=>{ok:true}|{ok:false;error:string};openDiscovery:()=>{ok:true}|{ok:false;error:string};back:()=>void }) {
+function SkillPracticePlayer({ plan, selectedForPoint, useForPoint, back }: { plan:SkillPracticePlan;selectedForPoint:boolean;useForPoint:()=>{ok:true}|{ok:false;error:string};back:()=>void }) {
   const skill=fixedSkillById(plan.id);
   const [error,setError]=useState(""),[guideOpen,setGuideOpen]=useState(false),[helpOpen,setHelpOpen]=useState(false);
   const {screenRef}=useScreenPortal();
@@ -394,7 +389,6 @@ function SkillPracticePlayer({ plan, selectedForPoint, useForPoint, openDiscover
         <section className="skill-practice-guide-row"><PersonIcon/><span><strong>这样摆</strong><div className="skill-practice-setup">{plan.guide.setup.map(item=><b key={item}>{item}</b>)}</div></span></section>
         <section className="skill-practice-guide-row"><DrawingPinIcon/><span><strong>这一组</strong><ol>{plan.guide.sequence.map(item=><li key={item}>{item}</li>)}</ol></span></section>
         <section className="skill-practice-guide-row is-focus"><CheckCircledIcon/><span><strong>只看一点</strong><p>{plan.guide.focus}</p></span><button className="skill-practice-use" disabled={selectedForPoint} onClick={()=>{setError("");const result=useForPoint();if(!result.ok)setError(result.error);}}>{selectedForPoint?<><CheckCircledIcon/>已接上</>:<><DrawingPinIcon/>练这个</>}</button></section>
-        <button className="practice-discovery-entry" aria-label="练后发现" onClick={()=>{setError("");const result=openDiscovery();if(!result.ok)setError(result.error);}}><Pencil2Icon/><span><strong>练后发现</strong><small>可选，记到原画板上</small></span></button>
         {error&&<p className="skill-practice-error" role="alert">{error}</p>}
       </div>
     </BottomSheet>
@@ -464,7 +458,7 @@ function connectRallySegments(previous:Tactic,next:Tactic,action:string):Tactic 
   return {...next,duration:Math.round(totalDuration*10)/10,frames};
 }
 
-function InteractiveCombinationPlayer({ combination, openPlan, openDiscovery }: { combination:Combination; openPlan:()=>void;openDiscovery?:()=>{ok:true}|{ok:false;error:string} }) {
+function InteractiveCombinationPlayer({ combination, openPlan }: { combination:Combination; openPlan:()=>void }) {
   const rally=interactiveRallies.find(item=>item.combinationId===combination.id)!;
   const practiceConfig=rally.decisionPractice;
   const nodes=new Map(rallyNodes.map(node=>[node.id,node]));
@@ -479,7 +473,6 @@ function InteractiveCombinationPlayer({ combination, openPlan, openDiscovery }: 
   const [history,setHistory]=useState<RallyHistoryItem[]>(()=>[{label:combinationExample(openingNode.tacticId,openingNode.excerpt).name,intent:"开局"}]);
   const [checkpointStart,setCheckpointStart]=useState(0);
   const [selecting,setSelecting]=useState(false);
-  const [discoveryError,setDiscoveryError]=useState("");
   const choiceHeadingRef=useRef<HTMLHeadingElement>(null),recapHeadingRef=useRef<HTMLHeadingElement>(null),selectingRef=useRef(false);
   const finished=elapsed>=current.tactic.duration;
   const progress=Math.min(100,(elapsed/current.tactic.duration)*100);
@@ -549,8 +542,6 @@ function InteractiveCombinationPlayer({ combination, openPlan, openDiscovery }: 
         {current.feedback?<div className="rally-feedback" aria-live="polite"><p><span>这样打</span>{current.feedback.benefit}</p><p><span>要留意</span>{current.feedback.caution}</p></div>:<><p className="rally-response">{current.node.cue}</p><div className="rally-decision"><span>当前判断</span><p aria-live="polite">{currentDecision}</p></div></>}
         <div className="rally-progress" aria-label={`本段播放进度 ${Math.round(progress)}%`}><i style={{width:`${progress}%`}}/></div>
       </div>}
-      {finished&&history.length>=3&&openDiscovery&&<button className="rally-discovery-entry" aria-label="记下这一分的发现" onClick={()=>{setDiscoveryError("");const result=openDiscovery();if(!result.ok)setDiscoveryError(result.error);}}><Pencil2Icon/><span>记下这一分的发现</span><small>可选 · 回到原画板</small></button>}
-      {discoveryError&&<p className="board-sheet-feedback is-error" role="alert">{discoveryError}</p>}
     </div>
   </div>;
 }
@@ -819,7 +810,7 @@ function BoardHome({ openBoard, openKnowledge, openLibrary }:{openBoard:(board:B
       {!draftsPending&&<button className="home-plan-primary" aria-label={latestPlayableBoard?`接着画${latestPlayableBoard.title}`:"画第一拍"} onClick={openLatestBoard}><strong>{latestBoardAction}</strong></button>}
       <div className="home-intent-actions" aria-label="开始画板">
         <button disabled={recoveryBlocked} onClick={()=>openNewBoard("tactic")}><Pencil2Icon/><span>想下一分</span></button>
-        <button disabled={recoveryBlocked} onClick={()=>openNewBoard("review")}><ReaderIcon/><span>记下刚才一分</span></button>
+        <button disabled={recoveryBlocked} onClick={()=>openNewBoard("review")}><ReaderIcon/><span>回顾刚才一分</span></button>
       </div>
       <button className={`home-scroll-cue${historyRevealed?" is-revealed":""}`} data-testid="home-scroll-cue" aria-label="上滑查看画板历史" aria-controls="home-history-hub" onClick={revealHistory}><span>上滑看我的画板</span><ChevronDownIcon aria-hidden="true"/></button>
     </section>
@@ -1204,7 +1195,7 @@ function exitScreenFullscreenBestEffort(screen:HTMLElement|null) {
 }
 
 
-function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard, migrationSource, legacyNeedsReview=false, entryIntent, initialDiscoveryKind, entryNotice, alternativeSeed, alternativePersisted=false, back, openLibrary, openTacticsForPoint, openTacticForPoint, openSkillForPoint, openAlternativeForPoint }:{initialBoard:BoardDocument;initialPersisted?:boolean;initialStoredBoard?:BoardDocument;migrationSource?:BoardDocument;legacyNeedsReview?:boolean;entryIntent?:"review";initialDiscoveryKind?:DiscoveryKind;entryNotice?:string;alternativeSeed?:BoardAlternative;alternativePersisted?:boolean;back:()=>void;openLibrary:()=>void;openTacticsForPoint:(boardId:string,category:CategoryFilter)=>void;openTacticForPoint:(boardId:string,tactic:Tactic)=>void;openSkillForPoint:(boardId:string,skillId:FixedSkillId)=>void;openAlternativeForPoint?:(boardId:string,frameId:string,tacticId:string)=>{ok:true}|{ok:false;error:string}}) {
+function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard, migrationSource, legacyNeedsReview=false, entryIntent, entryNotice, alternativeSeed, alternativePersisted=false, back, openLibrary, openTacticsForPoint, openTacticForPoint, openSkillForPoint, openAlternativeForPoint }:{initialBoard:BoardDocument;initialPersisted?:boolean;initialStoredBoard?:BoardDocument;migrationSource?:BoardDocument;legacyNeedsReview?:boolean;entryIntent?:"review";entryNotice?:string;alternativeSeed?:BoardAlternative;alternativePersisted?:boolean;back:()=>void;openLibrary:()=>void;openTacticsForPoint:(boardId:string,category:CategoryFilter)=>void;openTacticForPoint:(boardId:string,tactic:Tactic)=>void;openSkillForPoint:(boardId:string,skillId:FixedSkillId)=>void;openAlternativeForPoint?:(boardId:string,frameId:string,tacticId:string)=>{ok:true}|{ok:false;error:string}}) {
   const keyboard=useKeyboard();
   const {screenRef}=useScreenPortal();
   const initialSmart=getSmartBoardContinuation(initialBoard);
@@ -1216,8 +1207,6 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
   const [past,setPast]=useState<BoardDocument[]>(migrationSource?[migrationSource]:[]),[future,setFuture]=useState<BoardDocument[]>([]),[saveState,setSaveState]=useState<BoardSaveState>(migrationSource?"dirty":initialPersisted?"saved":"clean"),[saveConflict,setSaveConflict]=useState<BoardSaveConflict|null>(null),[error,setError]=useState(""),[notice,setNotice]=useState(migrationSource?"已将旧版跑位改为与来球同步；可撤销为手动时间线。":legacyNeedsReview?"这份旧版时间线无法安全自动同步，已切换为手动编辑，请检查拍次。":entryNotice??"");
   const [tool,setTool]=useState<BoardTool>(alternativeSeed?"select":initialView&&initialView.frameIndex!==initialSmart?.frameIndex?"select":initialSmart?.phase??"select"),[actorPreset,setActorPreset]=useState<ActorPreset>("me"),[pathKind,setPathKind]=useState<"shot"|"feed">("shot"),[markPreset,setMarkPreset]=useState<MarkPreset>("target"),[curved,setCurved]=useState(true);
   const [courtNoteEditor,setCourtNoteEditor]=useState<CourtNoteEditor|null>(null),[courtNoteDraft,setCourtNoteDraft]=useState("");
-  const [discoveryKind,setDiscoveryKind]=useState<DiscoveryKind|null>(initialDiscoveryKind??(entryIntent==="review"?"point":null));
-  const [discoverySkillId,setDiscoverySkillId]=useState<FixedSkillId|undefined>(undefined);
   const [noteBoardHeight,setNoteBoardHeight]=useState<number|null>(null),[noteViewport,setNoteViewport]=useState<{height:number;top:number}|null>(null);
   const noteViewportBeforeKeyboardRef=useRef(0);
   const [viewMode,setViewMode]=useState<"edit"|"preview">("edit"),[isPlaying,setIsPlaying]=useState(false),[elapsed,setElapsed]=useState(0),[speed]=useState(1);
@@ -1280,7 +1269,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
   const setSheetVisibility=useCallback((setter:(open:boolean)=>void,nextOpen:boolean)=>{if(!nextOpen)keyboard.hide();setter(nextOpen);},[keyboard]);
   const rememberSheetOpener=useCallback((opener:HTMLElement)=>{if(sheetFocusTimerRef.current!==null)window.clearTimeout(sheetFocusTimerRef.current);sheetOpenerRef.current=opener;},[]);
   const restoreSheetFocus=useCallback((destination:"opener"|"canvas")=>{if(sheetFocusTimerRef.current!==null)window.clearTimeout(sheetFocusTimerRef.current);const opener=sheetOpenerRef.current;sheetFocusTimerRef.current=window.setTimeout(()=>{const canvas=editorRef.current?.querySelector<HTMLElement>('[data-testid="board-canvas"]');const target=destination==="canvas"?canvas:opener?.isConnected?opener:selectToolRef.current;(target??selectToolRef.current)?.focus();sheetOpenerRef.current=null;sheetFocusTimerRef.current=null;},360);},[]);
-  const closeBoardSurfaces=useCallback(()=>{mediaAbortRef.current?.abort();mediaAbortRef.current=null;if(mediaUrlRef.current){URL.revokeObjectURL(mediaUrlRef.current);mediaUrlRef.current=null;}setMediaState({status:"idle"});setFileSurface(null);setHistoryOpen(false);setFrameOpen(false);setHelpOpen(false);setToolPalette(null);setCourtNoteEditor(null);setDiscoveryKind(null);keyboard.hide();},[keyboard]);
+  const closeBoardSurfaces=useCallback(()=>{mediaAbortRef.current?.abort();mediaAbortRef.current=null;if(mediaUrlRef.current){URL.revokeObjectURL(mediaUrlRef.current);mediaUrlRef.current=null;}setMediaState({status:"idle"});setFileSurface(null);setHistoryOpen(false);setFrameOpen(false);setHelpOpen(false);setToolPalette(null);setCourtNoteEditor(null);keyboard.hide();},[keyboard]);
   const finishImmersiveExit=useCallback((announce=exitAnnouncementRef.current,message="已退出全屏战术板。")=>{
     const screen=screenRef.current;
     const stage=screen?.closest<HTMLElement>(".phone-stage");
@@ -1430,12 +1419,6 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
     if(!needsSaveRef.current){if(requireCurrent&&persistedBoardRef.current){const checked=checkBoardUnchanged(persistedBoardRef.current);if(!checked.ok){setSaveState("error");setSaveConflict(checked.conflict??null);setError(checked.conflict==="deleted"?"原画板已删除，不能继续选技能或打法。可备份当前画面，或返回首页重新开始。":checked.conflict==="changed"?"原画板已在另一页修改。请返回首页重新打开，或备份当前画面。":checked.error);return checked;}}return {ok:true,value:candidate} as const;}setSaveState("saving");const result=saveBoardIfUnchanged(candidate,persistedBoardRef.current);if(result.ok){const showingCommitted=boardRef.current===candidate;persistedBoardRef.current=result.value;committedBoardRef.current=result.value;needsSaveRef.current=false;if(showingCommitted)setBoard(result.value);setSaveState("saved");setSaveConflict(null);setError("");window.dispatchEvent(new Event(BOARD_DRAFTS_EVENT));}else{setSaveState("error");setSaveConflict(result.conflict??null);setError(result.conflict?result.error:"这次修改尚未保存，请重试");}return result;},[alternativeSeed,setBoard]);
 
   const refreshLearningChoice=useCallback(()=>{const result=readLearningChoice(initialBoard.id);if(result.ok)setLearningChoice(result.value);},[initialBoard.id]);
-  const openDiscovery=useCallback((kind:DiscoveryKind,skillId?:FixedSkillId)=>{closeBoardSurfaces();setIsPlaying(false);setDiscoveryKind(kind);setDiscoverySkillId(skillId);},[closeBoardSurfaces]);
-  useEffect(()=>{
-    const open=(event:Event)=>{const detail=(event as CustomEvent<{boardId:string;kind:DiscoveryKind;skillId?:FixedSkillId}>).detail;if(editorRef.current?.closest<HTMLElement>(".flow-screen")?.dataset.flowCurrent==="true"&&!isAlternative&&detail?.boardId===initialBoard.id&&(detail.kind==="point"||detail.kind==="practice"))openDiscovery(detail.kind,fixedSkillById(detail.skillId)?.id);};
-    window.addEventListener(BOARD_DISCOVERY_OPEN_EVENT,open);
-    return()=>window.removeEventListener(BOARD_DISCOVERY_OPEN_EVENT,open);
-  },[initialBoard.id,isAlternative,openDiscovery]);
   const refreshAlternative=useCallback(()=>{const result=readBoardAlternative(initialBoard.id);if(result.ok)setAlternative(result.value);},[initialBoard.id]);
   const openPointSkill=useCallback((skillId:FixedSkillId)=>{
     if(!hasMeaningfulPoint){setError("先画出这一分，再决定要练什么。");return;}
@@ -1578,7 +1561,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
       document.removeEventListener("webkitfullscreenerror",failed);
     };
   },[closeBoardSurfaces,finishImmersiveExit,recoverNativeExit,requestNativeExit,screenRef]);
-  useEffect(()=>{if(!immersive)return;const onKeyDown=(event:KeyboardEvent)=>{if(event.key!=="Escape"||event.defaultPrevented)return;if(fileSurface!==null||historyOpen||frameOpen||toolPalette!==null||discoveryKind!==null||helpOpen||courtNoteEditor!==null||keyboard.visible)return;sendBoardAction(initialBoard.id,"back");};document.addEventListener("keydown",onKeyDown,true);return()=>document.removeEventListener("keydown",onKeyDown,true);},[courtNoteEditor,discoveryKind,fileSurface,frameOpen,helpOpen,historyOpen,immersive,initialBoard.id,keyboard.visible,toolPalette]);
+  useEffect(()=>{if(!immersive)return;const onKeyDown=(event:KeyboardEvent)=>{if(event.key!=="Escape"||event.defaultPrevented)return;if(fileSurface!==null||historyOpen||frameOpen||toolPalette!==null||helpOpen||courtNoteEditor!==null||keyboard.visible)return;sendBoardAction(initialBoard.id,"back");};document.addEventListener("keydown",onKeyDown,true);return()=>document.removeEventListener("keydown",onKeyDown,true);},[courtNoteEditor,fileSurface,frameOpen,helpOpen,historyOpen,immersive,initialBoard.id,keyboard.visible,toolPalette]);
   useEffect(()=>{
     const flowStack=editorRef.current?.closest<HTMLElement>(".flow-stack");
     if(!flowStack)return;
@@ -2000,7 +1983,6 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
       <button className="is-me" aria-label="我方球员" onClick={()=>chooseAdd("actor","me")}><span className="board-add-player-badge is-me" aria-hidden="true">我</span><span>我方</span></button><button className="is-opponent" aria-label="对手球员" onClick={()=>chooseAdd("actor","opponent")}><span className="board-add-player-badge is-opponent" aria-hidden="true">对</span><span>对手</span></button><button aria-label="网球" onClick={()=>chooseAdd("actor","ball")}><ComponentInstanceIcon aria-hidden="true"/><span>网球</span></button><button aria-label="画球路" disabled={selectedActor?.kind!=="ball"} onClick={()=>beginSelectedPath("shot")}><ArrowTopRightIcon aria-hidden="true"/><span>球路</span></button><button aria-label="画跑位" disabled={selectedActor?.kind!=="player"} onClick={()=>beginSelectedPath("move")}><CornerTopRightIcon aria-hidden="true"/><span>跑位</span></button><button aria-label="喂球路线" disabled={selectedActor?.kind!=="ball"} onClick={()=>beginSelectedPath("feed")}><ResumeIcon aria-hidden="true"/><span>喂球</span></button><button aria-label="目标区" onClick={()=>chooseAdd("mark","target")}><TargetIcon aria-hidden="true"/><span>目标区</span></button><button aria-label="标志碟" onClick={()=>chooseAdd("mark","cone")}><DrawingPinIcon aria-hidden="true"/><span>标志碟</span></button><button aria-label="球筐" onClick={()=>chooseAdd("mark","basket")}><ArchiveIcon aria-hidden="true"/><span>球筐</span></button><button aria-label="文字备注" onClick={()=>chooseAdd("mark","text")}><TextIcon aria-hidden="true"/><span>备注</span></button><button aria-label="自由笔" onClick={()=>chooseAdd("mark","freehand")}><Pencil2Icon aria-hidden="true"/><span>自由笔</span></button>
     </div></div></BottomSheet>
     <BottomSheet open={fileSurface==="menu"} onOpenChange={open=>{if(!open){setFileSurface(null);keyboard.hide();restoreSheetFocus("opener");}}} title="画板菜单" snap={.625}><div className="board-sheet board-menu-sheet">{sheetFeedback}
-      {!isAlternative&&<section className="board-menu-section"><p>发现笔记 · 可选</p><div className="board-menu-list board-menu-compact-list"><button aria-label="一分的发现" onClick={()=>openDiscovery("point")}><Pencil2Icon/><span><strong>一分的发现</strong><small>保存或找回这块画板的笔记</small></span></button><button aria-label="练后发现" onClick={()=>openDiscovery("practice")}><DrawingPinIcon/><span><strong>练后发现</strong><small>记下这次练习看到的变化</small></span></button></div></section>}
       {!isAlternative&&<section className="board-menu-section board-menu-edit-section"><p>编辑</p><div className="board-menu-list board-menu-compact-list"><button onClick={()=>{setTitleDraft(committedBoardRef.current.title);setError("");setFileSurface("rename");}}><Pencil2Icon/><span><strong>修改名称</strong></span></button><button className="board-menu-restore" aria-label={boardAtStarter?"现在就是发球站位":"一键还原发球站位，可撤销"} disabled={boardAtStarter} onClick={restoreServePosition}><ResetIcon/><span><strong>一键还原站位</strong></span>{boardAtStarter&&<CheckCircledIcon/>}</button></div></section>}
       <section className="board-menu-section board-menu-manage-section"><p>{isAlternative?"试法":"保存与管理"}</p><div className="board-menu-list board-menu-compact-list"><button onClick={()=>{clearMediaOutput();setFileSurface("save-share");}}><Share2Icon/><span><strong>保存与分享</strong></span></button>{!isAlternative&&<button onClick={()=>{const result=saveNow();if(!result.ok)return;if(immersive){resumeImmersiveOnReturnRef.current=true;afterImmersiveExitRef.current=openLibrary;exitImmersive(false);return;}keyboard.hide();setFileSurface(null);openLibrary();}}><LayersIcon/><span><strong>草稿与模板</strong></span></button>}{isAlternative&&<button onClick={leaveAlternativeWithoutSaving}><ArrowLeftIcon/><span><strong>{persistedAlternativeRef.current?"返回上一页":"放弃未保存的试法"}</strong></span></button>}{isAlternative&&persistedAlternativeRef.current&&<button onClick={()=>setConfirmAlternativeDelete(value=>!value)}><TrashIcon/><span><strong>{confirmAlternativeDelete?"取消删除":"删除试法"}</strong></span></button>}{isAlternative&&confirmAlternativeDelete&&<button className="board-menu-delete-confirm" onClick={removeAlternative}>确认删除试法，原分保留</button>}</div></section>
       <p className={`board-autosave-note is-${saveState}`}>{saveState==="clean"?"修改后自动保存":saveState==="saving"?"保存中…":saveState==="saved"?"已保存":saveState==="error"?"保存失败":"等待保存"}</p>
@@ -2009,7 +1991,6 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
     </div></BottomSheet>
     <BottomSheet open={fileSurface==="learning"} onOpenChange={open=>{if(!open){setFileSurface(null);setLearningSurface("tactic");keyboard.hide();restoreSheetFocus("opener");}}} title={learningSurface==="tactic"?"这分卡在哪？":"这次先练好一件事"} snap={.625}><div className="board-sheet board-learning-sheet">
       {learningSurface==="skill"&&<button className="board-sheet-back" aria-label="返回问题分类" onClick={()=>setLearningSurface("tactic")}><ChevronLeftIcon/></button>}<button className="guide-close" aria-label="关闭下一步" onClick={()=>{setFileSurface(null);setLearningSurface("tactic");keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}
-      <div className="learning-discovery-actions"><button onClick={()=>openDiscovery("point")}><Pencil2Icon/>一分的发现</button><button onClick={()=>openDiscovery("practice")}><DrawingPinIcon/>练后发现</button></div>
             {learningSurface==="tactic"?<>{chosenTactic&&<button className="learning-current" onClick={openChosenPointTactic}><CheckCircledIcon/><span><small>已选打法</small><strong>{chosenTactic.name}</strong></span></button>}{(chosenTactic||alternative)&&<button className="learning-current learning-alternative-entry" onClick={openPointAlternative}><ArrowTopRightIcon/><span><small>{alternative?"已保存另一种打法":`从第 ${frameIndex+1} 拍开始`}</small><strong>{alternative?"查看／修改试法":"从这拍试试"}</strong></span></button>}<p className="learning-prompt">先选最接近的问题，再看对应打法。</p><div className="learning-choice-grid">{categories.filter(category=>category!=="全部").map(category=><button key={category} onClick={()=>openPointTactics(category)}><TargetIcon/><strong>{category}</strong></button>)}</div><button className="learning-skill-entry" aria-label="练一项" onClick={()=>setLearningSurface("skill")}><DrawingPinIcon/><span><strong>练一项</strong><small>挑一个固定技能，先看示范</small></span></button><button className="learning-all" onClick={()=>openPointTactics("全部")}>看看全部打法</button></>:<><p className="learning-prompt">先看画板示范，再决定这次练哪一项。</p>{chosenSkill&&<button className="learning-current" onClick={openChosenPointSkill}><CheckCircledIcon/><span><small>已保存的练习</small><strong>{chosenSkill.label}</strong></span></button>}<div className="learning-skill-list">{FIXED_SKILLS.map(skill=><button key={skill.id} aria-pressed={learningChoice?.route==="skill"&&learningChoice.skillId===skill.id} onClick={()=>openPointSkill(skill.id)}><span><strong>{skill.label}</strong><small>{skill.question}</small></span>{learningChoice?.route==="skill"&&learningChoice.skillId===skill.id?<CheckCircledIcon/>:null}</button>)}</div></>}
     </div></BottomSheet>
     <BottomSheet open={fileSurface==="save-share"} onOpenChange={open=>{if(!open){setFileSurface(null);keyboard.hide();restoreSheetFocus("opener");}}} title="保存与分享" snap={.625}><div className="board-sheet board-save-share-sheet"><button className="board-sheet-back" aria-label="返回画板菜单" onClick={()=>setFileSurface("menu")}><ChevronLeftIcon/></button><button className="guide-close" aria-label="关闭保存与分享" onClick={()=>{setFileSurface(null);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}
@@ -2022,7 +2003,6 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
       {mediaState.status==="generating"?<div className="board-media-progress" role="status" aria-live="polite"><span className="board-media-icon">{mediaState.kind==="video"?<VideoIcon/>:<ImageIcon/>}</span><strong>正在生成{mediaState.kind==="video"?"球路视频":"动态图"}</strong><small>{mediaState.kind==="video"?"会按球路实际时长录制，请暂时保持此页在前台。":"正在逐帧绘制动态图。"}</small><progress max="1" value={mediaState.progress}/><b>{Math.round(mediaState.progress*100)}%</b><button className="sheet-done is-secondary" onClick={clearMediaOutput}>取消</button></div>:mediaState.status==="ready"?<div className="board-media-result"><div className="board-media-preview">{mediaState.result.format==="video"?<video src={mediaState.url} autoPlay loop muted playsInline controls/>:<img src={mediaState.url} alt="战术动态图预览"/>}</div><div className="board-media-result-copy"><CheckCircledIcon/><span><strong>{mediaState.result.format==="video"?"球路视频":"动态图"}已生成</strong><small>{mediaState.result.duration.toFixed(1)} 秒 · {(mediaState.result.blob.size/1024/1024).toFixed(1)} MB</small></span></div><button className="sheet-done" onClick={()=>void shareMedia()}>{canNativeShare?<><Share2Icon/>分享{mediaState.result.format==="video"?"球路视频":"动态图"}</>:<><DownloadIcon/>下载到设备</>}</button>{canNativeShare&&<button className="sheet-done is-secondary" onClick={downloadMedia}><DownloadIcon/>下载到设备</button>}<button className="board-media-again" onClick={clearMediaOutput}>换一种格式</button></div>:<><p className="board-media-privacy"><InfoCircledIcon/><span><strong>画板与分享文件分开</strong><small>这里生成的是只读成品，不会改动画板。</small></span></p>{mediaState.status==="error"&&<p className="board-sheet-feedback is-error" role="alert">{mediaState.message}</p>}<div className="board-media-options"><button disabled={!hasPlayablePath||totalDuration<=0||totalDuration>30||!videoEncoding} onClick={()=>void beginMediaExport("video")}><VideoIcon/><span><strong>分享球路视频 <b>推荐</b></strong><small>画质更清楚，适合保存和发布</small><em>{!hasPlayablePath?"先画一条球路":totalDuration<=0?"球路时长要大于 0 秒":totalDuration>30?"球路超过 30 秒，请缩短后再试":!videoEncoding?"此浏览器暂时不能生成视频，改用动态图":`${totalDuration.toFixed(1)} 秒 · ${videoEncoding.extension.toUpperCase()}`}</em></span></button><button disabled={!hasPlayablePath||totalDuration<=0||totalDuration>12} onClick={()=>void beginMediaExport("gif")}><ImageIcon/><span><strong>分享动态图</strong><small>自动循环，适合聊天中快速查看</small><em>{!hasPlayablePath?"先画一条球路":totalDuration<=0?"球路时长要大于 0 秒":totalDuration>12?"球路超过 12 秒，请缩短后再试":`${totalDuration.toFixed(1)} 秒 · 无声`}</em></span></button></div><button className="sheet-done is-secondary" onClick={()=>{clearMediaOutput();setFileSurface("save-share");}}>返回保存与分享</button></>}
     </div></BottomSheet>
     <BoardRenameLayer open={fileSurface==="rename"} value={titleDraft} error={error} onChange={value=>{setTitleDraft(value);if(error)setError("");}} onCancel={cancelRename} onSubmit={applyRename}/>
-    {!isAlternative&&<DiscoveryEditor open={discoveryKind!==null} kind={discoveryKind??"point"} board={committedBoardRef.current} frameId={frame.id} skillId={discoverySkillId??chosenSkill?.id} prepareBoard={()=>{if(!persistedBoardRef.current)needsSaveRef.current=true;return saveNow(true);}} onOpenChange={open=>{if(!open){setDiscoveryKind(null);keyboard.hide();restoreSheetFocus("opener");}}} onSaved={(_record,kind)=>setNotice(kind==="point"?"这一分的发现已保存，可从画板菜单找回。":"练后发现已保存，可从画板菜单找回。")}/>}
     <BottomSheet open={historyOpen} onOpenChange={open=>{setSheetVisibility(setHistoryOpen,open);if(!open)restoreSheetFocus("opener");}} title="拍次" snap={.44}><div className="board-sheet"><button className="guide-close" aria-label="关闭拍次" onClick={()=>{setHistoryOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<div className="board-object-list board-history-list">{board.frames.map((item,index)=>{const isCurrent=index===frameIndex,isContinuation=smartContinuation?.frameIndex===index&&item.paths.length===0,continuationLabel=smartContinuation?.phase==="move"?"等待接球方跑位":index===0?"等待第一条球路":"等待下一拍球路";return <button key={item.id} aria-current={isCurrent?"step":undefined} aria-label={`编辑第 ${index+1} 拍：${item.label}`} onClick={()=>openFrameFromHistory(index)}><span className="board-history-number">{index+1}</span><span><strong>{item.label}</strong><small>{isContinuation?continuationLabel:`${item.paths.length} 条轨迹 · ${item.duration.toFixed(1)} 秒`}</small></span>{isCurrent?<CheckCircledIcon/>:null}</button>;})}</div></div></BottomSheet>
     <BottomSheet open={frameOpen} onOpenChange={open=>{setSheetVisibility(setFrameOpen,open);if(!open)restoreSheetFocus("opener");}} title={`第 ${frameIndex+1} 拍`} description="球速由画球路时的蓄力决定，跑位与来球同步。" snap={.58}><div className="board-sheet"><button className="guide-close" aria-label="取消编辑拍次" onClick={()=>{setFrameOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button>{sheetFeedback}<label className="board-field"><span>拍次口令</span><KeyboardInput value={frameLabel} maxLength={42} onChange={event=>setFrameLabel(event.currentTarget.value)}/></label><button className="sheet-done" onClick={applyFrame}>完成</button><div className="board-sheet-row"><button onClick={()=>{addNextFrame(true);setFrameOpen(false);keyboard.hide();restoreSheetFocus("canvas");}}><CopyIcon/>沿用标记到新增一拍</button><button className="is-danger" disabled={board.frames.length===1} onClick={deleteCurrentFrame}><TrashIcon/>删除此拍</button></div></div></BottomSheet>
   </div>;
@@ -2107,7 +2087,7 @@ export default function Prototype() {
       title:"草稿与模板",
       headerHeight:62,
       header:flow=><AppHeader title="草稿与模板" back={flow.pop}/>,
-      render:flow=><BoardLibrary openDiscovery={(board,kind)=>flow.push(makeBoard(board,true,undefined,undefined,kind))} activeBoardId={activeBoardId} openBoard={(board,persisted,notice)=>flow.push(makeBoard(board,persisted,undefined,notice))} openAlternative={(record,sourceMissing)=>flow.push(makeAlternative(record,true,sourceMissing))}/>,
+      render:flow=><BoardLibrary activeBoardId={activeBoardId} openBoard={(board,persisted,notice)=>flow.push(makeBoard(board,persisted,undefined,notice))} openAlternative={(record,sourceMissing)=>flow.push(makeAlternative(record,true,sourceMissing))}/>,
     };
   }
   function makeAlternative(record:BoardAlternative,persisted:boolean,sourceMissing=false):FlowScreen {
@@ -2121,7 +2101,7 @@ export default function Prototype() {
         openLibrary={()=>{}} openTacticsForPoint={()=>{}} openTacticForPoint={()=>{}} openSkillForPoint={()=>{}}/>,
     };
   }
-  function makeBoard(board:BoardDocument,initialPersisted=false,entryIntent?:"review",entryNotice?:string,initialDiscoveryKind?:DiscoveryKind):FlowScreen {
+  function makeBoard(board:BoardDocument,initialPersisted=false,entryIntent?:"review",entryNotice?:string):FlowScreen {
     const categorized=board.purpose?board:{...board,purpose:getBoardPurpose(board)};
     const blankPrepared=prepareBlankRallyBoard(categorized);
     const synchronized=prepareSynchronizedRallyBoard(blankPrepared);
@@ -2133,7 +2113,7 @@ export default function Prototype() {
     return {
       id:`board-${prepared.id}`,
       title:prepared.title,
-      render:flow=> <BoardEditor initialBoard={prepared} initialPersisted={initialPersisted} initialStoredBoard={initialPersisted?board:undefined} migrationSource={migrationSource} legacyNeedsReview={legacyNeedsReview} entryIntent={entryIntent} initialDiscoveryKind={initialDiscoveryKind} entryNotice={entryNotice} back={()=>{
+      render:flow=> <BoardEditor initialBoard={prepared} initialPersisted={initialPersisted} initialStoredBoard={initialPersisted?board:undefined} migrationSource={migrationSource} legacyNeedsReview={legacyNeedsReview} entryIntent={entryIntent} entryNotice={entryNotice} back={()=>{
         const flowStack=document.querySelector<HTMLElement>(".tennis-app .flow-stack");
         const currentScreen=flowStack?.querySelector<HTMLElement>('.flow-screen[data-flow-current="true"]');
         const previousScreen=currentScreen?.previousElementSibling;
@@ -2186,8 +2166,7 @@ export default function Prototype() {
           for(let index=0;index<returnSteps;index+=1)returnToBoard();
           return {ok:true} as const;
         };
-        const openDiscovery=()=>{const current=requireLivePointBoard(openedBoard);if(!current.ok)return current;for(let index=0;index<returnSteps;index+=1)returnToBoard();requestPointDiscovery(pointBoardId,"practice",skillId);return {ok:true} as const;};
-        return <SkillPracticePlayer plan={plan} selectedForPoint={selected} useForPoint={useForPoint} openDiscovery={openDiscovery} back={returnToBoard}/>;
+        return <SkillPracticePlayer plan={plan} selectedForPoint={selected} useForPoint={useForPoint} back={returnToBoard}/>;
       },
     };
   }
@@ -2228,19 +2207,8 @@ export default function Prototype() {
     };
   }
   function makeCombination(combination:Combination):FlowScreen {return {id:`${combination.id}-plan`,title:combination.name,headerHeight:62,header:flow=><AppHeader title={`${combination.name} · 思路`} back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><CombinationDetail combination={combination} openTactic={(tactic,contextLabel)=>flow.push(makeDetail(tactic,contextLabel))} openBoard={()=>flow.push(makeBoard(boardFromTactics(combination.stages.map(stage=>combinationExample(stage.tacticId,stage.excerpt)),combination.name)))}/>};}
-  function makeInteractive(combination:Combination,pointBoardId?:string,sourceBoard?:ReturnType<typeof capturePointBoard>):FlowScreen {
-    const openedBoard=pointBoardId?(sourceBoard??capturePointBoard(pointBoardId)):undefined;
-    return {id:`${combination.id}-rally${pointBoardId?`-for-${pointBoardId}`:""}`,title:combination.name,headerHeight:62,header:flow=><AppHeader title={combination.name} back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=>{
-      const openDiscovery=pointBoardId?()=>{
-        const current=requireLivePointBoard(openedBoard!);
-        if(!current.ok)return current;
-        const flowStack=document.querySelector<HTMLElement>(".tennis-app .flow-stack"),currentScreen=flowStack?.querySelector<HTMLElement>('.flow-screen[data-flow-current="true"]'),destination=currentScreen?.previousElementSibling?.previousElementSibling;
-        if(!destination?.querySelector(".board-editor"))return {ok:false,error:"原画板暂时不在返回路径，请返回首页重新打开。"} as const;
-        destination.classList.add("flow-pop-destination");currentScreen?.classList.add("flow-pop-exiting");currentScreen?.previousElementSibling?.classList.add("flow-pop-exiting");
-        flow.pop();flow.pop();requestPointDiscovery(pointBoardId,"point");return {ok:true} as const;
-      }:undefined;
-      return <InteractiveCombinationPlayer combination={combination} openPlan={()=>flow.push(makeCombination(combination))} openDiscovery={openDiscovery}/>;
-    }};
+  function makeInteractive(combination:Combination,pointBoardId?:string):FlowScreen {
+    return {id:`${combination.id}-rally${pointBoardId?`-for-${pointBoardId}`:""}`,title:combination.name,headerHeight:62,header:flow=><AppHeader title={combination.name} back={flow.pop} menu={()=>setInfo(true)}/>,render:flow=><InteractiveCombinationPlayer combination={combination} openPlan={()=>flow.push(makeCombination(combination))}/>};
   }
   function makeKnowledge(initialMode:"tactics"|"combinations"="tactics",initialCategory:CategoryFilter="全部",pointBoardId?:string):FlowScreen {
     const jumpRef:{current:(category:CategoryFilter)=>void}={current:()=>{}};
@@ -2256,7 +2224,7 @@ export default function Prototype() {
       }
     }
     flow.pop();
-  }}/>,render:flow=><TacticsList initialMode={initialMode} initialCategory={initialCategory} jumpRef={jumpRef} choosingForPoint={Boolean(pointBoardId)} openTactic={tactic=>flow.push(makeDetail(tactic,undefined,pointBoardId,pointBoardId?2:1,openedBoard))} openCombination={combination=>flow.push(makeInteractive(combination,pointBoardId,openedBoard))}/>};
+  }}/>,render:flow=><TacticsList initialMode={initialMode} initialCategory={initialCategory} jumpRef={jumpRef} choosingForPoint={Boolean(pointBoardId)} openTactic={tactic=>flow.push(makeDetail(tactic,undefined,pointBoardId,pointBoardId?2:1,openedBoard))} openCombination={combination=>flow.push(makeInteractive(combination,pointBoardId))}/>};
   }
   function makeHome():FlowScreen {return {id:"home",title:"RallyPath",headerHeight:62,header:()=> <HomeHeader menu={()=>setInfo(true)}/>,render:flow=><BoardHome openBoard={(board,persisted,intent)=>flow.push(makeBoard(board,persisted,intent))} openKnowledge={(mode,category)=>flow.push(makeKnowledge(mode,category))} openLibrary={()=>flow.push(makeBoardLibrary(""))}/>};}
   const initial:FlowScreen=makeHome();

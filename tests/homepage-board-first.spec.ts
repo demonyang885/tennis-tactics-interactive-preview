@@ -126,7 +126,7 @@ test.beforeEach(async ({ page }) => {
 test("opens directly on the converged board-first homepage without a back affordance", async ({ page }) => {
   await expect(page.getByRole("button", { name: "画第一拍", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "想下一分", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "记下刚才一分", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "回顾刚才一分", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "找个打法", exact: true })).toHaveCount(1);
   await expect(page.getByRole("button", { name: /^想一拍|^去训练|^刚打完|看组合打法/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /返回上一页|返回画板列表/ })).toHaveCount(0);

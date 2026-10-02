@@ -36,7 +36,7 @@ test.beforeEach(async ({ page }) => {
 test("converges the homepage to one board, two intentions, and one knowledge entry", async ({ page }) => {
   await expect(page.getByRole("button", { name: "画第一拍", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "想下一分", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "记下刚才一分", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "回顾刚才一分", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "找个打法", exact: true })).toHaveCount(1);
   await expect(page.getByRole("button", { name: /^想一拍|^去训练|^刚打完|看组合打法/ })).toHaveCount(0);
   await expect(page.locator(".home-accordion")).toHaveCount(0);
@@ -53,7 +53,7 @@ test("uses the same editor for planning and recalling with the right first hint"
   await expect(page.locator(".flow-pop-exiting")).toHaveCount(0);
   await expect(page.getByTestId("flow-current")).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "下一分，怎么打？", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "记下刚才一分", exact: true }).click();
+  await page.getByRole("button", { name: "回顾刚才一分", exact: true }).click();
   await expect(page.getByTestId("flow-current")).toHaveCount(1);
   await expect(page.locator(".flow-push-entering, .flow-pop-exiting")).toHaveCount(0);
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();

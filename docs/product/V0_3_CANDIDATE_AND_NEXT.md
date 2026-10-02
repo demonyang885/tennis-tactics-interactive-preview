@@ -2,7 +2,13 @@
 
 狀態：產品負責人於 2026-09-30 明確批准跳過未完成的實體裝置與青少年試用關卡，直接合併發布。這是**帶已知風險的發布決策**，不是聲稱這兩項驗收通過。以 `main` 成功部署及線上 `version.json` 為最終上線證據。
 
-## v0.3.2 實機驗收修正
+## v0.3.6 筆記方向
+
+2026-10-02 使用者決定先暫停逐拍／時間點的「發現筆記」。本版撤下所有新增與編輯入口；首頁「回顧剛才一分」直接開比賽回顧畫板，原畫板文字備註繼續負責即時記錄。既有筆記、唯讀找回、JSON 備份／匯入、另存及雲端相容性保留，不清除原資料。
+
+未來可探索以整塊畫板或一次訓練為粒度的戰術手帳，或 Notion 等電子手帳整合。初步構想保存在獨立 [feature/tactic-journal-concept 分支](https://github.com/demonyang885/tennis-tactics-interactive-preview/blob/feature/tactic-journal-concept/docs/product/TACTIC_JOURNAL_CONCEPT.md)，尚未實作或接入 Notion，不屬本版。此決策取代下方 v0.3.2 恢復發現笔記入口的歷史方向。
+
+## v0.3.2 實機驗收修正（歷史）
 
 2026-10-01 的 v0.3.1 實機報告確認 #11 六項 UI 修正全過，發現筆記入口與多拍仍未通過；由 [#13](https://github.com/demonyang885/tennis-tactics-interactive-preview/issues/13) 逐項跟蹤。v0.3.2 恢復可選的一分／練後發現入口、保存找回與原板關聯，修正球與接球者重疊後續畫回球。首頁回顧先開筆記，跳過後仍可畫同一分；筆記不是畫布文字備註，沿用既有 v1 資料及備份，不增加訓練首頁或強制結論。
 
