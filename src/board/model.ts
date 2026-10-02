@@ -775,6 +775,7 @@ export function synchronizeMoveWithPreviousShot(
   board: BoardDocument,
   frameIndex: number,
   movePathId: string,
+  replaceExisting = false,
 ): BoardDocument {
   assertFrameIndex(board, frameIndex);
   if (frameIndex === 0) return board;
@@ -787,13 +788,14 @@ export function synchronizeMoveWithPreviousShot(
   const hasIncomingShot = previous.paths.some((path) => ballIds.has(path.actorId) && (path.kind === "shot" || path.kind === "feed"));
 
   if (!move || move.kind !== "move" || actor?.kind !== "player" || !hasIncomingShot) return board;
-  if (previous.paths.some((path) => path.actorId === move.actorId)) return board;
+  const existing = previous.paths.find((path) => path.actorId === move.actorId);
+  if (existing && (!replaceExisting || existing.kind !== "move")) return board;
 
   const previousStart = previous.poses[move.actorId];
   if (!previousStart) return board;
   const synchronizedMove = copyPath({ ...move, from: previousStart });
   const frames = board.frames.slice();
-  frames[frameIndex - 1] = { ...previous, paths: [...previous.paths, synchronizedMove] };
+  frames[frameIndex - 1] = { ...previous, paths: [...previous.paths.filter(path => path.actorId !== move.actorId), synchronizedMove] };
   frames[frameIndex] = { ...frame, paths: frame.paths.filter((path) => path.id !== movePathId) };
   return touch(board, { frames: reflowFrames(frames, frameIndex - 1) });
 }

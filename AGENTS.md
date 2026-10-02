@@ -153,3 +153,11 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 - Use `KeyboardInput`, `KeyboardTextarea`, or `MobileTextField` for text entry so close actions can clear native input focus consistently.
 - Fixed phone chrome should not animate with pushed screens. Screen content can animate; the status bar, camera cutout, and preview chrome should stay put.
 - Keep the home indicator as the topmost safe-area layer in the z-index above everything else in the prototype.
+
+## Local interaction trial — 2026-10-02
+
+- User explicitly requests a separate local branch, with no GitHub upload or public deployment. Public delivery requirements do not apply to this trial. Base is stable v0.3.7; do not change the public release version.
+- Four opening templates belong inside the board menu: deuce/ad serving and deuce/ad receiving. Replacing authored content requires a concrete warning and supports undo.
+- One-tap 180-degree rotation changes the editor view only; text stays upright, input coordinates rotate with the court, and actor roles/timing/board data do not change.
+- Optional early recovery and subsequent receiving movement use ordinary player drags. The opponent's shot separates the two phases; skipping recovery is valid. Do not add mandatory phase dialogs or a game/scoring system.
+- All product copy, fixtures, docs and examples use generic roles (我方／对手), never a child's personal name.

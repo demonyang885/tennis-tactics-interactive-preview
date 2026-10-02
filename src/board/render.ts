@@ -4,10 +4,15 @@ import { getFramePose, type BoardActor, type BoardDocument, type BoardFrame, typ
 export type BoardSelection = { kind: "actor"; id: string } | { kind: "element"; id: string; frameIndex?: number };
 export type BoardHit = BoardSelection | { kind: "handle"; id: string; handle: "from" | "to" | "control"; frameIndex?: number };
 export type BoardHitTestOptions = {
+  rotated?: boolean;
   contextPaths?: BoardPath[];
   contextFrameIndex?: number;
 };
 export type BoardRenderOptions = {
+  /** View-only rotation. Geometry rotates; text and controls stay upright. */
+  rotated?: boolean;
+  /** Transient finger-follow feedback, never serialized or exported. */
+  draggingActor?: { actorId: string; point: Point };
   progress?: number;
   playingProgress?: number;
   playing?: boolean;
@@ -62,7 +67,7 @@ const FONT = '-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei
 const bound = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
-export function getBoardGeometry(width: number, height: number) {
+export function getBoardGeometry(width: number, height: number, rotated = false) {
   // Fit the full tactical range, including the run-off areas behind both
   // baselines. The regulation rectangle stays normalized to 0...1 so every
   // existing board keeps the same coordinates.
@@ -85,8 +90,11 @@ export function getBoardGeometry(width: number, height: number) {
   return {
     court,
     runOff,
-    toCanvas: (point: Point): Point => [court.x + point[0] * court.width, court.y + point[1] * court.height],
-    fromCanvas: (point: Point): Point => [(point[0] - court.x) / court.width, (point[1] - court.y) / court.height],
+    toCanvas: (point: Point): Point => [court.x + (rotated ? 1 - point[0] : point[0]) * court.width, court.y + (rotated ? 1 - point[1] : point[1]) * court.height],
+    fromCanvas: (point: Point): Point => {
+      const x = (point[0] - court.x) / court.width, y = (point[1] - court.y) / court.height;
+      return rotated ? [1 - x, 1 - y] : [x, y];
+    },
     clampPoint: (point: Point): Point => [bound(point[0], -.15, 1.15), bound(point[1], -.15, 1.15)],
   };
 }
@@ -362,10 +370,10 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
   const palette = BOARD_SURFACE_PALETTES[surface];
   const showZones = options.showZones ?? preferences.showZones;
   const showZoneLabels = options.showZoneLabels ?? preferences.showZoneLabels;
-  const geometry = getBoardGeometry(width, height), progress = bound(options.progress ?? options.playingProgress ?? 0, 0, 1);
+  const geometry = getBoardGeometry(width, height, options.rotated), progress = bound(options.progress ?? options.playingProgress ?? 0, 0, 1);
   const selected = options.playing ? null : options.selection;
   ctx.save(); ctx.clearRect(0, 0, width, height); ctx.fillStyle = palette.surround; ctx.fillRect(0, 0, width, height);
-  drawCourt(ctx, geometry, surface, showZones, showZoneLabels);
+  drawCourt(ctx, getBoardGeometry(width, height), surface, showZones, showZoneLabels);
   for (const path of options.contextPaths ?? []) {
     // The preceding beat must remain legible on a small court. Movement stays
     // slightly quieter so the newest ball route remains the primary signal.
@@ -379,17 +387,18 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
     drawPath(ctx, path, geometry, progress, !!options.playing, selected?.kind === "element" && selected.id === path.id, charging ? .5 : 1);
   }
   const poses = getFramePose(frame, progress);
+  if (options.draggingActor && !options.playing) poses[options.draggingActor.actorId] = options.draggingActor.point;
   for (const actor of [...actors].sort((a, b) => Number(a.kind === "ball") - Number(b.kind === "ball"))) {
     const pose = poses[actor.id]; if (!pose) continue;
     const at = geometry.toCanvas(pose), isBall = actor.kind === "ball", radius = isBall ? 5.5 : 10.5;
     if (selected?.kind === "actor" && selected.id === actor.id) circle(ctx, at, radius + 6, "rgba(255,255,255,.13)", "rgba(255,255,255,.85)", 1.5);
     circle(ctx, at, radius, actor.color ?? (isBall ? COLORS.shot : "#58a5ec"), palette.line, isBall ? 1.7 : 2.2);
     if (!isBall && (options.showActorLabels ?? options.showLabels !== false) && actor.label) {
-      const dy = pose[1] < .5 ? 26 : -31;
+      const dy = (options.rotated ? 1 - pose[1] : pose[1]) < .5 ? 26 : -31;
       label(ctx, actor.label, [at[0], bound(at[1] + dy, 12, height - 38)], 13, "center", palette.surround);
     }
   }
-  if (selected?.kind === "element") {
+  if (selected?.kind === "element" && !options.draggingActor) {
     const path = frame.paths.find(item => item.id === selected.id)
       ?? (selected.frameIndex === undefined || selected.frameIndex === options.contextFrameIndex
         ? options.contextPaths?.find(item => item.id === selected.id)
@@ -424,7 +433,7 @@ export function hitTestBoard(
   options: BoardHitTestOptions = {},
 ): BoardHit | null {
   const { contextPaths = [], contextFrameIndex } = options;
-  const geometry = getBoardGeometry(width, height);
+  const geometry = getBoardGeometry(width, height, options.rotated);
   const minimumTouchRadius = 22;
   if (selection?.kind === "element") {
     const path = frame.paths.find(item => item.id === selection.id)

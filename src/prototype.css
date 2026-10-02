@@ -1154,3 +1154,20 @@
 .rally-discovery-entry small { margin-left:auto; }
 .learning-discovery-actions { display:flex; gap:8px; margin:10px 0; }
 .learning-discovery-actions button { display:flex; align-items:center; justify-content:center; gap:6px; flex:1; min-height:48px; padding:8px; border:1px solid #dce3e8; border-radius:10px; background:#fff; color:#324d60; }
+
+/* Local interaction trial: compact cues, optional opening menu. */
+.board-opening-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.board-opening-grid button { display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px; background:#eef3ed; color:#244c38; border:1px solid #d7e0d5; border-radius:16px; }
+.board-opening-grid svg { height:110px; width:90px; }
+.board-opening-grid strong { font-size:15px; }
+.board-opening-confirm p { font-size:15px; line-height:1.7; color:#617267; }
+.board-local-hint { position:absolute; z-index:4; top:66px; left:16px; right:16px; max-width:350px; margin:auto; display:flex; align-items:flex-start; gap:8px; padding:10px 12px; border-radius:14px; color:#f1f5ed; background:rgba(6,43,31,.88); box-shadow:0 2px 10px #0001; }
+.board-local-hint span { flex:1; }
+.board-local-hint strong { display:block; font-size:11px; color:#c6dbaf; font-weight:500; margin-bottom:3px; }
+.board-local-hint small { display:block; font-size:12px; line-height:1.5; }
+.board-local-hint button { border:0; background:transparent; color:inherit; padding:4px; }
+@media(max-width:360px) { .tennis-app .board-immersive-toolbar .board-immersive-actions button { width:30px; min-width:30px; } }
+
+.board-local-hint { pointer-events:none; }
+.board-local-hint button { pointer-events:auto; }
+.local-trial-badge { font-size:10px; padding:3px 5px; border:1px solid #b9cbb5; color:#4c6c47; border-radius:5px; margin-left:5px; }
