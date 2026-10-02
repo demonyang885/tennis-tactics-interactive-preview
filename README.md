@@ -2,7 +2,7 @@
 
 RallyPath 是給青少年使用的網球戰術畫板：先畫出自己記得的一分，再看其他打法或技能示範，帶著具體問題回到球場。
 
-**版本：v0.3.4。** 正式網站：[開啟 RallyPath](https://demonyang885.github.io/tennis-tactics-interactive-preview/)；[核對線上版本](https://demonyang885.github.io/tennis-tactics-interactive-preview/version.json)。網站由本倉庫 `main` 的 GitHub Pages 工作流發布。倉庫網址中的舊名稱是歷史路徑；產品名稱為 RallyPath。
+**版本：v0.3.5。** 正式網站：[開啟 RallyPath](https://demonyang885.github.io/tennis-tactics-interactive-preview/)；[核對線上版本](https://demonyang885.github.io/tennis-tactics-interactive-preview/version.json)。網站由本倉庫 `main` 的 GitHub Pages 工作流發布。倉庫網址中的舊名稱是歷史路徑；產品名稱為 RallyPath。
 
 ## 這版可以做什麼
 

@@ -1,28 +1,17 @@
-.device-screen .bottom-sheet:has(.discovery-editor) { max-height:62.5dvh !important; }
-.device-screen .bottom-sheet:has(.discovery-editor)[data-discovery-viewport="true"] { left:var(--discovery-sheet-left) !important; right:auto; width:var(--discovery-sheet-width); bottom:var(--discovery-sheet-bottom) !important; min-width:0; min-height:min(260px,62.5dvh,var(--discovery-sheet-max-height)); max-height:min(62.5dvh,var(--discovery-sheet-max-height)) !important; }
-.device-screen .bottom-sheet:has(.discovery-editor) .sheet-header { padding-right:52px; }
-.device-screen .bottom-sheet:has(.discovery-editor) .sheet-content { min-height:0; overscroll-behavior:contain; }
-.device-screen .bottom-sheet:has(.discovery-editor)[data-discovery-compact="true"] .sheet-handle-zone { height:24px; flex-shrink:0; }
-.device-screen .bottom-sheet:has(.discovery-editor)[data-discovery-compact="true"] .sheet-header { padding-bottom:8px; }
-.device-screen .bottom-sheet:has(.discovery-editor)[data-discovery-compact="true"] .sheet-description { display:none; }
-.device-screen .bottom-sheet:has(.discovery-editor)[data-discovery-compact="true"] .discovery-close { top:4px; }
-.device-screen .bottom-sheet:has(.discovery-editor)[data-discovery-compact="true"] textarea { min-height:44px; height:var(--discovery-field-height,72px); max-height:var(--discovery-field-height,72px); resize:none; }
-.discovery-editor { display:flex; min-width:0; flex-direction:column; gap:12px; padding:0 0 8px; color:#244d35; }
-.device-screen .discovery-close { position:absolute; top:23px; right:12px; display:grid; place-items:center; width:44px; min-height:44px; padding:0; border:0; border-radius:50%; background:#f1f5ed; color:#365b42; }
-.discovery-close svg { width:18px; height:18px; }
-.discovery-board-context { margin:0; font-size:12px; line-height:18px; font-weight:700; overflow-wrap:anywhere; }
-.discovery-field { display:flex; flex-direction:column; gap:6px; min-width:0; font-size:12px; line-height:18px; font-weight:700; }
-.discovery-field :is(select,textarea) { box-sizing:border-box; width:100%; min-width:0; min-height:44px; padding:10px 12px; border:1px solid #d4dfd2; border-radius:12px; background:#fff; color:#1a3528; font:inherit; font-size:16px; font-weight:400; }
-.discovery-field textarea { min-height:72px; resize:vertical; }
+.discovery-editor { display:flex; min-width:0; flex-direction:column; gap:16px; color:#244d35; }
+.discovery-board-context { margin:0; color:#68786c; font-size:12px; line-height:18px; overflow-wrap:anywhere; }
+.discovery-field { display:flex; flex-direction:column; gap:8px; min-width:0; font-size:13px; line-height:18px; font-weight:700; }
+.discovery-field :is(select,textarea) { box-sizing:border-box; width:100%; min-width:0; min-height:44px; padding:10px 12px; border:1px solid #d4dfd2; border-radius:10px; background:#fff; color:#1a3528; font:inherit; font-size:16px; line-height:22px; font-weight:400; }
+/* Keep WebKit's native selected-option painting inside the control without
+   changing its system picker or creating horizontal overflow in the editor. */
+.discovery-field select { contain:paint; }
+.discovery-field textarea { min-height:72px; resize:none; }
+.discovery-primary-field textarea { min-height:128px; }
 .discovery-field :is(select,textarea):focus-visible { outline:3px solid #bbd4a2; outline-offset:1px; }
-.discovery-practice-question { margin:0; padding:10px 12px; border-radius:12px; background:#eaf1df; font-size:12px; line-height:18px; }
-.discovery-uncertain { display:flex; align-items:center; gap:9px; min-height:44px; font-size:12px; line-height:18px; }
+.discovery-practice-question { margin:0; color:#68786c; font-size:12px; line-height:18px; }
+.discovery-uncertain { display:flex; align-items:center; gap:9px; min-height:44px; font-size:13px; line-height:18px; }
 .discovery-uncertain input { width:20px; height:20px; margin:0; accent-color:#315b40; }
-.discovery-error { margin:0; color:#9b4337; font-size:12px; line-height:18px; overflow-wrap:anywhere; }
-.discovery-actions { position:sticky; bottom:-8px; z-index:1; display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:2px; padding:8px 0; background:#fff; }
-.device-screen .discovery-actions button { min-width:0; min-height:48px; padding:8px; border:1px solid #d5dfd0; border-radius:12px; background:#f4f7f0; color:#2e5039; font-size:13px; font-weight:700; }
-.device-screen .discovery-actions button[type="submit"] { border-color:#244d36; background:#244d36; color:#fff; }
-.device-screen .discovery-actions button:disabled { opacity:.45; }
+.discovery-error { margin:0; color:#9b4337; font-size:13px; line-height:18px; overflow-wrap:anywhere; }
 .discovery-library-list { display:flex; flex-direction:column; gap:10px; }
 .discovery-library-list article { padding:12px; border:1px solid #dde7d8; border-radius:13px; background:#fff; }
 .discovery-library-list article > strong { display:block; color:#244d35; font-size:13px; line-height:19px; overflow-wrap:anywhere; }

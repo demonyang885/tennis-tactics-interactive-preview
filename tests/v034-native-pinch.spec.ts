@@ -50,6 +50,8 @@ async function openSurface(page: Page, surface: string): Promise<{ field: Locato
     const title = surface === "point" ? "一分的发现" : "练后发现";
     await (await menu(page)).getByRole("button", { name: title, exact: true }).tap();
     const layer = page.getByRole("dialog", { name: title, exact: true });
+    await expect(page.getByRole("dialog", { name: "画板菜单", exact: true })).toBeHidden();
+    await expect(page.getByTestId("bottom-sheet")).toHaveCount(0);
     return { layer, field: layer.getByRole("textbox", { name: surface === "point" ? "发现了什么" : "练后发现了什么", exact: true }), cancel: layer.getByRole("button", { name: "先不记", exact: true }) };
   }
   if (surface === "rename") {
@@ -98,24 +100,42 @@ async function assertNativePinchRemainsAvailable(field: Locator) {
 }
 
 async function pinch(page: Page, session: CDPSession, field: Locator, expanding: boolean) {
-  const center = await field.evaluate(element => {
-    const box = element.getBoundingClientRect(), viewport = window.visualViewport!;
-    // CDP touch coordinates use the physical viewport's CSS-pixel space;
-    // DOM rectangles remain in the layout viewport after native page zoom.
-    return { x: (box.left + box.width / 2 - viewport.offsetLeft) * viewport.scale, y: (box.top + box.height / 2 - viewport.offsetTop) * viewport.scale };
-  });
-  const points = (distance: number) => [
-    { id: 1, x: center.x - distance, y: center.y, radiusX: 3, radiusY: 3, force: 1 },
-    { id: 2, x: center.x + distance, y: center.y, radiusX: 3, radiusY: 3, force: 1 },
-  ];
-  await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points(expanding ? 20 : 84) });
-  for (let index = 1; index <= 16; index++) {
-    await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: points(expanding ? 20 + index * 4 : 84 - index * 4) });
-    // Advance the actual input gesture across rendered frames instead of
-    // replacing visualViewport properties or setting page scale directly.
+  for (let attempt = 0; attempt < (expanding ? 1 : 3); attempt++) {
+    if (!expanding && await page.evaluate(() => window.visualViewport!.scale <= 1.08)) break;
+    const geometry = await field.evaluate(element => {
+      const box = element.getBoundingClientRect(), viewport = window.visualViewport!;
+      // CDP takes visual-viewport CSS coordinates. It adds viewport offsets
+      // when generating client coordinates; multiplying by page scale hits
+      // the underlying canvas after this full editor shrinks with the zoom.
+      return { x: box.left + box.width / 2 - viewport.offsetLeft, y: box.top + box.height / 2 - viewport.offsetTop, distance: Math.min(84, box.width / 2 - 3) };
+    });
+    const from = expanding ? 20 : geometry.distance, to = expanding ? 84 : 1;
+    const points = (distance: number) => [
+      { id: 1, x: geometry.x - distance, y: geometry.y, radiusX: 3, radiusY: 3, force: 1 },
+      { id: 2, x: geometry.x + distance, y: geometry.y, radiusX: 3, radiusY: 3, force: 1 },
+    ];
+    await field.evaluate(element => {
+      const targets: boolean[] = [];
+      const listener = (event: TouchEvent) => targets.push(...Array.from(event.touches, touch => touch.target === element));
+      document.addEventListener("touchstart", listener, { capture: true, passive: true });
+      (window as Window & { nativePinchProbe?: { targets: boolean[]; remove: () => void } }).nativePinchProbe = { targets, remove: () => document.removeEventListener("touchstart", listener, true) };
+    });
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points(from) });
+    const targets = await page.evaluate(() => {
+      const probeWindow = window as Window & { nativePinchProbe?: { targets: boolean[]; remove: () => void } };
+      const probe = probeWindow.nativePinchProbe!;
+      probe.remove(); delete probeWindow.nativePinchProbe;
+      return probe.targets;
+    });
+    expect(targets.length).toBeGreaterThan(0);
+    expect(targets.every(Boolean), "Every pinch must actually start on the native text field").toBe(true);
+    for (let index = 1; index <= 16; index++) {
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: points(from + (to - from) * index / 16) });
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+    }
+    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
   }
-  await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 }
 
 for (const height of [844, 420]) {
