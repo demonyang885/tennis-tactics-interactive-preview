@@ -1,0 +1,7 @@
+.board-text-editor-layer { display:flex; flex-direction:column; min-width:0; touch-action:pan-y pinch-zoom; }
+.board-text-editor-layer[data-text-editor-viewport="true"] { inset:auto; top:var(--board-text-editor-top); left:var(--board-text-editor-left); width:var(--board-text-editor-width); height:var(--board-text-editor-height); }
+.board-text-editor-layer .board-rename-header { flex-shrink:0; min-height:56px; grid-template-columns:64px minmax(0,1fr) 64px; }
+.board-text-editor-layer .board-rename-header h2 { overflow-wrap:anywhere; }
+.board-text-editor-layer .board-rename-header button:disabled { opacity:.4; }
+.board-text-editor-content { min-height:0; flex:1; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y pinch-zoom; padding:20px; }
+.board-text-editor-layer textarea:focus { box-sizing:border-box; min-height:44px; height:var(--board-text-editor-field-height,128px); max-height:var(--board-text-editor-field-height,128px); resize:none; }

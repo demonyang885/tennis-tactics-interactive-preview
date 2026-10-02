@@ -1141,6 +1141,12 @@
   .board-editor.is-immersive .board-primary-play { min-height:48px; }
 }
 
+/* Native text entry can change Safari's zoom. Keep two-finger zoom available
+   on app pages and sheets so the user can return to their preferred scale.
+   The drawing canvas and sheet drag handle retain their own touch-action. */
+.tennis-app .flow-stack,
+.device-screen .bottom-sheet { touch-action:pan-y pinch-zoom; }
+
 .practice-discovery-entry,.rally-discovery-entry { display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:10px 12px; border:1px solid var(--line,#e3e7eb); border-radius:12px; background:#fff; color:#1e3548; text-align:left; }
 .practice-discovery-entry > span { display:grid; gap:3px; }
 .practice-discovery-entry small,.rally-discovery-entry small { color:#63717d; font-size:12px; }

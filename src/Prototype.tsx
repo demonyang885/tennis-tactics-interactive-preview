@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
 import {
   ArchiveIcon,
   ArrowLeftIcon,
@@ -39,7 +38,8 @@ import {
   UploadIcon,
   VideoIcon,
 } from "@radix-ui/react-icons";
-import { BottomSheet, Carousel, FlowStack, KeyboardInput, MobileScroll, useKeyboard, useMobileDevice, useScreenPortal, type FlowScreen } from "./mobile";
+import { BottomSheet, Carousel, FlowStack, KeyboardInput, MobileScroll, useKeyboard, useScreenPortal, type FlowScreen } from "./mobile";
+import { BoardTextEditorLayer } from "./board/BoardTextEditorLayer";
 import { VersionBadge } from "./version/VersionBadge";
 
 import { categories, combinations, interactiveRallies, rallyNodes, tacticGuides, tactics, type CategoryFilter } from "./content/library";
@@ -1157,27 +1157,12 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
 }
 
 function BoardRenameLayer({open,value,error,onChange,onCancel,onSubmit}:{open:boolean;value:string;error:string;onChange:(value:string)=>void;onCancel:()=>void;onSubmit:()=>void}) {
-  const {screenRef}=useScreenPortal();
-  const {device}=useMobileDevice();
   const inputRef=useRef<HTMLInputElement>(null);
-  const cancel=()=>{inputRef.current?.blur();onCancel();};
   const submit=()=>{inputRef.current?.blur();onSubmit();};
-  return <Dialog.Root open={open} onOpenChange={next=>{if(!next)onCancel();}}>
-    <Dialog.Portal container={screenRef.current??undefined} forceMount>
-      {open&&<Dialog.Content className="board-rename-layer" data-testid="board-rename-layer" style={{"--board-rename-safe-top":`${device.geometry.safeArea.top}px`} as CSSProperties} onOpenAutoFocus={event=>{event.preventDefault();window.setTimeout(()=>{inputRef.current?.focus();inputRef.current?.select();},0);}} onCloseAutoFocus={event=>event.preventDefault()}>
-        <header className="board-rename-header">
-          <button onClick={cancel}>取消</button>
-          <Dialog.Title>修改名称</Dialog.Title>
-          <button className="is-primary" onClick={submit}>完成</button>
-        </header>
-        <div className="board-rename-content">
+  return <BoardTextEditorLayer open={open} title="修改名称" description="独立修改画板名称；键盘出现时画板不会缩放。" testId="board-rename-layer" initialFocusRef={inputRef} onCancel={onCancel} onSubmit={onSubmit}>
           <div className="board-rename-field"><label htmlFor="board-rename-title">画板名称</label><div className="board-rename-input-wrap"><KeyboardInput id="board-rename-title" ref={inputRef} value={value} maxLength={60} autoComplete="off" enterKeyHint="done" onChange={event=>onChange(event.currentTarget.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.nativeEvent.isComposing){event.preventDefault();submit();}}}/><button type="button" aria-label="清空画板名称" disabled={!value} onPointerDown={event=>event.preventDefault()} onClick={()=>{onChange("");inputRef.current?.focus();}}><CrossCircledIcon/></button></div><small>1–60 个字</small></div>
           {error&&<p className="board-rename-error" role="alert">{error}</p>}
-          <Dialog.Description className="board-sr-only">独立修改画板名称；键盘出现时画板不会缩放。</Dialog.Description>
-        </div>
-      </Dialog.Content>}
-    </Dialog.Portal>
-  </Dialog.Root>;
+  </BoardTextEditorLayer>;
 }
 
 type BoardFileSurface = null | "menu" | "learning" | "save-share" | "media" | "rename";
@@ -1611,8 +1596,19 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
       event.preventDefault();
       event.stopImmediatePropagation();
     };
+    const yieldNativeTouch=(event:TouchEvent)=>{
+      if(event.touches.length===1&&!(event.target instanceof Element&&event.target.closest('.board-note-overlay,input,textarea,select,[contenteditable="true"]')))return false;
+      if(tracking){tracking=false;resetEdgeOffset();}
+      // Do not let the flow's swipe recognizer consume a native text/pinch
+      // gesture. Stopping propagation leaves the browser default intact.
+      event.stopImmediatePropagation();
+      return true;
+    };
     const start=(event:TouchEvent)=>{
       if(editorRef.current?.closest<HTMLElement>(".flow-screen")?.dataset.flowCurrent!=="true")return;
+      // Text surfaces and multi-touch belong to the browser, including pinch
+      // recovery after native focus zoom. Never turn them into edge-back.
+      if(yieldNativeTouch(event))return;
       const touch=event.touches[0];
       if(!touch)return;
       const bounds=flowStack.getBoundingClientRect();
@@ -1624,6 +1620,8 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
       stopEdgeGesture(event);
     };
     const move=(event:TouchEvent)=>{
+      if(editorRef.current?.closest<HTMLElement>(".flow-screen")?.dataset.flowCurrent!=="true")return;
+      if(yieldNativeTouch(event))return;
       if(!tracking)return;
       const touch=event.touches[0]??event.changedTouches[0];
       if(touch){lastX=touch.clientX;lastY=touch.clientY;}
@@ -1935,7 +1933,12 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
   const sheetOpen=toolPalette!==null||fileSurface!==null||historyOpen||frameOpen||helpOpen;
   const sheetFeedback=(error||notice)&&<p className={`board-sheet-feedback ${error?"is-error":"is-status"}`} role={error?"alert":"status"} aria-live={error?"assertive":"polite"} aria-atomic="true">{error||notice}</p>;
   const saveLabel=saveState==="clean"?"修改后保存":saveState==="saving"?"保存中":saveState==="saved"?"已保存":saveState==="error"?"未保存":"待保存";
-  return <div ref={editorRef} className={`board-editor ${previewing?"is-previewing":"is-editing"} ${immersive?"is-immersive":""} ${courtNoteEditor?"is-note-editing":""} ${noteBoardHeight!==null?"is-note-viewport-locked":""}`} data-immersive={immersive?"true":"false"} style={noteBoardHeight!==null?{"--board-note-frozen-height":`${noteBoardHeight}px`,"--board-note-visible-height":`${noteViewport?.height??window.innerHeight}px`,"--board-note-visible-top":`${noteViewport?.top??0}px`} as CSSProperties:undefined}>
+  // Board gestures own edge-back. Portal sheets still bubble through this
+  // editor in React, so stop the flow recognizer without stopping native
+  // touchstart/pointerdown: Radix's document listeners need swipe direction
+  // and outside presses to scroll or dismiss the modal normally.
+  // React checks this flag before dispatching to the next synthetic ancestor.
+  return <div ref={editorRef} onTouchStart={event=>{event.isPropagationStopped=()=>true;}} onPointerDown={event=>{event.isPropagationStopped=()=>true;}} className={`board-editor ${previewing?"is-previewing":"is-editing"} ${immersive?"is-immersive":""} ${courtNoteEditor?"is-note-editing":""} ${noteBoardHeight!==null?"is-note-viewport-locked":""}`} data-immersive={immersive?"true":"false"} style={noteBoardHeight!==null?{"--board-note-frozen-height":`${noteBoardHeight}px`,"--board-note-visible-height":`${noteViewport?.height??window.innerHeight}px`,"--board-note-visible-top":`${noteViewport?.top??0}px`} as CSSProperties:undefined}>
     <span className={`board-save-live board-save-status is-${saveState}`} data-testid="board-save-live" role="status" aria-live="polite" aria-atomic="true">{`画板${saveLabel}`}</span>
     <div className="board-canvas-shell">
       <div className="board-immersive-toolbar" role="toolbar" aria-label="战术板操作">
