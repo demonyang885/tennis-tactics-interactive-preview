@@ -165,3 +165,7 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 ## Test link follow-up — 2026-10-02
 
 - The user now requests an accessible testing link and specifically wants to test two-stage movement. Publish an isolated Sites trial from this branch, without GitHub upload or changes to the official site. This supersedes local-only delivery for this trial. Use v0.3.8 with a visible trial badge and a disposable editable example on Home.
+
+## Direct opening choices — 2026-10-02
+
+- User accepted two-stage movement. Show all four opening choices directly at the top of the board menu; no secondary opening menu. Preserve inline confirmation when replacing authored content and undo. Continue updating only the existing trial Site, with no GitHub push.

@@ -27,7 +27,7 @@ async function saved(page:Page):Promise<BoardDocument>{
   return page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).boards[0],KEY);
 }
 async function menu(page:Page){await current(page).getByRole('button',{name:/^打开.*的画板菜单$/}).click();}
-async function openings(page:Page){await menu(page);await page.getByRole('button',{name:/^开局站位/}).click();}
+async function openings(page:Page){await menu(page);const dialog=page.getByRole('dialog',{name:'画板菜单',exact:true});for(const opening of OPENINGS)await expect(dialog.getByRole('button',{name:opening.label,exact:true})).toBeInViewport();}
 function closePoint(actual:Point,expected:Point){expect(actual[0]).toBeCloseTo(expected[0],2);expect(actual[1]).toBeCloseTo(expected[1],2);}
 for(const opening of OPENINGS){test(`opening ${opening.id}: roles, ball, first shot and undo`,async({page})=>{
   await start(page);await openings(page);await page.getByRole('button',{name:opening.label,exact:true}).click();
