@@ -78,7 +78,6 @@ async function storedBoards(page: Page): Promise<BoardDocument[]> {
 }
 
 async function renameCurrentBoardAndReadSaved(page: Page, title: string): Promise<BoardDocument> {
-  const header = page.getByTestId("flow-fixed-header");
   const toolbar = page.getByTestId("flow-current").getByRole("toolbar", { name: "战术板操作", exact: true });
   await press(toolbar.getByRole("button", { name: /打开.*的画板菜单/ }));
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /修改名称/ }));
@@ -87,7 +86,7 @@ async function renameCurrentBoardAndReadSaved(page: Page, title: string): Promis
   await renameLayer.getByLabel("画板名称", { exact: true }).fill(title);
   await press(renameLayer.getByRole("button", { name: "完成", exact: true }));
   await expect(renameLayer).toBeHidden();
-  await expect(header.getByTestId("board-save-live")).toHaveText("画板已保存", { timeout: 3_000 });
+  await expect(page.getByTestId("flow-current").getByTestId("board-save-live")).toHaveText("画板已保存", { timeout: 3_000 });
   await expect.poll(async () => (await storedBoards(page)).some((board) => board.title === title)).toBe(true);
   const saved = (await storedBoards(page)).find((board) => board.title === title);
   if (!saved) throw new Error(`Expected edited board ${title} to be saved`);
@@ -134,18 +133,45 @@ test("opens directly on the converged board-first homepage without a back afford
   await expect(page.locator(".home-resume-card")).toHaveCount(0);
 });
 
-test("opens the content explanation from the quiet top-right help control", async ({ page }) => {
+test("opens the compact content explanation beside the brand", async ({ page }) => {
   const help = page.getByRole("button", { name: "打开内容说明", exact: true });
   await expect(help).toBeVisible();
   await expect(help.locator("svg")).toHaveCount(1);
+  const brand = page.locator(".home-header .product-wordmark");
+  const [brandBox, helpBox] = await Promise.all([brand.boundingBox(), help.boundingBox()]);
+  expect(brandBox).not.toBeNull();
+  expect(helpBox).not.toBeNull();
+  expect(helpBox!.x - (brandBox!.x + brandBox!.width)).toBeLessThan(12);
   await press(help);
 
-  const dialog = page.getByRole("dialog", { name: "关于 RallyPath", exact: true });
+  const dialog = page.getByRole("dialog", { name: "怎么用 RallyPath", exact: true });
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("用球路和跑位，看懂青少年单打战术。");
-  await expect(dialog).toContainText("蓝色是我方，红色是对手，黄色是网球");
+  await expect(dialog).toContainText("想下一分");
+  await expect(dialog).toContainText("改动画板才会保存在此浏览器");
+  await expect(dialog).toContainText("去战术库看示范");
+  await expect(dialog.getByText("亮线＝球路 · 虚线＝跑位")).toBeHidden();
+  await press(dialog.getByText("画板颜色与线条"));
+  await expect(dialog.getByText("亮线＝球路 · 虚线＝跑位")).toBeVisible();
   await press(dialog.getByRole("button", { name: "知道了", exact: true }));
   await expect(dialog).toHaveCount(0);
+});
+
+test("local preview help reveals the actual loaded app asset only on demand", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto("/");
+  await press(page.getByRole("button", { name: "打开内容说明", exact: true }));
+  const dialog = page.getByRole("dialog", { name: "怎么用 RallyPath", exact: true });
+  const build = dialog.getByText("测试版本", { exact: true });
+  await expect(build).toBeVisible();
+  await expect(dialog.locator(".about-build-identity")).toBeHidden();
+  await press(build);
+  const expectedAsset = await page.evaluate(() => {
+    const scripts = Array.from(document.querySelectorAll<HTMLScriptElement>('script[type="module"][src]'));
+    return new URL(scripts[scripts.length - 1]!.src).pathname.split("/").pop();
+  });
+  await expect(dialog.locator(".about-build-identity")).toContainText(new URL(page.url()).host);
+  await expect(dialog.locator(".about-build-identity")).toContainText(expectedAsset!);
+  await expect(dialog.getByRole("button", { name: "知道了", exact: true })).toBeInViewport({ ratio: .9 });
 });
 
 test("opens a canonical ready-to-serve board without creating a draft before editing", async ({ page }) => {
@@ -271,6 +297,34 @@ test("offers a real file picker after an import failure", async ({ page }) => {
   await expect.poll(async () => (await storedBoards(page)).some((board) => board.title === "周六发球训练（导入）")).toBe(true);
 });
 
+test("an empty homepage can reach backup import without creating a blank draft", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await press(page.getByTestId("home-scroll-cue"));
+  const importEntry = page.getByTestId("home-history-hub").getByRole("button", { name: "导入备份" });
+  await expect(importEntry).toBeVisible();
+  const entryBox = await importEntry.boundingBox();
+  expect(entryBox).not.toBeNull();
+  expect(entryBox!.x + entryBox!.width).toBeLessThanOrEqual(320);
+  expect(await storedBoards(page)).toHaveLength(0);
+
+  await press(importEntry);
+  await expect(page.getByRole("heading", { name: "草稿与模板", exact: true })).toBeVisible();
+  expect(await storedBoards(page)).toHaveLength(0);
+
+  const chooserPromise = page.waitForEvent("filechooser");
+  await press(page.getByTestId("flow-current").getByRole("button", { name: "导入备份" }));
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: "v0.2-board.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(recentDraft)),
+  });
+
+  await expectBoardEditor(page);
+  await expectBoardEditorTitle(page, "周六发球训练（导入）");
+  await expect.poll(async () => (await storedBoards(page)).length).toBe(1);
+});
+
 test("retries the original deletion instead of refreshing the library", async ({ page }) => {
   const removableDraft: BoardDocument = {
     ...recentDraft,
@@ -317,31 +371,20 @@ test("retries the original deletion instead of refreshing the library", async ({
 test("opens the full tactical knowledge library from the short first-action entry", async ({ page }) => {
   await press(page.getByRole("button", { name: "找个打法", exact: true }));
   await waitForFlowSettled(page);
-  await expect(page.getByRole("heading", { name: "战术知识库", exact: true })).toBeVisible();
-
-  await press(page.getByRole("button", { name: "改变节奏", exact: true }));
+  await expect(page.getByRole("heading", { name: "找个打法", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "跳转到打法分类" })).toHaveCount(0);
+  await press(page.getByRole("button", { name: "跳到打法段落" }));
+  await expect(page.getByRole("navigation", { name: "跳转到打法分类" }).getByRole("button", { name: "顶部", exact: true })).toBeVisible();
+  await expect(page.locator(".tactic-card")).toHaveCount(30);
+  await expect(page.locator(".tactic-card h3").first()).toHaveText("接发深回中路");
   await expect(page.getByRole("button", { name: /^小球\+挑高，10秒/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^接发深回中路，8秒/ })).toHaveCount(0);
-
-  const singles = page.getByRole("button", { name: /^单项打法/ });
-  const combinations = page.getByRole("button", { name: /^组合打法/ });
-  await press(combinations);
-  await expect(combinations).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: /打开压深后引上网/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /打开接发稳住再上网/ })).toHaveCount(0);
-  await press(page.getByRole("button", { name: "先稳住", exact: true }));
   await expect(page.getByRole("button", { name: /打开接发稳住再上网/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /打开压深后引上网/ })).toHaveCount(0);
-  await press(singles);
-  await expect(singles).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: /^接发深回中路，8秒/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^小球\+挑高，10秒/ })).toHaveCount(0);
 });
 
 test("keeps the board focused and does not reintroduce an unfinished training CTA", async ({ page }) => {
   await press(page.getByRole("button", { name: "找个打法", exact: true }));
   await waitForFlowSettled(page);
-  await press(page.getByRole("button", { name: "先稳住", exact: true }));
   await press(page.getByRole("button", { name: /^防守高深回中，9秒/ }));
   await waitForFlowSettled(page);
   await press(page.getByRole("button", { name: "改成我的打法", exact: true }));
@@ -354,7 +397,6 @@ test("keeps the board focused and does not reintroduce an unfinished training CT
 test("preserves a multi-frame single tactic and saves it only after an explicit edit", async ({ page }) => {
   await press(page.getByRole("button", { name: "找个打法", exact: true }));
   await waitForFlowSettled(page);
-  await press(page.getByRole("button", { name: "先稳住", exact: true }));
   await press(page.getByRole("button", { name: /^防守高深回中，9秒/ }));
   await waitForFlowSettled(page);
   await expect(page.getByRole("heading", { name: "防守高深回中", exact: true })).toBeVisible();
@@ -373,7 +415,6 @@ test("preserves a multi-frame single tactic and saves it only after an explicit 
 test("preserves a full multi-beat combination and saves it only after an explicit edit", async ({ page }) => {
   await press(page.getByRole("button", { name: "找个打法", exact: true }));
   await waitForFlowSettled(page);
-  await press(page.getByRole("button", { name: /^组合打法/ }));
   await press(page.getByRole("button", { name: /打开发球后抢先手/ }));
   await waitForFlowSettled(page);
   await press(page.getByRole("button", { name: "思路", exact: true }));
@@ -394,7 +435,6 @@ test("preserves a full multi-beat combination and saves it only after an explici
 test("restores accessibility isolation after returning from a deep board to the board library", async ({ page }) => {
   await press(page.getByRole("button", { name: "找个打法", exact: true }));
   await waitForFlowSettled(page);
-  await press(page.getByRole("button", { name: /^组合打法/ }));
   await press(page.getByRole("button", { name: /打开发球后抢先手/ }));
   await waitForFlowSettled(page);
   await press(page.getByRole("button", { name: "思路", exact: true }));

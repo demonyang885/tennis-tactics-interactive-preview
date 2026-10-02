@@ -81,7 +81,7 @@ test("keeps the knowledge library below the first viewport and opens it after sc
   await knowledge.scrollIntoViewIfNeeded();
   await expect(knowledge).toBeInViewport();
   await knowledge.click();
-  await expect(page.getByRole("heading", { name: "战术知识库", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "找个打法", exact: true })).toBeVisible();
 });
 
 for (const viewport of [
