@@ -2,7 +2,7 @@
 
 RallyPath 是給青少年使用的網球戰術畫板：先畫出自己記得的一分，再看其他打法或技能示範，帶著具體問題回到球場。
 
-**版本：v0.3.5。** 正式網站：[開啟 RallyPath](https://demonyang885.github.io/tennis-tactics-interactive-preview/)；[核對線上版本](https://demonyang885.github.io/tennis-tactics-interactive-preview/version.json)。網站由本倉庫 `main` 的 GitHub Pages 工作流發布。倉庫網址中的舊名稱是歷史路徑；產品名稱為 RallyPath。
+**版本：v0.3.6。** 正式網站：[開啟 RallyPath](https://demonyang885.github.io/tennis-tactics-interactive-preview/)；[核對線上版本](https://demonyang885.github.io/tennis-tactics-interactive-preview/version.json)。網站由本倉庫 `main` 的 GitHub Pages 工作流發布。倉庫網址中的舊名稱是歷史路徑；產品名稱為 RallyPath。
 
 ## 這版可以做什麼
 
@@ -10,7 +10,7 @@ RallyPath 是給青少年使用的網球戰術畫板：先畫出自己記得的�
 - 從自己的畫板打開分類戰術庫，查看打法示範；純查看不會新增個人草稿。
 - 選擇六項既有技能之一，觀看第一階畫板示範，按「練這個」返回原畫板。選擇與畫板綁定，刷新或重開後仍可找回。
 - 在畫板上放文字備註；使用可編輯備份轉移畫板。首頁與知識庫共用最新畫板顯示方式。
-- 從首頁回顧、畫板菜單、技能說明及互動對打記錄可選的「一分的發現／練後發現」；返回或刷新後可在原畫板及畫板庫找回修改，取消不建立空記錄。
+- 首頁「回顧剛才一分」直接開比賽回顧畫板。發現筆記新增／編輯入口暫停；既有筆記仍可在畫板庫唯讀查看，並保留 JSON 備份與匯入。
 
 ## 保存與已知限制
 

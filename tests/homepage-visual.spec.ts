@@ -161,7 +161,7 @@ test("keeps the same compact hierarchy at 320 by 700", async ({ page }) => {
 
   await expect(page.getByRole("button", { name: "接着画我的战术板", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "想下一分", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "记下刚才一分", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "回顾刚才一分", exact: true })).toBeVisible();
   await expectPortraitBoardAndIntentGrid(page);
   await expectPureBoardPreview(page);
   await expectPreviewDominatesViewport(page);

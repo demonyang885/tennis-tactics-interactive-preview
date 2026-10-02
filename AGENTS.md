@@ -63,7 +63,16 @@
 - Court surface, zone colors, and zone names remain device-local visual preferences. Zone color and name controls are independent and clearly state whether they are on. Skill practice must preserve the user's current surface.
 - Reopening a board restores its last valid frame and route selection without autoplay or changes to document content. A newly drawn route stays selected so its deletion label and actual target match, while smart rally continuation remains available.
 
-## Physical Acceptance Follow-up — 2026-10-01
+## Current Notes Direction — 2026-10-02
+
+- The user has paused the point/practice discovery feature because recording against a specific shot or time is not useful enough; existing court text marks provide immediate notes. Remove all discovery creation/editing entry points from board menus, tactic finding, Home, skill guides, interactive combinations and the editable library finder. Do not reopen the editor through old custom events.
+- Home “回顾刚才一分” opens a match-review board directly. Preserve review purpose, normal authoring and the existing court text-note tools. Preserve rename and its shared native editor, native pinch permission, menu scrolling and dismissal fixes.
+- Keep the existing discovery/followUp models, storage keys, read-only legacy library, backup/import/duplicate/delete recovery and cloud synchronization schema. Pausing the UI must never clear or silently migrate users’ saved records.
+- Archive retired discovery UI acceptance specs as historical evidence; keep current board/text/gesture/data-compatibility acceptance active. Do not restore paused entry points to satisfy superseded tests.
+- The independent [tactical journal concept branch](https://github.com/demonyang885/tennis-tactics-interactive-preview/blob/feature/tactic-journal-concept/docs/product/TACTIC_JOURNAL_CONCEPT.md) records possible whole-board/session notes and Notion journal integration. It is a proposal, not a current feature or a connected Notion app. Future implementation starts from the then-current main.
+- This direction supersedes the historical requirement below to restore four discovery editing entry points. Other data integrity, native input and rally authoring requirements remain current.
+
+## Physical Acceptance Follow-up — 2026-10-01 (historical discovery UI direction)
 
 - Restore optional point and practice discoveries using the existing `rallypath:board-discovery:v1` and `rallypath:board-follow-up:v1` records. Home recall opens the point note; board menus, skill instructions, and multi-segment practice return to the original board. These are learning records, not court text marks. Cancelling or skipping must not save a blank board or note.
 - Keep one point discovery and one practice discovery per board under the existing schema. Preserve IDs, creation dates, valid frame references, and progress on same-frame edits. Saving checks the current board and note snapshots; stale, deleted, corrupt, or quota-failed writes must show failure and preserve existing records.

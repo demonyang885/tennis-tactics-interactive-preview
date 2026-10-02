@@ -379,7 +379,7 @@ for (const viewport of [
     expect(stageBox!.height / viewport.height).toBeGreaterThan(0.55);
     await expectPureBoardPreview(page);
     await expect(page.getByRole("button", { name: "想下一分", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "记下刚才一分", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "回顾刚才一分", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "找个打法", exact: true })).toHaveCount(1);
   });
 }

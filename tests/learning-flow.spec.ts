@@ -288,6 +288,82 @@ async function chooseTacticForPoint(page: Page) {
   await waitForFlowSettled(page);
 }
 
+test("pauses all discovery writing entrances while retaining review boards and legacy records", async ({ page }) => {
+  test.setTimeout(90_000);
+  const browserErrors: string[] = [];
+  page.on("pageerror", error => browserErrors.push(error.stack ?? error.message));
+  await seedAndOpenPoint(page);
+  await seedLegacyObservation(page, "回位更早了");
+  await page.evaluate(({ key, boardId }) => {
+    const now = "2026-09-20T10:00:00.000Z";
+    localStorage.setItem(key, JSON.stringify({ version: 1, records: [{
+      version: 1, id: "paused-discovery", boardId, frameId: "opening", progress: .5,
+      note: "已有的战术发现", nextTry: "保留之后再整理", uncertain: false,
+      createdAt: now, updatedAt: now,
+    }] }));
+  }, { key: DISCOVERY_KEY, boardId: pointBoard.id });
+  const recordKeys = [BOARD_KEY, FOLLOW_UP_KEY, DISCOVERY_KEY, LEARNING_KEY];
+  const before = await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), recordKeys);
+  const expectNoDiscovery = async () => {
+    await expect(page.getByRole("button", { name: /^(一分的发现|练后发现|记下这一分的发现|记下刚才一分)$/ })).toHaveCount(0);
+    await expect(page.getByTestId("discovery-edit-layer")).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: /^(一分的发现|练后发现)$/ })).toHaveCount(0);
+  };
+  const staleDiscoveryRequest = async () => {
+    await page.evaluate(boardId => {
+      window.dispatchEvent(new CustomEvent("rallypath-board-discovery-open", { detail: { boardId, kind: "point", frameId: "opening" } }));
+      return new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }, pointBoard.id);
+    await expectNoDiscovery();
+  };
+
+  await page.getByRole("button", { name: "返回上一页", exact: true }).click();
+  await waitForFlowSettled(page);
+  await expectNoDiscovery();
+  await page.getByRole("button", { name: "回顾刚才一分", exact: true }).click();
+  await waitForFlowSettled(page);
+  await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
+  await staleDiscoveryRequest();
+  await page.getByRole("button", { name: "返回上一页", exact: true }).click();
+  await waitForFlowSettled(page);
+  await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
+  await waitForFlowSettled(page);
+  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await expectNoDiscovery();
+  await staleDiscoveryRequest();
+  await page.keyboard.press("Escape");
+  const choices = await openLearningSheet(page);
+  await expectNoDiscovery();
+  await choices.getByRole("button", { name: "练一项", exact: true }).click();
+  await page.getByRole("dialog", { name: "这次先练好一件事", exact: true }).getByRole("button", { name: /击球后回位/ }).last().click();
+  await waitForFlowSettled(page);
+  await page.getByRole("button", { name: "打开击球后回位训练说明", exact: true }).click();
+  await expect(page.getByTestId("skill-practice-guide")).toBeVisible();
+  await expectNoDiscovery();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "返回上一页", exact: true }).click();
+  await waitForFlowSettled(page);
+
+  await openBoardLibrary(page);
+  await expect(page.getByRole("region", { name: "找回发现笔记", exact: true })).toHaveCount(0);
+  await expectNoDiscovery();
+  await page.getByRole("button", { name: "返回上一页", exact: true }).click();
+  await waitForFlowSettled(page);
+  const learning = await openLearningSheet(page);
+  await learning.getByRole("button", { name: "看看全部打法", exact: true }).click();
+  await page.getByRole("button", { name: /^打开接发稳住再上网互动对打/ }).click();
+  for (let decision = 0; decision < 2; decision++) {
+    const actions = page.getByTestId("flow-current").locator(".rally-choice-button");
+    await expect(actions.first()).toBeVisible({ timeout: 22_000 });
+    await actions.first().click();
+    await expect(page.getByTestId("flow-current").getByText(`回合第 ${decision + 2} 段`, { exact: true })).toBeVisible();
+  }
+  await expect(page.getByTestId("flow-current").locator(".rally-choice-button").first()).toBeVisible({ timeout: 22_000 });
+  await staleDiscoveryRequest();
+  expect(await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), recordKeys)).toEqual(before);
+  expect(browserErrors).toEqual([]);
+});
+
 async function clickAuthoredRoute(page: Page, path: BoardPath = pointBoard.frames[0].paths[0]) {
   const canvas = page.getByTestId("flow-current").getByTestId("board-canvas");
   const metrics = await canvas.evaluate(element => ({ width: element.clientWidth, height: element.clientHeight, rect: element.getBoundingClientRect().toJSON() }));

@@ -60,7 +60,9 @@ for (const height of [844, 420]) {
     test("menu has a bounded scroll surface and its bottom display controls can be reached", async ({ page }) => {
       const sheet = await openMenu(page), content = sheet.locator(".sheet-content");
       const before = await page.evaluate(key => localStorage.getItem(key), BOARD_KEY);
-      expect(await content.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(50);
+      const maximumScroll = await content.evaluate(element => element.scrollHeight - element.clientHeight);
+      if (height === 420) expect(maximumScroll).toBeGreaterThan(50);
+      else expect(maximumScroll).toBeGreaterThanOrEqual(0);
       await expect(content).toHaveCSS("overflow-y", "auto");
       // Linux WebKit does not expose CDP native touch injection. This checks
       // scroll/layout reachability only, separately from the real touch cases.
@@ -80,17 +82,24 @@ for (const height of [844, 420]) {
         test.skip(browserName !== "chromium", "Native CDP touch gestures are Chromium-specific; iPhone Safari needs physical acceptance");
         const sheet = await openMenu(page), content = sheet.locator(".sheet-content");
         const before = await page.evaluate(key => localStorage.getItem(key), BOARD_KEY);
+        const maximumScroll = await content.evaluate(element => element.scrollHeight - element.clientHeight);
+        if (height === 420) expect(maximumScroll).toBeGreaterThan(50);
         const cdp = await context.newCDPSession(page);
         const bounds = await content.boundingBox();
         if (!bounds) throw new Error("Expected the visible menu scroll surface");
         const x = bounds.x + (edge ? 10 : bounds.width / 2), from = bounds.y + bounds.height - 25, to = bounds.y + 20;
-        // Start the center gesture on an actionable row: dragging a menu
-        // button must scroll rather than open that button's discovery editor.
-        const row = await sheet.getByRole("button", { name: "练后发现", exact: true }).boundingBox();
+        // Start the center gesture on a retained actionable row. A drag must
+        // never open rename, including when all menu rows already fit.
+        const row = await sheet.getByRole("button", { name: /^修改名称/ }).boundingBox();
         if (!row) throw new Error("Expected a visible menu row");
-        await swipe(page, cdp, x, edge ? from : row.y + row.height / 2, edge ? to : bounds.y + 10);
-        await expect.poll(() => content.evaluate(element => element.scrollTop)).toBeGreaterThan(30);
+        await swipe(page, cdp, x, edge ? from : row.y + row.height - 6, edge ? to : bounds.y + 10);
+        if (maximumScroll > 0) {
+          await expect.poll(() => content.evaluate(element => element.scrollTop)).toBeGreaterThan(Math.min(30, maximumScroll) - 1);
+        } else {
+          expect(await content.evaluate(element => element.scrollTop)).toBe(0);
+        }
         await expect(sheet).toBeVisible();
+        await expect(page.getByTestId("board-rename-layer")).toHaveCount(0);
         for (let index = 0; index < 4; index++) {
           if (await content.evaluate(element => element.scrollTop >= element.scrollHeight - element.clientHeight - 2)) break;
           await swipe(page, cdp, x, from, to);

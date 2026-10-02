@@ -46,14 +46,6 @@ async function menu(page: Page) {
 }
 
 async function openSurface(page: Page, surface: string): Promise<{ field: Locator; cancel: Locator; layer: Locator }> {
-  if (surface === "point" || surface === "practice") {
-    const title = surface === "point" ? "一分的发现" : "练后发现";
-    await (await menu(page)).getByRole("button", { name: title, exact: true }).tap();
-    const layer = page.getByRole("dialog", { name: title, exact: true });
-    await expect(page.getByRole("dialog", { name: "画板菜单", exact: true })).toBeHidden();
-    await expect(page.getByTestId("bottom-sheet")).toHaveCount(0);
-    return { layer, field: layer.getByRole("textbox", { name: surface === "point" ? "发现了什么" : "练后发现了什么", exact: true }), cancel: layer.getByRole("button", { name: "先不记", exact: true }) };
-  }
   if (surface === "rename") {
     await (await menu(page)).getByRole("button", { name: /^修改名称/ }).tap();
     const layer = page.getByTestId("board-rename-layer");
@@ -141,7 +133,7 @@ async function pinch(page: Page, session: CDPSession, field: Locator, expanding:
 for (const height of [844, 420]) {
   test.describe(`native text pinch permission at 390×${height}`, () => {
     test.use({ viewport: { width: 390, height }, hasTouch: true, isMobile: true });
-    for (const surface of ["point", "practice", "rename", "frame", "court-note"]) {
+    for (const surface of ["rename", "frame", "court-note"]) {
       test(`${surface} keeps browser pinch available while entering text and cancels safely`, async ({ page }) => {
         await openBoard(page);
         const before = await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), RECORD_KEYS);
@@ -161,54 +153,46 @@ for (const height of [844, 420]) {
   });
 }
 
-test.describe("native Chromium two-finger discovery zoom", () => {
+test.describe("native Chromium two-finger retained text zoom", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-  for (const surface of ["point", "practice"]) {
-    test(`${surface} can zoom in and back out without clipping the note or changing the board`, async ({ page, context, browserName }) => {
-      test.skip(browserName !== "chromium", "CDP touch injection is Chromium-specific; physical iPhone Safari still needs device acceptance");
-      await openBoard(page);
-      const before = await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), RECORD_KEYS);
-      const { layer, field } = await openSurface(page, surface);
-      await expect(layer).toBeVisible();
-      await expect.poll(() => layer.evaluate(element => Math.abs(new DOMMatrixReadOnly(getComputedStyle(element).transform).m42))).toBeLessThan(.01);
-      if (surface === "practice") await layer.getByRole("combobox", { name: "这次练的技能", exact: true }).selectOption("return-depth");
-      await field.fill("test：放大后可以缩回，文字还在");
-      const session = await context.newCDPSession(page);
-      await pinch(page, session, field, true);
-      expect(pageErrors.get(page), "Two-finger zoom must not throw browser errors").toEqual([]);
-      await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBeGreaterThan(1.2);
-      await expect.poll(() => layer.evaluate(element => {
-        const viewport = window.visualViewport!;
-        return [document.activeElement, ...element.querySelectorAll(".discovery-actions button")].every(control => {
-          if (!(control instanceof HTMLElement)) return false;
-          const bounds = control.getBoundingClientRect();
-          return bounds.left >= viewport.offsetLeft - 1 && bounds.right <= viewport.offsetLeft + viewport.width + 1;
-        });
-      })).toBe(true);
-      await expect(field).toBeFocused();
-      await expect(field).toHaveValue("test：放大后可以缩回，文字还在");
-      await pinch(page, session, field, false);
-      expect(pageErrors.get(page), "Pinching back must not throw browser errors").toEqual([]);
-      await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBeLessThanOrEqual(1.08);
-      await expect(field).toBeFocused();
-      await expect(field).toHaveValue("test：放大后可以缩回，文字还在");
-      // The court still owns its drawing gesture; granting text pinch must
-      // never release drawing to browser scroll or zoom.
-      await expect(current(page).getByTestId("board-canvas")).toHaveCSS("touch-action", "none");
-      const save = layer.getByRole("button", { name: "保存发现", exact: true });
-      await expect(save).toBeEnabled();
-      await save.tap();
-      await expect(layer).toBeHidden();
-      const key = RECORD_KEYS[surface === "point" ? 1 : 2];
-      expect(await page.evaluate(key => localStorage.getItem(key), BOARD_KEY)).toBe(before[0]);
-      expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).records[0].note, key)).toBe("test：放大后可以缩回，文字还在");
-      expect(await page.evaluate(() => document.activeElement?.matches("input, textarea") ?? false)).toBe(false);
-      await page.reload();
-      await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).tap();
-      const reopened = await openSurface(page, surface);
-      await expect(reopened.field).toHaveValue("test：放大后可以缩回，文字还在");
-      await reopened.cancel.tap();
-      await expect(reopened.layer).toBeHidden();
-    });
-  }
+  test("rename can zoom in and back out without clipping text or changing saved records on cancel", async ({ page, context, browserName }) => {
+    test.skip(browserName !== "chromium", "CDP touch injection is Chromium-specific; physical iPhone Safari still needs device acceptance");
+    await openBoard(page);
+    const before = await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), RECORD_KEYS);
+    const { layer, field, cancel } = await openSurface(page, "rename");
+    await expect(layer).toBeVisible();
+    await expect(page.getByTestId("bottom-sheet")).toHaveCount(0);
+    await expect.poll(() => layer.evaluate(element => Math.abs(new DOMMatrixReadOnly(getComputedStyle(element).transform).m42))).toBeLessThan(.01);
+    await field.fill("文字放大后可以缩回");
+    const session = await context.newCDPSession(page);
+    await pinch(page, session, field, true);
+    expect(pageErrors.get(page), "Two-finger zoom must not throw browser errors").toEqual([]);
+    await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBeGreaterThan(1.2);
+    await expect.poll(() => layer.evaluate(element => {
+      const viewport = window.visualViewport!;
+      return [document.activeElement, ...element.querySelectorAll(".board-rename-header button")].every(control => {
+        if (!(control instanceof HTMLElement)) return false;
+        const bounds = control.getBoundingClientRect();
+        return bounds.left >= viewport.offsetLeft - 1 && bounds.right <= viewport.offsetLeft + viewport.width + 1;
+      });
+    })).toBe(true);
+    await expect(field).toBeFocused();
+    await expect(field).toHaveValue("文字放大后可以缩回");
+    await pinch(page, session, field, false);
+    expect(pageErrors.get(page), "Pinching back must not throw browser errors").toEqual([]);
+    await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBeLessThanOrEqual(1.08);
+    await expect(field).toBeFocused();
+    await expect(field).toHaveValue("文字放大后可以缩回");
+    await expect(current(page).getByTestId("board-canvas")).toHaveCSS("touch-action", "none");
+    await cancel.tap();
+    await expect(layer).toBeHidden();
+    expect(await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), RECORD_KEYS)).toEqual(before);
+    expect(await page.evaluate(() => document.activeElement?.matches("input, textarea") ?? false)).toBe(false);
+    await page.reload();
+    await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).tap();
+    const reopened = await openSurface(page, "rename");
+    await expect(reopened.field).toHaveValue(board.title);
+    await reopened.cancel.tap();
+    await expect(reopened.layer).toBeHidden();
+  });
 });
