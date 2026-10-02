@@ -67,7 +67,7 @@ for (const height of [844, 420]) {
       // Linux WebKit does not expose CDP native touch injection. This checks
       // scroll/layout reachability only, separately from the real touch cases.
       await content.evaluate(element => { element.scrollTop = element.scrollHeight; });
-      const zones = sheet.getByRole("button", { name: "站位分区颜色", exact: true });
+      const zones = sheet.getByRole("button", { name: /^站位分区颜色/ });
       await expect.poll(() => visibleInside(zones, content)).toBe(true);
       await expect(zones).toHaveAttribute("aria-pressed", "true");
       await expect(sheet.getByTestId("sheet-handle")).toHaveCSS("touch-action", "none");
@@ -106,7 +106,7 @@ for (const height of [844, 420]) {
         }
         await expect.poll(() => content.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThanOrEqual(2);
         await expect(sheet).toBeVisible();
-        const zones = sheet.getByRole("button", { name: "站位分区颜色", exact: true });
+        const zones = sheet.getByRole("button", { name: /^站位分区颜色/ });
         await expect.poll(() => visibleInside(zones, content)).toBe(true);
         await expect(zones).toHaveAttribute("aria-pressed", "true");
         expect(await page.evaluate(key => localStorage.getItem(key), BOARD_KEY)).toBe(before);

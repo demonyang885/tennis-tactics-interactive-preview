@@ -77,7 +77,29 @@ async function background(holder: Locator) {
   return holder.locator("canvas").evaluate((element: HTMLCanvasElement) => Array.from(element.getContext("2d")!.getImageData(1, 1, 1, 1).data));
 }
 
+async function zoneInteriorPixel(holder: Locator) {
+  const size = await holder.evaluate(element => ({ width: element.clientWidth, height: element.clientHeight }));
+  // Inside the top Rally band, clear of court lines, zone labels, the players
+  // and this fixture's shot route. Sample the rendered backing canvas using
+  // its actual pixel scale instead of assuming a device pixel ratio.
+  const point = getBoardGeometry(size.width, size.height).toCanvas([.60, .10]);
+  return holder.locator("canvas").evaluate((element: HTMLCanvasElement, { point, size }) => {
+    const x = Math.floor(point[0] * element.width / size.width);
+    const y = Math.floor(point[1] * element.height / size.height);
+    return Array.from(element.getContext("2d")!.getImageData(x, y, 1, 1).data);
+  }, { point, size });
+}
+
+async function expectColorState(control: Locator, text: "分区已开" | "分区已关", pressed: "true" | "false") {
+  await expect(control).toHaveAttribute("aria-pressed", pressed);
+  await expect(control.locator("span")).toBeVisible();
+  await expect(control.locator("span")).toHaveText(text);
+  await expect(control).toHaveAccessibleName(`站位分区颜色，${text}`);
+}
+
 test("zone colors and names have stable setting labels and independent visible states", async ({ page }) => {
+  const browserErrors: string[] = [];
+  page.on("pageerror", error => browserErrors.push(error.stack ?? error.message));
   await page.addInitScript(() => {
     const labels = new WeakMap<HTMLCanvasElement, string[]>();
     const clear = CanvasRenderingContext2D.prototype.clearRect, fill = CanvasRenderingContext2D.prototype.fillText;
@@ -86,20 +108,50 @@ test("zone colors and names have stable setting labels and independent visible s
     (window as unknown as { drawnLabels: (canvas: HTMLCanvasElement) => string[] }).drawnLabels = canvas => labels.get(canvas) ?? [];
   });
   await open(page);
-  const unchanged = await stored(page), sheet = await menu(page);
-  const colors = sheet.getByRole("button", { name: "站位分区颜色", exact: true });
+  const unchanged = await stored(page), rawBoard = await page.evaluate(key => localStorage.getItem(key), BOARD_KEY);
+  const coloredPixel = await zoneInteriorPixel(canvas(page)), sheet = await menu(page);
+  const colors = sheet.getByRole("button", { name: /^站位分区颜色/ });
   const names = sheet.getByRole("button", { name: "区域名称", exact: true });
-  await expect(colors).toHaveAttribute("aria-pressed", "true"); await expect(colors).toContainText("已开");
+  await expectColorState(colors, "分区已开", "true");
+  await expect(names).toHaveAttribute("aria-pressed", "false");
   await names.click(); await colors.click();
-  await expect(colors).toHaveAttribute("aria-pressed", "false"); await expect(colors).toContainText("已关");
+  await expectColorState(colors, "分区已关", "false");
+  await expect.poll(() => zoneInteriorPixel(canvas(page))).not.toEqual(coloredPixel);
+  const uncoloredPixel = await zoneInteriorPixel(canvas(page));
   await expect(names).toBeEnabled(); await expect(names).toHaveAttribute("aria-pressed", "true");
   await expect.poll(() => canvas(page).locator("canvas").evaluate(element =>
     (window as unknown as { drawnLabels: (canvas: HTMLCanvasElement) => string[] }).drawnLabels(element as HTMLCanvasElement).includes("DEFENSE"))).toBe(true);
   await names.click();
   await expect.poll(() => canvas(page).locator("canvas").evaluate(element =>
     (window as unknown as { drawnLabels: (canvas: HTMLCanvasElement) => string[] }).drawnLabels(element as HTMLCanvasElement).includes("DEFENSE"))).toBe(false);
+  await expect(names).toHaveAttribute("aria-pressed", "false");
+  expect(await zoneInteriorPixel(canvas(page))).toEqual(uncoloredPixel);
+  await expectColorState(colors, "分区已关", "false");
+  await colors.click();
+  await expectColorState(colors, "分区已开", "true");
+  await expect.poll(() => zoneInteriorPixel(canvas(page))).toEqual(coloredPixel);
+  await expect(names).toHaveAttribute("aria-pressed", "false");
+  await colors.click();
+  await expectColorState(colors, "分区已关", "false");
+  await expect.poll(() => zoneInteriorPixel(canvas(page))).toEqual(uncoloredPixel);
+
+  // These are device display preferences, so navigation and reload retain
+  // the off state without a write to the board document.
+  await closeMenu(page);
+  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
+  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).click(); await settled(page);
+  await expectColorState((await menu(page)).getByRole("button", { name: /^站位分区颜色/ }), "分区已关", "false");
+  expect(await zoneInteriorPixel(canvas(page))).toEqual(uncoloredPixel);
+  await page.reload();
+  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).click(); await settled(page);
+  const reopened = await menu(page);
+  await expectColorState(reopened.getByRole("button", { name: /^站位分区颜色/ }), "分区已关", "false");
+  await expect(reopened.getByRole("button", { name: "区域名称", exact: true })).toHaveAttribute("aria-pressed", "false");
+  expect(await zoneInteriorPixel(canvas(page))).toEqual(uncoloredPixel);
   expect(await stored(page)).toEqual(unchanged);
+  expect(await page.evaluate(key => localStorage.getItem(key), BOARD_KEY)).toBe(rawBoard);
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), BOARD_DISPLAY_STORAGE_KEY)).toMatchObject({ showZones: false, showZoneLabels: false });
+  expect(browserErrors).toEqual([]);
 });
 
 for (const surface of ["hard", "clay", "grass"] as const) {
@@ -125,10 +177,18 @@ for (const surface of ["hard", "clay", "grass"] as const) {
 
 test("a retained editor follows a device preference changed in another tab", async ({ page, context }) => {
   await open(page); await menu(page);
+  const rawBoard = await page.evaluate(key => localStorage.getItem(key), BOARD_KEY);
+  const colors = page.getByRole("button", { name: /^站位分区颜色/ });
+  await expectColorState(colors, "分区已开", "true");
   const other = await context.newPage(); await other.goto("/");
   await other.evaluate(key => localStorage.setItem(key, JSON.stringify({ surface: "grass", showZones: false, showZoneLabels: true })), BOARD_DISPLAY_STORAGE_KEY);
   await expect(page.getByRole("dialog", { name: "画板菜单" }).getByRole("button", { name: "草地", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "站位分区颜色", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expectColorState(colors, "分区已关", "false");
+  await expect(page.getByRole("button", { name: "区域名称", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await other.evaluate(key => localStorage.setItem(key, JSON.stringify({ surface: "grass", showZones: true, showZoneLabels: true })), BOARD_DISPLAY_STORAGE_KEY);
+  await expectColorState(colors, "分区已开", "true");
+  await expect(page.getByRole("button", { name: "区域名称", exact: true })).toHaveAttribute("aria-pressed", "true");
+  expect(await page.evaluate(key => localStorage.getItem(key), BOARD_KEY)).toBe(rawBoard);
   await other.close();
 });
 

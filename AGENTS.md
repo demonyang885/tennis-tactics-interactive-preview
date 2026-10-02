@@ -61,6 +61,7 @@
 - Maintain `CHANGELOG.md` with a few concrete changes for each release; record historical entries as reconstructed when necessary rather than inventing verification.
 - Board deletion requires a named confirmation; cancelling must preserve the board and its linked learning data. Retrying a failed deletion requires confirmation again.
 - Court surface, zone colors, and zone names remain device-local visual preferences. Zone color and name controls are independent and clearly state whether they are on. Skill practice must preserve the user's current surface.
+- D3 acceptance requires the zone-color toggle to visibly say exactly “分区已开” when colored zones are shown and “分区已关” when hidden. Its accessible name must include the same state. Check the full visible text, accessible name, aria-pressed and actual court rendering together, including reload; do not silently replace this accepted status copy with a fixed label.
 - Reopening a board restores its last valid frame and route selection without autoplay or changes to document content. A newly drawn route stays selected so its deletion label and actual target match, while smart rally continuation remains available.
 
 ## Current Notes Direction — 2026-10-02
