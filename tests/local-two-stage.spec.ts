@@ -104,3 +104,16 @@ test('real touch input follows the finger, commits two phases and fits a narrow 
   expect(b.frames[0].paths.find(p=>p.actorId===me.id)).toBeDefined();expect(b.frames[1].paths.find(p=>p.actorId===me.id)).toBeDefined();
   await cdp.detach();
 });
+test('Home opens a disposable, playable two-stage example',async({page})=>{
+  await page.goto('/');await page.evaluate(()=>localStorage.clear());await page.reload();
+  await page.getByRole('button',{name:/试看二段跑位/}).click();
+  await expect(canvas(page)).toBeVisible();
+  await current(page).getByRole('button',{name:/^播放战术，2 拍，共 5.6 秒/}).click();
+  await expect(current(page).getByTestId('board-playback-dock')).toBeVisible();
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),KEY)).toBeNull();
+  await current(page).getByRole('button',{name:'暂停',exact:true}).click();
+  const slider=current(page).getByRole('slider',{name:'画板播放进度'});
+  await slider.fill('1.4');await expect(slider).toHaveValue('1.4');
+  await slider.fill('4.2');await expect(slider).toHaveValue('4.2');
+  await page.screenshot({path:'output/demo-second-stage.png'});
+});

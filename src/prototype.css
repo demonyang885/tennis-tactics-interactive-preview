@@ -1171,3 +1171,8 @@
 .board-local-hint { pointer-events:none; }
 .board-local-hint button { pointer-events:auto; }
 .local-trial-badge { font-size:10px; padding:3px 5px; border:1px solid #b9cbb5; color:#4c6c47; border-radius:5px; margin-left:5px; }
+
+.home-trial-demo { display:flex; align-items:center; gap:10px; width:100%; border:1px solid #becdb4; border-radius:14px; padding:10px 14px; background:#f0f6e9; color:#244c38; text-align:left; }
+.home-trial-demo span { display:grid; gap:3px; }
+.home-trial-demo strong { font-size:15px; }
+.home-trial-demo small { font-size:11px; color:#637559; }

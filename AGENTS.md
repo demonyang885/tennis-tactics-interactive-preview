@@ -161,3 +161,7 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 - One-tap 180-degree rotation changes the editor view only; text stays upright, input coordinates rotate with the court, and actor roles/timing/board data do not change.
 - Optional early recovery and subsequent receiving movement use ordinary player drags. The opponent's shot separates the two phases; skipping recovery is valid. Do not add mandatory phase dialogs or a game/scoring system.
 - All product copy, fixtures, docs and examples use generic roles (我方／对手), never a child's personal name.
+
+## Test link follow-up — 2026-10-02
+
+- The user now requests an accessible testing link and specifically wants to test two-stage movement. Publish an isolated Sites trial from this branch, without GitHub upload or changes to the official site. This supersedes local-only delivery for this trial. Use v0.3.8 with a visible trial badge and a disposable editable example on Home.

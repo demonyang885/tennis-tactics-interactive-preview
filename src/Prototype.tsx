@@ -40,6 +40,7 @@ import {
 } from "@radix-ui/react-icons";
 import { BottomSheet, Carousel, FlowStack, KeyboardInput, MobileScroll, useKeyboard, useScreenPortal, type FlowScreen } from "./mobile";
 import { BoardTextEditorLayer } from "./board/BoardTextEditorLayer";
+import { createTwoStageDemo } from "./board/twoStageDemo";
 import { OPENINGS, applyOpening, type OpeningId } from "./board/openings";
 import { VersionBadge } from "./version/VersionBadge";
 
@@ -169,7 +170,7 @@ function HomeHeader({ menu }: { menu: () => void }) {
   return <div className="home-header">
     <ProductWordmark />
     <button className="home-header-info" aria-label="打开内容说明" onClick={menu}><InfoCircledIcon/></button>
-    <VersionBadge className="home-version-badge" /><span className="local-trial-badge">本地试验</span>
+    <VersionBadge className="home-version-badge" /><span className="local-trial-badge">跑位试验版</span>
   </div>;
 }
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -809,6 +810,7 @@ function BoardHome({ openBoard, openKnowledge, openLibrary }:{openBoard:(board:B
         <div className="home-board-playback-slot"><div className={draftsPending?"home-board-playback-source is-concealed":"home-board-playback-source"} aria-hidden={draftsPending?"true":undefined} inert={draftsPending?true:undefined}><HomeBoardPlayback board={latestPlayableBoard} active={!draftsPending} showReplay={false} onOpenBoard={openBoard}/></div>{draftsPending&&<div className="home-board-playback-pending" role="status" aria-label={draftsStatus==="loading"?"正在打开你的画板":"暂时无法打开画板"}><UpdateIcon aria-hidden="true"/><span className="board-sr-only">{draftsStatus==="loading"?"正在打开你的画板":"暂时无法打开画板"}</span></div>}</div>
       </div>
       {!draftsPending&&<button className="home-plan-primary" aria-label={latestPlayableBoard?`接着画${latestPlayableBoard.title}`:"画第一拍"} onClick={openLatestBoard}><strong>{latestBoardAction}</strong></button>}
+      <button className="home-trial-demo" onClick={()=>openBoard(createTwoStageDemo(),false)}><PlayIcon/><span><strong>试看二段跑位</strong><small>打开后点播放，看蓝色球员先回位、再接球</small></span></button>
       <div className="home-intent-actions" aria-label="开始画板">
         <button disabled={recoveryBlocked} onClick={()=>openNewBoard("tactic")}><Pencil2Icon/><span>想下一分</span></button>
         <button disabled={recoveryBlocked} onClick={()=>openNewBoard("review")}><ReaderIcon/><span>回顾刚才一分</span></button>
@@ -1954,7 +1956,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
         </div>
       </div>
       <BoardCanvas board={previewing?playbackBoard:board} frameIndex={frameIndex} selection={selection} setSelection={next=>{setAutomaticRouteSelection(false);setSelection(next);}} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} smartEnabled={!!activeSmart} protectPreviousEndpoints={automaticRouteSelection&&activeSmart?.phase==="move"} preferredActorId={!selection||automaticRouteSelection&&selection.kind==="element"?activeSmart?.actorId:undefined} contextPaths={previousBeatPaths} contextFrameIndex={contextFrameIndex} previewing={previewing} elapsed={elapsed} display={display} rotated={rotated} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onOverride={overrideSmartActor} onCancel={cancelCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError} onTogglePathCurve={toggleCurve} onPlaceText={placeCourtNote} onEditText={editCourtNote}/>
-      {!previewing&&activeSmart&&showMovementHint&&<div className="board-local-hint"><span><strong>本地试验 · 二段跑位</strong><small>{activeSmart.phase==="move"?"拖接球方接球；也可先拖击球方提前回位。":frameIndex===0?"从网球拖出第一拍，开始试画。":"从网球画回球；随后拖原球员完成第二段跑位。"}</small></span><button aria-label="收起跑位提示" onClick={()=>setShowMovementHint(false)}><Cross2Icon/></button></div>}
+      {!previewing&&activeSmart&&showMovementHint&&<div className="board-local-hint"><span><strong>跑位试验版 · 二段跑位</strong><small>{activeSmart.phase==="move"?"拖接球方接球；也可先拖击球方提前回位。":frameIndex===0?"从网球拖出第一拍，开始试画。":"从网球画回球；随后拖原球员完成第二段跑位。"}</small></span><button aria-label="收起跑位提示" onClick={()=>setShowMovementHint(false)}><Cross2Icon/></button></div>}
       {isAlternative&&!previewing&&<div className="board-alternative-label" role="status">从第 {alternativeStartIndex+1} 拍试试 · {saveState==="saved"?"已保存":saveState==="error"?"未保存":"调整中"}</div>}
       {previewing&&(alternative||alternativeSeed&&saveState==="saved")&&<div className="board-compare-switch" role="group" aria-label="比较两条打法"><button aria-pressed={compareMode==="original"} onClick={()=>{setCompareMode("original");setElapsed(0);setIsPlaying(false);}}>原来</button><button aria-pressed={compareMode==="try"} onClick={()=>{setCompareMode("try");setElapsed(0);setIsPlaying(false);}}>试试</button>{alternativeSourceChanged&&<small>原分已改，按当时起点比较</small>}</div>}
       {previewing&&chosenSkill&&<div className="board-practice-context" aria-label={`正在观察${chosenSkill.label}`}>{chosenSkill.label}</div>}
