@@ -1,3 +1,4 @@
+import { openTacticCatalogue } from "./workspace-navigation";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -17,7 +18,7 @@ async function waitForFlowSettled(page: Page) {
 
 async function openWrongFootTactic(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "找个打法", exact: true }).click();
+  await openTacticCatalogue(page);
   await waitForFlowSettled(page);
   await page.getByRole("button", { name: /打回头球，10秒/ }).click();
 }

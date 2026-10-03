@@ -1,13 +1,18 @@
 import { getBoardDisplayPreferences, type BoardSurface } from "./display";
-import { getFramePose, type BoardActor, type BoardDocument, type BoardFrame, type BoardMark, type BoardPath, type BoardShotPace, type Point } from "./model";
+import { getFramePose, getBoardPathPoint, movementTurnProgress, type BoardActor, type BoardDocument, type BoardFrame, type BoardMark, type BoardPath, type BoardShotPace, type Point } from "./model";
 
 export type BoardSelection = { kind: "actor"; id: string } | { kind: "element"; id: string; frameIndex?: number };
-export type BoardHit = BoardSelection | { kind: "handle"; id: string; handle: "from" | "to" | "control"; frameIndex?: number };
+export type BoardHit = BoardSelection | { kind: "handle"; id: string; handle: "from" | "to" | "control" | "via"; frameIndex?: number };
 export type BoardHitTestOptions = {
+  rotated?: boolean;
   contextPaths?: BoardPath[];
   contextFrameIndex?: number;
 };
 export type BoardRenderOptions = {
+  /** View-only rotation. Geometry rotates; text and controls stay upright. */
+  rotated?: boolean;
+  /** Transient finger-follow feedback, never serialized or exported. */
+  draggingActor?: { actorId: string; point: Point };
   progress?: number;
   playingProgress?: number;
   playing?: boolean;
@@ -62,7 +67,7 @@ const FONT = '-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei
 const bound = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
-export function getBoardGeometry(width: number, height: number) {
+export function getBoardGeometry(width: number, height: number, rotated = false) {
   // Fit the full tactical range, including the run-off areas behind both
   // baselines. The regulation rectangle stays normalized to 0...1 so every
   // existing board keeps the same coordinates.
@@ -85,19 +90,18 @@ export function getBoardGeometry(width: number, height: number) {
   return {
     court,
     runOff,
-    toCanvas: (point: Point): Point => [court.x + point[0] * court.width, court.y + point[1] * court.height],
-    fromCanvas: (point: Point): Point => [(point[0] - court.x) / court.width, (point[1] - court.y) / court.height],
+    toCanvas: (point: Point): Point => [court.x + (rotated ? 1 - point[0] : point[0]) * court.width, court.y + (rotated ? 1 - point[1] : point[1]) * court.height],
+    fromCanvas: (point: Point): Point => {
+      const x = (point[0] - court.x) / court.width, y = (point[1] - court.y) / court.height;
+      return rotated ? [1 - x, 1 - y] : [x, y];
+    },
     clampPoint: (point: Point): Point => [bound(point[0], -.15, 1.15), bound(point[1], -.15, 1.15)],
   };
 }
 
 type Geometry = ReturnType<typeof getBoardGeometry>;
 
-export function pointOnBoardPath(path: Pick<BoardPath, "from" | "to" | "control">, progress: number): Point {
-  const t = bound(progress, 0, 1), u = 1 - t;
-  if (!path.control) return [path.from[0] * u + path.to[0] * t, path.from[1] * u + path.to[1] * t];
-  return [u * u * path.from[0] + 2 * u * t * path.control[0] + t * t * path.to[0], u * u * path.from[1] + 2 * u * t * path.control[1] + t * t * path.to[1]];
-}
+export const pointOnBoardPath = getBoardPathPoint;
 
 function line(ctx: CanvasRenderingContext2D, from: Point, to: Point, color: string, width = 1.5) {
   ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.moveTo(...from); ctx.lineTo(...to); ctx.stroke();
@@ -222,8 +226,13 @@ function drawArrow(ctx: CanvasRenderingContext2D, tip: Point, tangent: Point, co
 
 function tracePath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress = 1) {
   ctx.beginPath(); ctx.moveTo(...geometry.toCanvas(path.from));
-  const segments = Math.max(2, Math.ceil(36 * progress));
-  for (let i = 1; i <= segments; i++) ctx.lineTo(...geometry.toCanvas(pointOnBoardPath(path, progress * i / segments)));
+  if (path.via) {
+    if (progress >= movementTurnProgress(path)) ctx.lineTo(...geometry.toCanvas(path.via));
+    ctx.lineTo(...geometry.toCanvas(pointOnBoardPath(path, progress)));
+  } else {
+    const segments = Math.max(2, Math.ceil(36 * progress));
+    for (let i = 1; i <= segments; i++) ctx.lineTo(...geometry.toCanvas(pointOnBoardPath(path, progress * i / segments)));
+  }
 }
 
 function drawPath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress: number, playing: boolean, selected: boolean, opacity = 1) {
@@ -236,6 +245,15 @@ function drawPath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geom
   if (playing && progress > 0) { ctx.globalAlpha = 1; tracePath(ctx, path, geometry, progress); ctx.stroke(); }
   ctx.globalAlpha = (playing ? .4 : 1) * opacity;
   drawArrow(ctx, geometry.toCanvas(path.to), geometry.toCanvas(pointOnBoardPath(path, .94)), color);
+  if (path.via && !playing) {
+    ctx.globalAlpha = opacity;
+    const turn = movementTurnProgress(path);
+    for (const [number, fraction] of [["1", turn/2], ["2", (1+turn)/2]] as const) {
+      const at = geometry.toCanvas(pointOnBoardPath(path, fraction));
+      circle(ctx, at, 10, "#123c30", color, 1.5);
+      label(ctx, number, at, 12);
+    }
+  }
   ctx.restore();
 }
 
@@ -317,6 +335,10 @@ function drawHandles(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: G
   ctx.setLineDash([]);
   circle(ctx, geometry.toCanvas(path.from), 6, palette.handle, "#fff", 2.5);
   circle(ctx, geometry.toCanvas(path.to), 7, COLORS.shot, "#fff", 2.5);
+  if (path.via) {
+    circle(ctx, geometry.toCanvas(path.via), 8, palette.handle, "#fff", 2.5);
+    ctx.restore(); return;
+  }
   const at = geometry.toCanvas(control); ctx.fillStyle = palette.handle; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(at[0], at[1] - 7); ctx.lineTo(at[0] + 7, at[1]); ctx.lineTo(at[0], at[1] + 7); ctx.lineTo(at[0] - 7, at[1]); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
@@ -362,10 +384,10 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
   const palette = BOARD_SURFACE_PALETTES[surface];
   const showZones = options.showZones ?? preferences.showZones;
   const showZoneLabels = options.showZoneLabels ?? preferences.showZoneLabels;
-  const geometry = getBoardGeometry(width, height), progress = bound(options.progress ?? options.playingProgress ?? 0, 0, 1);
+  const geometry = getBoardGeometry(width, height, options.rotated), progress = bound(options.progress ?? options.playingProgress ?? 0, 0, 1);
   const selected = options.playing ? null : options.selection;
   ctx.save(); ctx.clearRect(0, 0, width, height); ctx.fillStyle = palette.surround; ctx.fillRect(0, 0, width, height);
-  drawCourt(ctx, geometry, surface, showZones, showZoneLabels);
+  drawCourt(ctx, getBoardGeometry(width, height), surface, showZones, showZoneLabels);
   for (const path of options.contextPaths ?? []) {
     // The preceding beat must remain legible on a small court. Movement stays
     // slightly quieter so the newest ball route remains the primary signal.
@@ -379,17 +401,18 @@ export function renderBoard(ctx: CanvasRenderingContext2D, width: number, height
     drawPath(ctx, path, geometry, progress, !!options.playing, selected?.kind === "element" && selected.id === path.id, charging ? .5 : 1);
   }
   const poses = getFramePose(frame, progress);
+  if (options.draggingActor && !options.playing) poses[options.draggingActor.actorId] = options.draggingActor.point;
   for (const actor of [...actors].sort((a, b) => Number(a.kind === "ball") - Number(b.kind === "ball"))) {
     const pose = poses[actor.id]; if (!pose) continue;
     const at = geometry.toCanvas(pose), isBall = actor.kind === "ball", radius = isBall ? 5.5 : 10.5;
     if (selected?.kind === "actor" && selected.id === actor.id) circle(ctx, at, radius + 6, "rgba(255,255,255,.13)", "rgba(255,255,255,.85)", 1.5);
     circle(ctx, at, radius, actor.color ?? (isBall ? COLORS.shot : "#58a5ec"), palette.line, isBall ? 1.7 : 2.2);
     if (!isBall && (options.showActorLabels ?? options.showLabels !== false) && actor.label) {
-      const dy = pose[1] < .5 ? 26 : -31;
+      const dy = (options.rotated ? 1 - pose[1] : pose[1]) < .5 ? 26 : -31;
       label(ctx, actor.label, [at[0], bound(at[1] + dy, 12, height - 38)], 13, "center", palette.surround);
     }
   }
-  if (selected?.kind === "element") {
+  if (selected?.kind === "element" && !options.draggingActor) {
     const path = frame.paths.find(item => item.id === selected.id)
       ?? (selected.frameIndex === undefined || selected.frameIndex === options.contextFrameIndex
         ? options.contextPaths?.find(item => item.id === selected.id)
@@ -424,7 +447,7 @@ export function hitTestBoard(
   options: BoardHitTestOptions = {},
 ): BoardHit | null {
   const { contextPaths = [], contextFrameIndex } = options;
-  const geometry = getBoardGeometry(width, height);
+  const geometry = getBoardGeometry(width, height, options.rotated);
   const minimumTouchRadius = 22;
   if (selection?.kind === "element") {
     const path = frame.paths.find(item => item.id === selection.id)
@@ -433,8 +456,9 @@ export function hitTestBoard(
         : undefined);
     if (path) {
       const midpoint: Point = [(path.from[0] + path.to[0]) / 2, (path.from[1] + path.to[1]) / 2];
-      const handlePoints = { from: path.from, to: path.to, control: path.control ?? midpoint };
-      const handles = (["from", "to", "control"] as const).map(handle => ({ handle, distance: distance(pixel, geometry.toCanvas(handlePoints[handle])) })).sort((a, b) => a.distance - b.distance);
+      const handlePoints = { from: path.from, to: path.to, control: path.control ?? midpoint, via: path.via ?? midpoint };
+      const handleNames: ("from"|"to"|"via"|"control")[] = path.via ? ["from", "to", "via"] : ["from", "to", "control"];
+      const handles = handleNames.map(handle => ({ handle, distance: distance(pixel, geometry.toCanvas(handlePoints[handle])) })).sort((a, b) => a.distance - b.distance);
       if (handles[0] && handles[0].distance <= 24) return {
         kind: "handle",
         id: path.id,

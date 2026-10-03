@@ -30,7 +30,8 @@ async function openMenu(page: Page) {
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: BOARD_KEY, board });
   await page.reload();
-  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).tap();
+  await expect(current(page).getByTestId("board-canvas")).toBeVisible();
+  await current(page).getByRole("button", {name:"展开常用操作"}).tap();
   await current(page).getByRole("button", { name: `打开${board.title}的画板菜单`, exact: true }).tap();
   const sheet = page.getByRole("dialog", { name: "画板菜单", exact: true });
   await expect(sheet).toBeVisible();
@@ -90,11 +91,15 @@ for (const height of [844, 420]) {
         const x = bounds.x + (edge ? 10 : bounds.width / 2), from = bounds.y + bounds.height - 25, to = bounds.y + 20;
         // Start the center gesture on a retained actionable row. A drag must
         // never open rename, including when all menu rows already fit.
+        // Opening presets can place this row below the short viewport. Start
+        // the real gesture on a visible row, never outside the sheet.
+        if (!edge) await sheet.getByRole("button", { name: /^修改名称/ }).scrollIntoViewIfNeeded();
+        const scrollBeforeGesture = await content.evaluate(element => element.scrollTop);
         const row = await sheet.getByRole("button", { name: /^修改名称/ }).boundingBox();
         if (!row) throw new Error("Expected a visible menu row");
         await swipe(page, cdp, x, edge ? from : row.y + row.height - 6, edge ? to : bounds.y + 10);
         if (maximumScroll > 0) {
-          await expect.poll(() => content.evaluate(element => element.scrollTop)).toBeGreaterThan(Math.min(30, maximumScroll) - 1);
+          await expect.poll(() => content.evaluate(element => element.scrollTop)).toBeGreaterThan(scrollBeforeGesture + Math.min(30, maximumScroll - scrollBeforeGesture) - 1);
         } else {
           expect(await content.evaluate(element => element.scrollTop)).toBe(0);
         }
@@ -121,6 +126,7 @@ for (const height of [844, 420]) {
         await expect(sheet).toBeHidden();
         await expect(current(page).getByTestId("board-canvas")).toBeVisible();
         expect(await page.evaluate(key => localStorage.getItem(key), BOARD_KEY)).toBe(before);
+        await current(page).getByRole("button", {name:"展开常用操作"}).tap();
         await current(page).getByRole("button", { name: `打开${board.title}的画板菜单`, exact: true }).tap();
         await expect(sheet).toBeVisible();
         await expect.poll(() => sheet.evaluate(element => Math.abs(new DOMMatrixReadOnly(getComputedStyle(element).transform).m42))).toBeLessThan(.01);

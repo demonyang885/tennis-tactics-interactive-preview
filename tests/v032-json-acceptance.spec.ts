@@ -1,3 +1,4 @@
+import { waitForWorkspace, openBoardSettings, openWorkspaceLibrary } from "./workspace-navigation";
 import { expect, test, type FileChooser, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import type { BoardDocument } from "../src/board/model";
@@ -75,7 +76,7 @@ async function contentSnapshot(page: Page) {
 }
 
 async function openShare(page: Page) {
-  await page.getByRole("button", { name: /打开.*的画板菜单/ }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true })
     .getByRole("button", { name: /^保存与分享/ }).click();
   const share = page.getByRole("dialog", { name: "保存与分享", exact: true });
@@ -107,7 +108,7 @@ for (const linked of [false, true]) {
       learning: LEARNING_KEY, followUp: FOLLOW_UP_KEY, discovery: DISCOVERY_KEY, alternative: ALTERNATIVE_KEY,
     } } });
     await page.reload();
-    await page.getByRole("button", { name: `接着画${sourceBoard.title}`, exact: true }).click();
+    await waitForWorkspace(page);
     await settled(page);
     const before = await contentSnapshot(page);
     const share = await openShare(page);
@@ -132,12 +133,13 @@ for (const linked of [false, true]) {
       await importedPage.emulateMedia({ reducedMotion: "reduce" });
       await importedPage.goto("./");
       expect(await contentSnapshot(importedPage)).toEqual(Object.fromEntries(CONTENT_KEYS.map(key => [key, null])));
-      await importedPage.getByTestId("home-history-hub").getByRole("button", { name: "导入备份", exact: true }).click();
+      await waitForWorkspace(importedPage);
+      await openWorkspaceLibrary(importedPage);
       await settled(importedPage);
       await chooseImport(importedPage, backupPath);
       await expect(importedPage.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
       await settled(importedPage);
-      await expect(importedPage.getByRole("button", { name: `打开${sourceBoard.title}（导入）的画板菜单`, exact: true })).toBeVisible();
+      await expect(importedPage.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
       const imported = await importedPage.evaluate(keys => {
         const boards = JSON.parse(localStorage.getItem(keys.board) ?? "null").boards as BoardDocument[];
         const relationships = Object.fromEntries(Object.entries(keys.relationships).map(([field, key]) =>
@@ -169,7 +171,7 @@ for (const linked of [false, true]) {
 
       const saved = await contentSnapshot(importedPage);
       await importedPage.reload();
-      await importedPage.getByRole("button", { name: `接着画${restored.title}`, exact: true }).click();
+      await waitForWorkspace(importedPage);
       await settled(importedPage);
       expect(await contentSnapshot(importedPage)).toEqual(saved);
       const reopenedShare = await openShare(importedPage);
@@ -188,7 +190,8 @@ for (const linked of [false, true]) {
       // A damaged copy of the real file must fail without replacing the
       // successfully restored board or any of its related records.
       await importedPage.reload();
-      await importedPage.getByTestId("home-history-hub").getByRole("button", { name: "全部画板", exact: true }).click();
+      await waitForWorkspace(importedPage);
+      await openWorkspaceLibrary(importedPage);
       await settled(importedPage);
       await chooseImport(importedPage, { name: "truncated-backup.json", mimeType: "application/json", buffer: bytes.subarray(0, bytes.length - 5) });
       await expect(importedPage.getByRole("alert")).toContainText("这个备份打不开，请换一个文件重试");

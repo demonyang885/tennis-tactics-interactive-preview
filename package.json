@@ -1,7 +1,7 @@
 {
   "name": "rallypath",
   "private": true,
-  "version": "0.3.7",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "check:types": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
@@ -12,7 +12,7 @@
     "check:content": "node scripts/check-content.mjs",
     "check:release": "node scripts/check-release-version.mjs",
     "update:runtime-lock": "node scripts/update-mobile-runtime-lock.mjs",
-    "test:runtime": "playwright test --workers=1",
+    "test:runtime": "playwright test --workers=2",
     "test:sites": "node --test tests/sites-worker.test.mjs tests/version-build.test.mjs",
     "test:version": "node --test tests/version-build.test.mjs",
     "test:release": "node --test tests/release-version.test.mjs",

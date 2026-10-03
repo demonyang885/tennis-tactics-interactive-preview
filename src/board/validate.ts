@@ -2,6 +2,7 @@ import {
   BOARD_COORDINATE_MAX,
   BOARD_COORDINATE_MIN,
   BOARD_MAX_FRAMES,
+  isPendingResponsePath,
   type BoardActor,
   type BoardAuthoringMode,
   type BoardDocument,
@@ -138,6 +139,7 @@ function parsePath(
   const from = point(source.from, `${label}起點`);
   const pose = poses[actorId];
   if (!pose || !samePoint(from, pose)) invalid(`${label}起點沒有連接角色站位`);
+  if (source.via !== undefined && (kind !== "move" || source.control !== undefined)) invalid(`${label}轉向點只用於直線二段跑位`);
   const pace = source.pace;
   if (pace !== undefined) {
     if (kind === "move") invalid(`${label}跑位路線不能設定球速檔位`);
@@ -150,6 +152,7 @@ function parsePath(
     from,
     to: point(source.to, `${label}終點`),
     ...(source.control === undefined ? {} : { control: point(source.control, `${label}控制點`) }),
+    ...(source.via === undefined ? {} : { via: point(source.via, `${label}轉向點`) }),
     ...(pace === undefined ? {} : { pace: pace as BoardShotPace }),
   };
 }
@@ -267,7 +270,7 @@ function parseSmartRally(value: unknown, actors: BoardActor[], frames: BoardFram
     const frameIndex = frames.findIndex((frame) => frame.id === frameId);
     const frame = frames[frameIndex];
     if (frameIndex !== frames.length - 1) invalid("同步智慧回合必須指向最後一拍");
-    if (frame.paths.length > 0) invalid("同步智慧回合的編輯尾拍不能含有路線");
+    if (!frame.paths.every(path => isPendingResponsePath(path, frames[frameIndex - 1], hitterId, actors))) invalid("編輯尾拍只能預存第二段接球跑位");
     const hasEarlierPaths = frames.slice(0, frameIndex).some((candidate) => candidate.paths.length > 0);
     const previousHasShot = frameIndex > 0 && frames[frameIndex - 1].paths.some(
       (path) => path.actorId === balls[0].id && (path.kind === "shot" || path.kind === "feed"),

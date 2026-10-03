@@ -1,3 +1,4 @@
+import { waitForWorkspace, expandBoardTools, openBoardSettings, openWorkspaceLibrary, reopenWorkspaceBoard } from "./workspace-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { confirmBoardDeletion } from "./board-library-helpers";
@@ -33,13 +34,12 @@ function authoredBoard(): BoardDocument {
 
 async function openSavedBoard(page: Page) {
   await page.goto("/");
-  await page.getByTestId("home-board-open").click();
-  await expect(page.getByRole("toolbar", { name: "战术板操作" })).toBeVisible();
+  await waitForWorkspace(page);
+  await waitForWorkspace(page);
 }
 
 async function renameFromBoard(page: Page, title: string) {
-  const toolbar = page.getByRole("toolbar", { name: "战术板操作" });
-  await toolbar.getByRole("button", { name: /打开.*的画板菜单/ }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单" }).getByRole("button", { name: /^修改名称/ }).click();
   const layer = page.getByTestId("board-rename-layer");
   await layer.getByRole("textbox", { name: "画板名称" }).fill(title);
@@ -57,6 +57,7 @@ async function storedTitle(page: Page) {
 }
 
 async function openSkillDemo(page: Page, skillName: string) {
+  await openBoardSettings(page);
   await page.getByTestId("board-learning-entry").click();
   await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: "练一项" }).click();
   await page.getByRole("dialog", { name: "这次先练好一件事" }).getByRole("button", { name: new RegExp(skillName) }).last().click();
@@ -67,7 +68,7 @@ async function chooseSkill(page: Page, skillName: string) {
   await openSkillDemo(page, skillName);
   await page.getByRole("button", { name: new RegExp(`打开${skillName}训练说明`) }).click();
   await page.getByRole("dialog", { name: skillName, exact: true }).getByRole("button", { name: "练这个" }).click();
-  await expect(page.getByRole("toolbar", { name: "战术板操作" })).toBeVisible();
+  await waitForWorkspace(page);
 }
 
 test("a stale skill demo cannot replace another tab's newer skill choice", async ({ page }) => {
@@ -108,6 +109,7 @@ test("a stale tactic demo cannot replace another tab's newer skill choice", asyn
   }, { key: STORAGE_KEY, board: authoredBoard() });
   await page.reload();
   await openSavedBoard(page);
+  await openBoardSettings(page);
   await page.getByTestId("board-learning-entry").click();
   await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: /拉开空档/ }).click();
   await page.locator(".tactic-card").first().click();
@@ -128,7 +130,8 @@ test("a stale tactic demo cannot replace another tab's newer skill choice", asyn
     await page.getByRole("button", { name: "返回上一页" }).click();
     await expect(page.getByRole("heading", { name: "找个打法", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "关闭打法列表" }).click();
-    await expect(page.getByRole("toolbar", { name: "战术板操作" })).toBeVisible();
+    await waitForWorkspace(page);
+    await openBoardSettings(page);
     await page.getByTestId("board-learning-entry").click();
     await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: "练一项" }).click();
     await expect(page.getByRole("dialog", { name: "这次先练好一件事" })).toContainText("发球落点");
@@ -143,8 +146,8 @@ test("a stale tab cannot silently overwrite a board saved in another tab", async
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: STORAGE_KEY, board: authoredBoard() });
   await page.reload();
-  await page.getByTestId("home-board-open").click();
-  await expect(page.getByRole("toolbar", { name: "战术板操作" })).toBeVisible();
+  await waitForWorkspace(page);
+  await waitForWorkspace(page);
 
   const other = await page.context().newPage();
   try {
@@ -157,11 +160,11 @@ test("a stale tab cannot silently overwrite a board saved in another tab", async
     await expect(other.getByRole("alert")).toContainText("另一");
     await expect.poll(() => storedTitle(page)).toBe("先保存的改动");
 
-    await other.getByRole("toolbar", { name: "战术板操作" }).getByRole("button", { name: "返回上一页" }).click();
-    await expect(other.getByRole("toolbar", { name: "战术板操作" })).toBeVisible();
+    await other.getByRole("button", { name: "我的画板", exact: true }).click();
+    await waitForWorkspace(other);
     await expect.poll(() => storedTitle(page)).toBe("先保存的改动");
 
-    await other.getByRole("toolbar", { name: "战术板操作" }).getByRole("button", { name: /打开.*的画板菜单/ }).click();
+    await openBoardSettings(other);
     await other.getByRole("dialog", { name: "画板菜单" }).getByRole("button", { name: "保存与分享" }).click();
     const downloadPromise = other.waitForEvent("download");
     await other.getByRole("dialog", { name: "保存与分享" }).getByRole("button", { name: /备份画板/ }).click();
@@ -179,17 +182,20 @@ test("a deleted board cannot enter skill selection from an unchanged stale tab",
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: STORAGE_KEY, board: authoredBoard() });
   await page.reload();
-  await page.getByTestId("home-board-open").click();
+  await waitForWorkspace(page);
+  await openBoardSettings(page);
   await expect(page.getByTestId("board-learning-entry")).toBeVisible();
+  await page.keyboard.press("Escape");
 
   const other = await page.context().newPage();
   try {
     await other.goto("/");
-    await other.getByTestId("home-scroll-cue").click();
-    await other.getByRole("button", { name: "全部画板" }).click();
+    await openWorkspaceLibrary(other);
     await other.getByRole("button", { name: "删除并行编辑测试" }).click();
     await confirmBoardDeletion(other);
     await expect.poll(() => page.evaluate(key => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
+
+    await openBoardSettings(page);
 
     await page.getByTestId("board-learning-entry").click();
     await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: "练一项" }).click();
@@ -209,14 +215,13 @@ test("a stale editor can save an independent copy after another tab deletes the 
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: STORAGE_KEY, board: authoredBoard() });
   await page.reload();
-  await page.getByTestId("home-board-open").click();
-  await expect(page.getByRole("toolbar", { name: "战术板操作" })).toBeVisible();
+  await waitForWorkspace(page);
+  await waitForWorkspace(page);
 
   const other = await page.context().newPage();
   try {
     await other.goto("/");
-    await other.getByTestId("home-scroll-cue").click();
-    await other.getByRole("button", { name: "全部画板" }).click();
+    await openWorkspaceLibrary(other);
     await other.getByRole("button", { name: "删除并行编辑测试" }).click();
     await confirmBoardDeletion(other);
     await expect.poll(() => page.evaluate(key => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
@@ -225,7 +230,7 @@ test("a stale editor can save an independent copy after another tab deletes the 
     await expect(page.getByTestId("board-save-live")).toContainText("未保存");
     await expect(page.getByRole("alert")).toContainText("已在另一个页面删除");
 
-    await page.getByRole("toolbar", { name: "战术板操作" }).getByRole("button", { name: /打开.*的画板菜单/ }).click();
+    await openBoardSettings(page);
     await page.getByRole("dialog", { name: "画板菜单" }).getByRole("button", { name: "保存与分享" }).click();
     const share = page.getByRole("dialog", { name: "保存与分享" });
     await expect(share).toContainText("原画板已在另一页删除。当前画面尚未保存");
@@ -242,7 +247,8 @@ test("a stale editor can save an independent copy after another tab deletes the 
     expect(boards[0].frames[0].paths).toHaveLength(1);
 
     await page.reload();
-    await expect(page.getByRole("button", { name: /接着画删除后尚未保存的修改 副本/ })).toBeVisible();
+    await reopenWorkspaceBoard(page, "删除后尚未保存的修改 副本");
+    await expect(page.getByRole("button", { name: /播放战术/ })).toBeEnabled();
   } finally {
     await other.close();
   }
@@ -258,8 +264,7 @@ test("deleting a board does not remove a newer learning choice written during de
     localStorage.setItem(learningKey, JSON.stringify({ version: 1, records: [oldChoice] }));
   }, { boardKey: STORAGE_KEY, learningKey: LEARNING_KEY, board, oldChoice });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByRole("button", { name: "全部画板" }).click();
+  await openWorkspaceLibrary(page);
   await expect(page.getByRole("button", { name: "删除并行编辑测试" })).toBeVisible();
 
   // Simulate another tab's write at the journal boundary, after the UI has
@@ -296,8 +301,7 @@ test("deleting an unlinked board does not orphan a choice created just after the
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: STORAGE_KEY, board });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByRole("button", { name: "全部画板" }).click();
+  await openWorkspaceLibrary(page);
   await page.evaluate(({ learningKey, choice }) => {
     const originalGetItem = Storage.prototype.getItem;
     const originalSetItem = Storage.prototype.setItem;
@@ -328,8 +332,7 @@ test("deleting an unlinked board restores it when a choice appears during the bo
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: STORAGE_KEY, board });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByRole("button", { name: "全部画板" }).click();
+  await openWorkspaceLibrary(page);
   await page.evaluate(({ boardKey, learningKey, choice }) => {
     const originalRemoveItem = Storage.prototype.removeItem;
     const originalSetItem = Storage.prototype.setItem;
@@ -359,8 +362,7 @@ test("a failed post-delete restore offers the original board as an editable back
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: STORAGE_KEY, board });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByRole("button", { name: "全部画板" }).click();
+  await openWorkspaceLibrary(page);
   await page.evaluate(({ boardKey, learningKey, choice }) => {
     const originalRemoveItem = Storage.prototype.removeItem;
     const originalSetItem = Storage.prototype.setItem;
@@ -420,8 +422,7 @@ test("a failed post-delete restore offers the original board as an editable back
   await expect(page.getByRole("button", { name: "下载画板备份" })).toHaveCount(0);
   expect(await storedTitle(page)).toBe("并行编辑测试");
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByRole("button", { name: "全部画板" }).click();
+  await openWorkspaceLibrary(page);
   expect(await storedTitle(page)).toBe("并行编辑测试");
   const choice = await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? "null"), LEARNING_KEY);
   expect(choice).toMatchObject({ records: [{ boardId: board.id, skillId: "serve-placement" }] });
@@ -437,8 +438,7 @@ test("deleting a board restores its old choice when another link type appears mi
     localStorage.setItem(learningKey, JSON.stringify({ version: 1, records: [choice] }));
   }, { boardKey: STORAGE_KEY, learningKey: LEARNING_KEY, board, choice: oldChoice });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByRole("button", { name: "全部画板" }).click();
+  await openWorkspaceLibrary(page);
   await page.evaluate(discovery => {
     const originalSetItem = Storage.prototype.setItem;
     let injected = false;
@@ -488,8 +488,7 @@ for (const linked of [
       localStorage.setItem(linkedKey, JSON.stringify({ version: 1, records: [old] }));
     }, { boardKey: STORAGE_KEY, linkedKey: linked.key, board, old: linked.old });
     await page.reload();
-    await page.getByTestId("home-scroll-cue").click();
-    await page.getByRole("button", { name: "全部画板" }).click();
+    await openWorkspaceLibrary(page);
     await expect(page.getByRole("button", { name: "删除并行编辑测试" })).toBeVisible();
     await page.evaluate(({ linkedKey, newer }) => {
       const originalSetItem = Storage.prototype.setItem;
@@ -528,8 +527,7 @@ test("a changed discovery aborts a partly completed delete and restores only the
     localStorage.setItem(discoveryKey, JSON.stringify({ version: 1, records: [discovery] }));
   }, { boardKey: STORAGE_KEY, learningKey: LEARNING_KEY, discoveryKey: "rallypath:board-discovery:v1", board, oldChoice, discovery });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByRole("button", { name: "全部画板" }).click();
+  await openWorkspaceLibrary(page);
   await page.evaluate(newer => {
     const originalSetItem = Storage.prototype.setItem;
     let injected = false;
@@ -562,7 +560,8 @@ test("a practice choice cannot attach to a board deleted while its demo is open"
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: STORAGE_KEY, board: authoredBoard() });
   await page.reload();
-  await page.getByTestId("home-board-open").click();
+  await waitForWorkspace(page);
+  await openBoardSettings(page);
   await page.getByTestId("board-learning-entry").click();
   await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: "练一项" }).click();
   await page.getByRole("dialog", { name: "这次先练好一件事" }).getByRole("button", { name: /击球后回位/ }).last().click();
@@ -571,8 +570,7 @@ test("a practice choice cannot attach to a board deleted while its demo is open"
   const other = await page.context().newPage();
   try {
     await other.goto("/");
-    await other.getByTestId("home-scroll-cue").click();
-    await other.getByRole("button", { name: "全部画板" }).click();
+    await openWorkspaceLibrary(other);
     await other.getByRole("button", { name: "删除并行编辑测试" }).click();
     await confirmBoardDeletion(other);
     await expect.poll(() => page.evaluate(key => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
@@ -619,7 +617,8 @@ test("a tactic choice cannot attach to a board deleted while its demo is open", 
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: STORAGE_KEY, board: authoredBoard() });
   await page.reload();
-  await page.getByTestId("home-board-open").click();
+  await waitForWorkspace(page);
+  await openBoardSettings(page);
   await page.getByTestId("board-learning-entry").click();
   await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: /拉开空档/ }).click();
   await page.locator(".tactic-card").first().click();
@@ -628,8 +627,7 @@ test("a tactic choice cannot attach to a board deleted while its demo is open", 
   const other = await page.context().newPage();
   try {
     await other.goto("/");
-    await other.getByTestId("home-scroll-cue").click();
-    await other.getByRole("button", { name: "全部画板" }).click();
+    await openWorkspaceLibrary(other);
     await other.getByRole("button", { name: "删除并行编辑测试" }).click();
     await confirmBoardDeletion(other);
     await expect.poll(() => page.evaluate(key => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
@@ -649,6 +647,7 @@ test("a tactic choice does not attach to a board changed while its demo is open"
   }, { key: STORAGE_KEY, board: authoredBoard() });
   await page.reload();
   await openSavedBoard(page);
+  await openBoardSettings(page);
   await page.getByTestId("board-learning-entry").click();
   await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: /拉开空档/ }).click();
   await page.locator(".tactic-card").first().click();
@@ -676,6 +675,7 @@ test("a tactic choice does not use a board changed while the category list is op
   }, { key: STORAGE_KEY, board: authoredBoard() });
   await page.reload();
   await openSavedBoard(page);
+  await openBoardSettings(page);
   await page.getByTestId("board-learning-entry").click();
   await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: /拉开空档/ }).click();
 
@@ -701,8 +701,7 @@ test("retrying deletion from a stale library does not remove another tab's newer
     localStorage.setItem(key, JSON.stringify({ version: 1, boards }));
   }, { key: STORAGE_KEY, boards: [authoredBoard(), companion] });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByRole("button", { name: "全部画板" }).click();
+  await openWorkspaceLibrary(page);
   await expect(page.getByRole("button", { name: "删除并行编辑测试" })).toBeVisible();
 
   await page.evaluate(key => {
@@ -732,8 +731,7 @@ test("retrying deletion from a stale library does not remove another tab's newer
   const other = await page.context().newPage();
   try {
     await other.goto("/");
-    await other.getByTestId("home-scroll-cue").click();
-    await other.locator('[data-testid="home-history-board"][data-board-id="concurrent-edit-board"]').click();
+    await reopenWorkspaceBoard(other, "并行编辑测试");
     await renameFromBoard(other, "另一页改名后的画板");
     await expect.poll(() => storedTitle(page)).toBe("另一页改名后的画板");
 

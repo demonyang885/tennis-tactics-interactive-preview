@@ -1,4 +1,4 @@
-import type { BoardDocument } from "./model";
+import { isPendingResponsePath, type BoardDocument } from "./model";
 import type { BoardSelection } from "./render";
 
 export const BOARD_EDITOR_VIEW_STORAGE_KEY = "rallypath:board-editor-view:v1";
@@ -60,7 +60,8 @@ function readRecords(storage: Pick<Storage, "getItem">): StoredView[] {
 function isSmartTail(board: BoardDocument, frameIndex: number): boolean {
   const smart = board.smartRally, frame = board.frames[frameIndex];
   if (!smart || smart.version !== 2 || !frame || frameIndex !== board.frames.length - 1
-    || smart.frameId !== frame.id || frame.paths.length > 0) return false;
+    || smart.frameId !== frame.id
+    || !frame.paths.every(path => isPendingResponsePath(path, board.frames[frameIndex - 1], smart.hitterId, board.actors))) return false;
   const players = board.actors.filter(actor => actor.kind === "player");
   const balls = board.actors.filter(actor => actor.kind === "ball");
   const actor = board.actors.find(candidate => candidate.id === smart.actorId);

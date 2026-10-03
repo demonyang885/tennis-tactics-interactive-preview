@@ -1,3 +1,4 @@
+import { waitForWorkspace, openBoardSettings } from "./workspace-navigation";
 import { expect, test, type CDPSession, type Locator, type Page } from "@playwright/test";
 import { createStarterBoard } from "../src/board/model";
 
@@ -33,13 +34,13 @@ async function openBoard(page: Page) {
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: BOARD_KEY, board });
   await page.reload();
-  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).tap();
+  await waitForWorkspace(page);
   await expect(current(page).getByTestId("board-canvas")).toBeVisible();
   await expect.poll(() => current(page).evaluate(element => Math.abs(new DOMMatrixReadOnly(getComputedStyle(element).transform).m41))).toBeLessThan(1);
 }
 
 async function menu(page: Page) {
-  await current(page).getByRole("button", { name: `打开${board.title}的画板菜单`, exact: true }).tap();
+  await openBoardSettings(page);
   const sheet = page.getByRole("dialog", { name: "画板菜单", exact: true });
   await expect(sheet).toBeVisible();
   return sheet;
@@ -189,7 +190,7 @@ test.describe("native Chromium two-finger retained text zoom", () => {
     expect(await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), RECORD_KEYS)).toEqual(before);
     expect(await page.evaluate(() => document.activeElement?.matches("input, textarea") ?? false)).toBe(false);
     await page.reload();
-    await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).tap();
+    await waitForWorkspace(page);
     const reopened = await openSurface(page, "rename");
     await expect(reopened.field).toHaveValue(board.title);
     await reopened.cancel.tap();

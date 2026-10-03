@@ -1,3 +1,4 @@
+import { waitForWorkspace, expandBoardTools, reopenWorkspaceBoard } from "./workspace-navigation";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { getBoardDuration, type BoardDocument, type Point } from "../src/board/model";
 import { getBoardGeometry } from "../src/board/render";
@@ -21,7 +22,7 @@ async function start(page: Page) {
   await page.goto("/");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.locator(".home-plan-primary").click();
+  await waitForWorkspace(page);
   await expect(canvas(page)).toBeVisible();
   await settled(page);
 }
@@ -76,7 +77,7 @@ async function expectTwoAuthoredShots(page: Page, first: BoardDocument) {
   return board;
 }
 
-for (const resume of ["empty court", "current beat", "previous then current beat", "reload", "home"] as const) {
+for (const resume of ["empty court", "current beat", "previous then current beat", "reload", "library"] as const) {
   test(`draws a return from the overlapping ball after ${resume}`, async ({ page }) => {
     await start(page);
     await drag(page, ballStart, firstLanding);
@@ -89,12 +90,11 @@ for (const resume of ["empty court", "current beat", "previous then current beat
     if (resume === "previous then current beat") { await selectBeat(page, 1); await selectBeat(page, 2); }
     if (resume === "reload") {
       await tap(page, [.95, .50]); await page.reload();
-      await page.getByRole("button", { name: `接着画${first.title}`, exact: true }).click(); await settled(page);
+      await waitForWorkspace(page); await settled(page);
     }
-    if (resume === "home") {
+    if (resume === "library") {
       await tap(page, [.95, .50]);
-      await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
-      await page.getByRole("button", { name: `接着画${first.title}`, exact: true }).click(); await settled(page);
+      await reopenWorkspaceBoard(page, first.title); await settled(page);
     }
     await drag(page, firstLanding, returnLanding);
     await expectTwoAuthoredShots(page, first);
@@ -120,6 +120,7 @@ test("undo and redo preserve direct continuation when no receiver movement is ne
   await start(page);
   await drag(page, ballStart, receiverStart);
   const first = await saved(page);
+  await expandBoardTools(page);
   await current(page).getByRole("button", { name: "撤销", exact: true }).click();
   const initial = await saved(page);
   expect(initial.frames).toHaveLength(1); expect(initial.frames[0].paths).toEqual([]);
@@ -172,7 +173,7 @@ test("distinguishes the waiting next beat from actual playback beats", async ({ 
   await expectTwoAuthoredShots(page, first);
 });
 
-test("two real gestures retain their two playback beats after refresh and returning home", async ({ page }) => {
+test("two real gestures retain their two playback beats after refresh and reopening through the library", async ({ page }) => {
   await start(page);
   await drag(page, ballStart, firstLanding);
   await drag(page, receiverStart, firstLanding);
@@ -180,7 +181,7 @@ test("two real gestures retain their two playback beats after refresh and return
   await drag(page, firstLanding, returnLanding);
   const authored = await expectTwoAuthoredShots(page, first);
   await page.reload();
-  await page.getByRole("button", { name: `接着画${authored.title}`, exact: true }).click(); await settled(page);
+  await waitForWorkspace(page); await settled(page);
   expect(await saved(page)).toEqual(authored);
   await dock(page).getByRole("button", { name: /^播放战术，2 拍/ }).click();
   const playback = page.getByTestId("board-playback-dock");
@@ -189,8 +190,7 @@ test("two real gestures retain their two playback beats after refresh and return
   const next = playback.getByRole("button", { name: "下一拍", exact: true });
   await expect(next).toBeEnabled(); await next.click(); await expect(next).toBeDisabled();
   await expect(playback.getByRole("slider", { name: "画板播放进度" })).toHaveAttribute("max", String(getBoardDuration({ ...authored, frames: authored.frames.slice(0, 2) })));
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
-  await page.getByRole("button", { name: `接着画${authored.title}`, exact: true }).click(); await settled(page);
+  await reopenWorkspaceBoard(page, authored.title); await settled(page);
   await expect(dock(page).getByRole("button", { name: /^播放战术，2 拍/ })).toBeEnabled();
   expect(await saved(page)).toEqual(authored);
 });

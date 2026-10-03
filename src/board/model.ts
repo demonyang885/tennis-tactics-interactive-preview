@@ -16,6 +16,8 @@ export type BoardPath = {
   from: Point;
   to: Point;
   control?: Point;
+  /** Two straight receiving legs within one incoming shot; never an extra beat. */
+  via?: Point;
   /** Optional for backward compatibility; frame.duration remains playback truth. */
   pace?: BoardShotPace;
 };
@@ -133,6 +135,7 @@ function copyPath(path: BoardPath): BoardPath {
     from: copyPoint(path.from),
     to: copyPoint(path.to),
     ...(path.control ? { control: copyPoint(path.control) } : {}),
+    ...(path.via ? { via: copyPoint(path.via) } : {}),
   };
 }
 
@@ -284,6 +287,29 @@ function pointOnQuadraticPath(path: Pick<BoardPath, "from" | "to" | "control">, 
   ];
 }
 
+/** Shared by canvas, hit testing and media playback. The turn keeps constant court-space speed. */
+export function movementTurnProgress(path: Pick<BoardPath, "from" | "to" | "via">): number {
+  if (!path.via) return 0;
+  const length = (a: Point, b: Point) => Math.hypot((b[0]-a[0])*BOARD_COURT_WIDTH_METERS, (b[1]-a[1])*BOARD_COURT_LENGTH_METERS);
+  const first = length(path.from, path.via), second = length(path.via, path.to);
+  return first + second > 0 ? first / (first + second) : .5;
+}
+
+export function getBoardPathPoint(path: Pick<BoardPath, "from" | "to" | "control" | "via">, progress01: number): Point {
+  const progress = playbackProgress(progress01);
+  if (!path.via) return pointOnQuadraticPath(path, progress);
+  const turn = movementTurnProgress(path);
+  return progress < turn
+    ? pointOnQuadraticPath({from:path.from, to:path.via}, turn > 0 ? progress/turn : 1)
+    : pointOnQuadraticPath({from:path.via, to:path.to}, turn < 1 ? (progress-turn)/(1-turn) : 1);
+}
+
+function assertMovementTurn(path: Pick<BoardPath, "kind" | "via" | "control">) {
+  if (path.via === undefined) return;
+  assertPoint(path.via, "跑位轉向點");
+  if (path.kind !== "move" || path.control !== undefined) throw new Error("轉向點只用於直線二段跑位");
+}
+
 /** Approximate route length in real court metres so all render sizes share timing. */
 export function getBoardPathLengthMeters(path: Pick<BoardPath, "from" | "to" | "control">) {
   assertPoint(path.from, "路線起點");
@@ -319,6 +345,14 @@ export function getShotDurationForPace(
   return Math.round(bounded(scaled, BOARD_SHOT_MIN_DURATION, BOARD_SHOT_MAX_DURATION) * 100) / 100;
 }
 
+/** The second drag queues a response for the next shot, after an authored recovery.
+ * It stays in the next beat, never replacing or replaying the first leg. */
+export function isPendingResponsePath(path: BoardPath, previous: BoardFrame | undefined, hitterId: string, actors: BoardActor[]): boolean {
+  return path.kind === "move" && path.actorId !== hitterId
+    && actors.some(actor => actor.id === path.actorId && actor.kind === "player")
+    && !!previous?.paths.some(earlier => earlier.kind === "move" && earlier.actorId === path.actorId);
+}
+
 function assertSmartRally(board: BoardDocument, smartRally: BoardSmartRally) {
   if (smartRally.version !== 1 && smartRally.version !== 2) throw new Error("不支援的智慧回合版本");
   if (smartRally.phase !== "shot" && smartRally.phase !== "move") throw new Error("不支援的智慧回合階段");
@@ -336,7 +370,7 @@ function assertSmartRally(board: BoardDocument, smartRally: BoardSmartRally) {
     const frameIndex = board.frames.findIndex((frame) => frame.id === smartRally.frameId);
     const frame = board.frames[frameIndex];
     if (frameIndex !== board.frames.length - 1) throw new Error("同步智慧回合必須指向最後一拍");
-    if (frame.paths.length > 0) throw new Error("同步智慧回合的編輯尾拍不能含有路線");
+    if (!frame.paths.every(path => isPendingResponsePath(path, board.frames[frameIndex - 1], smartRally.hitterId, board.actors))) throw new Error("編輯尾拍只能預存第二段接球跑位");
     const hasEarlierPaths = board.frames.slice(0, frameIndex).some((candidate) => candidate.paths.length > 0);
     const previousHasShot = frameIndex > 0 && board.frames[frameIndex - 1].paths.some(
       (path) => path.actorId === balls[0].id && (path.kind === "shot" || path.kind === "feed"),
@@ -694,13 +728,13 @@ export function getFrameEnd(frame: BoardFrame): Record<string, Point> {
   return poses;
 }
 
-/** Whether the final v2 frame is still the untouched smart-authoring scaffold. */
+/** Whether the final v2 frame is waiting for a shot, possibly with a queued response. */
 export function isUntouchedSmartTail(board: BoardDocument): boolean {
   if (board.frames.length < 2 || board.smartRally?.version !== 2) return false;
   const tail = board.frames.at(-1)!;
   const previous = board.frames.at(-2)!;
   if (board.smartRally.frameId !== tail.id
-    || tail.paths.length > 0
+    || !tail.paths.every(path => isPendingResponsePath(path, previous, board.smartRally!.hitterId, board.actors))
     || tail.marks.length > 0
     || tail.label !== `第 ${board.frames.length} 拍`
     || tail.duration !== (previous.duration || BOARD_DEFAULT_FRAME_DURATION)) return false;
@@ -716,21 +750,7 @@ export function isUntouchedSmartTail(board: BoardDocument): boolean {
 export function getFramePose(frame: BoardFrame, progress01: number): Record<string, Point> {
   const progress = playbackProgress(progress01);
   const poses = copyPoses(frame.poses);
-  const remaining = 1 - progress;
-
-  for (const path of frame.paths) {
-    if (!path.control) {
-      poses[path.actorId] = [
-        path.from[0] * remaining + path.to[0] * progress,
-        path.from[1] * remaining + path.to[1] * progress,
-      ];
-      continue;
-    }
-    poses[path.actorId] = [
-      remaining * remaining * path.from[0] + 2 * remaining * progress * path.control[0] + progress * progress * path.to[0],
-      remaining * remaining * path.from[1] + 2 * remaining * progress * path.control[1] + progress * progress * path.to[1],
-    ];
-  }
+  for (const path of frame.paths) poses[path.actorId] = getBoardPathPoint(path, progress);
   return poses;
 }
 
@@ -775,6 +795,8 @@ export function synchronizeMoveWithPreviousShot(
   board: BoardDocument,
   frameIndex: number,
   movePathId: string,
+  replaceExisting = false,
+  appendSecondLeg = false,
 ): BoardDocument {
   assertFrameIndex(board, frameIndex);
   if (frameIndex === 0) return board;
@@ -787,13 +809,16 @@ export function synchronizeMoveWithPreviousShot(
   const hasIncomingShot = previous.paths.some((path) => ballIds.has(path.actorId) && (path.kind === "shot" || path.kind === "feed"));
 
   if (!move || move.kind !== "move" || actor?.kind !== "player" || !hasIncomingShot) return board;
-  if (previous.paths.some((path) => path.actorId === move.actorId)) return board;
+  const existing = previous.paths.find((path) => path.actorId === move.actorId);
+  if (existing && (!replaceExisting || existing.kind !== "move" || appendSecondLeg && existing.control)) return board;
 
   const previousStart = previous.poses[move.actorId];
   if (!previousStart) return board;
-  const synchronizedMove = copyPath({ ...move, from: previousStart });
+  const turn = existing?.via ?? (appendSecondLeg ? existing?.to : undefined);
+  const synchronizedMove = copyPath({ ...move, from: previousStart, ...(turn ? { via: turn } : {}) });
+  if (turn) delete synchronizedMove.control;
   const frames = board.frames.slice();
-  frames[frameIndex - 1] = { ...previous, paths: [...previous.paths, synchronizedMove] };
+  frames[frameIndex - 1] = { ...previous, paths: [...previous.paths.filter(path => path.actorId !== move.actorId), synchronizedMove] };
   frames[frameIndex] = { ...frame, paths: frame.paths.filter((path) => path.id !== movePathId) };
   return touch(board, { frames: reflowFrames(frames, frameIndex - 1) });
 }
@@ -867,6 +892,7 @@ export function setPath(board: BoardDocument, frameIndex: number, path: BoardPat
   assertIdValue(path.id, "路線 ID");
   if (!(["shot", "move", "feed"] as const).includes(path.kind)) throw new Error("不支援的路線類型");
   assertPathPace(path);
+  assertMovementTurn(path);
   if (board.frames.some((item, index) => index !== frameIndex
     && (item.paths.some((candidate) => candidate.id === path.id) || item.marks.some((candidate) => candidate.id === path.id)))) {
     throw new Error("路線 ID 已存在");
@@ -881,6 +907,7 @@ export function setPath(board: BoardDocument, frameIndex: number, path: BoardPat
     from: copyPoint(from),
     to: copyPoint(path.to),
     ...(path.control ? { control: copyPoint(path.control) } : {}),
+    ...(path.via ? { via: copyPoint(path.via) } : {}),
   };
   const paths = frame.paths.filter((item) => item.id !== path.id && item.actorId !== path.actorId);
   const frames = board.frames.slice();
@@ -918,7 +945,9 @@ export function updatePath(
     to: copyPoint(patch.to ?? original.to),
   };
   if (updated.control) updated.control = copyPoint(updated.control);
+  if (updated.via) updated.via = copyPoint(updated.via);
   assertPathPace(updated);
+  assertMovementTurn(updated);
   const paths = frame.paths
     .filter((path) => path.id === pathId || path.actorId !== actorId)
     .map((path) => path.id === pathId ? updated : path);

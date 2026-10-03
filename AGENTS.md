@@ -153,3 +153,53 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 - Use `KeyboardInput`, `KeyboardTextarea`, or `MobileTextField` for text entry so close actions can clear native input focus consistently.
 - Fixed phone chrome should not animate with pushed screens. Screen content can animate; the status bar, camera cutout, and preview chrome should stay put.
 - Keep the home indicator as the topmost safe-area layer in the z-index above everything else in the prototype.
+
+## Local interaction trial — 2026-10-02
+
+- User explicitly requests a separate local branch, with no GitHub upload or public deployment. Public delivery requirements do not apply to this trial. Base is stable v0.3.7; do not change the public release version.
+- Four opening templates belong inside the board menu: deuce/ad serving and deuce/ad receiving. Replacing authored content requires a concrete warning and supports undo.
+- One-tap 180-degree rotation changes the editor view only; text stays upright, input coordinates rotate with the court, and actor roles/timing/board data do not change.
+- Optional early recovery and subsequent receiving movement use ordinary player drags. The opponent's shot separates the two phases; skipping recovery is valid. Do not add mandatory phase dialogs or a game/scoring system.
+- All product copy, fixtures, docs and examples use generic roles (我方／对手), never a child's personal name.
+
+## Test link follow-up — 2026-10-02
+
+- The user now requests an accessible testing link and specifically wants to test two-stage movement. Publish an isolated Sites trial from this branch, without GitHub upload or changes to the official site. This supersedes local-only delivery for this trial. Use v0.3.8 with a visible trial badge and a disposable editable example on Home.
+
+## Direct opening choices — 2026-10-02
+
+- User accepted two-stage movement. Show all four opening choices directly at the top of the board menu; no secondary opening menu. Preserve inline confirmation when replacing authored content and undo. Continue updating only the existing trial Site, with no GitHub push.
+
+## Optional two-stage authoring — 2026-10-03
+
+- Default to single-stage movement. Put the two-stage switch directly in the board menu and remember the explicit choice on this browser. In guided authoring, adding early recovery requires the switch to be on. Switching modes must not modify or remove existing routes, playback, or undo history. Keep the four opening choices directly in the menu.
+
+## Consecutive movement drags — 2026-10-03
+
+- With two-stage enabled, consecutive drags of the same hitter create early recovery followed by a queued response. Never replace the recovery with the second drag. Both can be authored before the opponent return; the return shot separates playback phases. Preserve pending responses through storage, JSON, undo and refresh; do not play a response before its shot exists. Use route handles to edit an existing first leg.
+
+## Shot-driven movement timing — 2026-10-03, v0.3.12
+
+- Supersedes the previous generic consecutive-drag rule. An opening receiver can react then intercept within ONE incoming shot: store an optional movement `via` point in that shot frame, never a new beat. The hitter recovers simultaneously during that same shot, then receives during the opponent return. Prioritize the receiver in authoring prompts.
+- New hitter recovery must not queue another move before the opponent return. Preserve existing v0.3.11 queued responses for compatibility. Preserve legacy curved routes; direct endpoint edits remain available.
+- Display a compact role/stage cue and numbered receiving legs. Keep default single-stage, four direct opening presets, view-only rotation, same isolated trial Site and no GitHub writes.
+
+## Board UI polish — 2026-10-03, v0.3.13
+
+- User accepted movement timing. Keep that logic unchanged; focus on concise guidance and iOS-style translucent grouped menus. Show one role/action cue, a visible native-style two-stage switch, four direct opening actions and short help with optional icon reference.
+- Avoid routine success paragraphs in the main menu. Keep destructive-action consequences, save errors, explicit zone on/off labels and accessible control names. Keep guide dismissal out of player drag origins, including rotated openings. Preserve native sheet scrolling and protected runtime.
+
+## Formal board UI — 2026-10-03, v0.4.0
+
+- Supersedes the trial badge/example and dismissible top cue. Home centers on one Board action with new/library/about icons. Keep brand and version fixed on Home and the editor, and move editor controls to the bottom dock.
+- Dock expands frequent undo/redo/rotate/beats actions; Settings opens secondary grouped controls. Keep all four opening choices directly in Settings. Rotation collapses quick tools to clear the drag origin; opening quick tools must not resize the court.
+- Context hints follow the active ball/player, never intercept gestures and have no dismiss button. The independent operation-hints setting defaults on and persists across reloads; changing two-stage mode does not reset it.
+- Preserve accepted movement timing, storage, errors and confirmation safeguards. Publish to the existing isolated Site; the previous no-GitHub-upload constraint still applies.
+
+## iOS-style workspace — v0.5.0 / 2026-10-03
+
+- User's final spec explicitly authorizes current-branch changes and GitHub Pages deployment, superseding the no-GitHub restriction. Retain the accepted trial functionality, and keep `src/board/model.ts`, tactical decision logic and AI signals unchanged from v0.4.0 during this UI task.
+- Root opens an editable board directly. Fixed icon-only tabs expose board, tactic picker and board library; editing tools float separately. Keep iPhone and iPad portrait/landscape the primary targets.
+- Glass belongs only to controls/sheets, with light/dark, reduced-transparency, increased-contrast, reduced-motion and safe-area support. Keep visible targets at least44px and toolbar gaps8px; use relative type sizes and linear icons.
+- Serve/receive segment choices reference separate existing board documents in a UI preference record; switching saves current edits first. Tactic picker creates a separate first-shot board, preserving existing content. Never alter the board schema to support navigation.
+- Archive superseded landing-screen visual tests, retaining and migrating data safety, native input and B/C/D regression checks. Root cannot pop itself; after deleting through the workspace library, rebuild root from valid storage rather than showing a stale retained editor.

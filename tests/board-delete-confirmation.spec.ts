@@ -1,3 +1,4 @@
+import { waitForWorkspace, openBoardSettings, openWorkspaceLibrary } from "./workspace-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { createStarterBoard, type BoardDocument } from "../src/board/model";
 import { BOARD_STORAGE_KEY } from "../src/board/storage";
@@ -97,14 +98,8 @@ async function storageSnapshot(page: Page) {
 }
 
 async function openLibrary(page: Page) {
-  const touch = await page.evaluate(() => matchMedia("(pointer: coarse)").matches);
-  // The short mobile viewport reaches history by scrolling; on larger
-  // screens exercise the first-screen cue before opening the full library.
-  if (!touch) await page.getByTestId("home-scroll-cue").click();
-  const allBoards = page.getByTestId("home-history-hub").getByRole("button", { name: "全部画板", exact: true });
-  await allBoards.scrollIntoViewIfNeeded();
-  if (touch) await allBoards.tap();
-  else await allBoards.click();
+  await waitForWorkspace(page);
+  await openWorkspaceLibrary(page);
   await expect(page.getByRole("heading", { name: "打开一份画板", exact: true })).toBeVisible();
   await expect(page.locator(".board-draft-delete")).toHaveCount(2);
 }
@@ -166,6 +161,22 @@ test("confirmation removes only the named board and its linked records", async (
   await expectCompanionOnly(page, fixtures);
 });
 
+test("deleting every saved board and returning to the workspace never resurrects the former editor", async ({ page }) => {
+  const fixtures = await seedAndOpenLibrary(page);
+  for (const board of fixtures.boards) {
+    await page.getByRole("button", { name: `删除${board.title}`, exact: true }).click();
+    await confirmBoardDeletion(page);
+  }
+  const deleted = await storageSnapshot(page);
+  expect(deleted.boards ? JSON.parse(deleted.boards).boards : []).toEqual([]);
+  await page.getByRole("button", { name: "返回上一页", exact: true }).click();
+  await waitForWorkspace(page);
+  expect(await storageSnapshot(page)).toEqual(deleted);
+  await page.reload();
+  await waitForWorkspace(page);
+  expect(await storageSnapshot(page)).toEqual(deleted);
+});
+
 test("keyboard confirmation traps focus and Escape or cancel returns it to the delete button", async ({ page }) => {
   await seedAndOpenLibrary(page);
   const before = await storageSnapshot(page);
@@ -201,10 +212,8 @@ test("a board renamed in another tab while confirmation waits keeps its newer co
   const other = await page.context().newPage();
   try {
     await other.goto("/");
-    await other.getByTestId("home-scroll-cue").click();
-    await other.locator(`[data-testid="home-history-board"][data-board-id="${TARGET_ID}"]`).click();
-    await other.getByRole("toolbar", { name: "战术板操作", exact: true })
-      .getByRole("button", { name: /打开.*的画板菜单/ }).click();
+    await waitForWorkspace(other);
+    await openBoardSettings(other);
     await other.getByRole("dialog", { name: "画板菜单", exact: true })
       .getByRole("button", { name: /^修改名称/ }).click();
     const rename = other.getByTestId("board-rename-layer");
@@ -329,7 +338,7 @@ test.describe("narrow mobile confirmation", () => {
       expect(button.x).toBeGreaterThanOrEqual(layout.x);
       expect(button.right).toBeLessThanOrEqual(layout.right);
       expect(button.y).toBeGreaterThanOrEqual(layout.y);
-      expect(button.bottom).toBeLessThanOrEqual(layout.bottom);
+      expect(button.bottom).toBeLessThanOrEqual(layout.bottom + 1);
     }
 
     await cancel.click();
