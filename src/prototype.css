@@ -1172,12 +1172,7 @@
 
 .board-local-hint { pointer-events:none; }
 .board-local-hint button { pointer-events:auto; }
-.local-trial-badge { font-size:10px; padding:3px 5px; border:1px solid #b9cbb5; color:#4c6c47; border-radius:5px; margin-left:5px; }
 
-.home-trial-demo { display:flex; align-items:center; gap:10px; width:100%; border:1px solid #becdb4; border-radius:14px; padding:10px 14px; background:#f0f6e9; color:#244c38; text-align:left; }
-.home-trial-demo span { display:grid; gap:3px; }
-.home-trial-demo strong { font-size:15px; }
-.home-trial-demo small { font-size:11px; color:#637559; }
 
 /* Board settings: translucent grouped sheet; keep the native gesture runtime. */
 .device-screen .bottom-sheet:has(.board-menu-sheet,.board-help-sheet,.board-save-share-sheet) {
@@ -1231,3 +1226,34 @@
 .board-help-more summary { min-height:48px; box-sizing:border-box; padding:14px 16px; color:#476451; font-size:14px; cursor:pointer; }
 .board-help-more .board-help-icon-grid { padding:0 10px 10px; }
 .board-help-more .board-help-icon-grid small { font-size:9px; line-height:13px; }
+
+/* Formal board shell: stable brand header, a single bottom control surface. */
+.board-home-layout { display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; background:#f8faf7; }
+.board-home-layout > .board-home-scroll { position:relative; inset:auto; flex:1; min-height:0; height:auto; }
+.board-home-layout .home-primary-screen { min-height:0; padding:8px 12px 0; }
+.board-home-layout .home-preview-card { height:clamp(240px,calc(100svh - 220px),620px); }
+.board-home-layout .home-scroll-cue { min-height:36px; margin:0 auto; }
+.tennis-app .home-history-list > button { grid-template-columns:minmax(0,1fr); padding:12px 16px; }
+.home-board-dock { display:grid; flex:none; grid-template-columns:44px minmax(80px,1fr) 44px 44px; align-items:center; gap:10px; padding:10px 16px calc(var(--mobile-safe-area-height) + 8px); background:rgb(248 250 247 / 94%); border-top:1px solid rgb(30 70 50 / 7%); }
+.tennis-app .home-board-dock > button { display:grid; place-items:center; min-width:44px; min-height:48px; padding:0; border:1px solid rgb(30 70 50 / 9%); border-radius:25px; color:#224c3c; background:rgb(255 255 255 / 80%); }
+.tennis-app .home-board-dock .home-plan-primary { display:flex; gap:8px; width:100%; margin:0; padding:0 12px; background:#173f31; color:#f7faf4; font-size:17px; font-weight:650; }
+.home-board-dock svg { width:21px; height:21px; }
+.board-fixed-header { position:absolute; z-index:11; inset:0 0 auto; padding-top:env(safe-area-inset-top,0px); background:#f8faf7; }
+.board-editor .board-canvas { top:calc(62px + env(safe-area-inset-top,0px)); }
+.board-dock-stack { position:relative; flex:none; order:3; z-index:12; }
+.board-edit-dock { grid-template-columns:44px 44px minmax(60px,1fr) 44px 44px; gap:10px; min-height:72px; padding:8px 16px calc(var(--mobile-safe-area-height) + 8px); }
+.tennis-app .board-edit-dock .board-dock-side { width:44px; height:48px; border-color:rgb(255 255 255 / 17%); background:rgb(255 255 255 / 7%); }
+.board-edit-dock .board-dock-side svg { width:21px; height:21px; }
+.board-dock-tools { position:absolute; bottom:calc(100% + 8px); left:12px; right:12px; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:3px; padding:6px; border:1px solid rgb(255 255 255 / 34%); border-radius:24px; background:rgb(245 250 243 / 93%); box-shadow:0 8px 28px rgb(0 25 15 / 24%),inset 0 1px 0 #fff; backdrop-filter:blur(24px) saturate(1.2); -webkit-backdrop-filter:blur(24px) saturate(1.2); }
+.tennis-app .board-dock-tools button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-width:0; min-height:54px; padding:4px 0; border:0; border-radius:17px; background:transparent; color:#244c3c; font-size:11px; font-weight:600; }
+.board-dock-tools button svg { width:20px; height:20px; }
+.tennis-app .board-dock-tools button:active,.tennis-app .board-dock-tools button[aria-pressed="true"] { background:rgb(37 96 67 / 10%); }
+.tennis-app .board-dock-tools button:disabled { opacity:.3; }
+.board-object-hint { position:absolute; z-index:5; max-width:140px; padding:7px 11px; border:1px solid rgb(255 255 255 / 54%); border-radius:14px; transform:translateX(-50%); background:rgb(246 250 241 / 94%); color:#234532; font-size:12px; font-weight:650; line-height:16px; white-space:nowrap; pointer-events:none; user-select:none; box-shadow:0 3px 12px rgb(0 25 15 / 15%); }
+.board-object-hint::after { content:""; position:absolute; left:calc(50% - 4px); bottom:-5px; width:8px; height:8px; transform:rotate(45deg); background:#f1f6eb; border-radius:0 0 2px 0; }
+.board-object-hint.is-below::after { top:-5px; bottom:auto; transform:rotate(225deg); }
+.board-playback-actions { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.board-playback-actions.has-practice-action { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.board-playback-actions.has-practice-action .board-remember-beat { grid-column:1 / -1; min-height:38px; }
+.board-editor.is-note-viewport-locked .board-dock-stack { visibility:hidden; pointer-events:none; }
+@media (prefers-reduced-transparency:reduce) { .board-dock-tools { background:#f5faf3; backdrop-filter:none; -webkit-backdrop-filter:none; } }

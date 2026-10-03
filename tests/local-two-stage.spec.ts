@@ -11,7 +11,6 @@ async function start(page:Page){
   await page.evaluate(()=>localStorage.clear());await page.reload();
   await page.locator('.home-plan-primary').click();await expect(canvas(page)).toBeVisible();
   await expect.poll(()=>current(page).evaluate(e=>Math.abs(new DOMMatrixReadOnly(getComputedStyle(e).transform).m41))).toBeLessThan(1);
-  await page.getByRole('button',{name:'收起跑位提示'}).click();
 }
 async function pixel(page:Page,p:Point){
   const m=await canvas(page).evaluate(e=>({w:e.clientWidth,h:e.clientHeight,r:e.getBoundingClientRect().toJSON(),rotated:e.getAttribute('data-rotated')==='true'}));
@@ -26,7 +25,8 @@ async function saved(page:Page):Promise<BoardDocument>{
   await expect(current(page).getByTestId('board-save-live')).toHaveText('画板已保存');
   return page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).boards[0],KEY);
 }
-async function menu(page:Page){await current(page).getByRole('button',{name:/^打开.*的画板菜单$/}).click();}
+async function quick(page:Page){const toggle=current(page).locator('[data-dock-expand]');await expect(toggle).toBeVisible();if(await toggle.getAttribute('aria-expanded')==='false')await toggle.click();}
+async function menu(page:Page){await quick(page);await current(page).getByRole('button',{name:/^打开.*的画板菜单$/}).click();}
 async function enableTwoStage(page:Page){await menu(page);const toggle=page.getByRole('switch',{name:'二段跑位，已关'});await expect(toggle).not.toBeChecked();await toggle.click();await expect(page.getByRole('switch',{name:'二段跑位，已开'})).toBeChecked();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);}
 async function openings(page:Page){await menu(page);const dialog=page.getByRole('dialog',{name:'画板菜单',exact:true});for(const opening of OPENINGS)await expect(dialog.getByRole('button',{name:opening.label,exact:true})).toBeInViewport();}
 function closePoint(actual:Point,expected:Point){expect(actual[0]).toBeCloseTo(expected[0],2);expect(actual[1]).toBeCloseTo(expected[1],2);}
@@ -37,7 +37,7 @@ for(const opening of OPENINGS){test(`opening ${opening.id}: roles, ball, first s
   expect(b.smartRally?.hitterId).toBe(opening.server==='me'?me.id:opp.id);
   const landing:Point=opening.server==='me'?[.65,.3]:[.35,.7];await drag(page,b.frames[0].poses[ball.id],landing);
   const shot=await saved(page);expect(shot.frames[0].paths[0].kind).toBe('shot');closePoint(shot.frames[0].paths[0].to,landing);
-  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
+  await quick(page);await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
 });}
 test('recovery waits for the return before reception, with undo, cancellation, playback and refresh',async({page})=>{
   await start(page);await enableTwoStage(page);await drag(page,[.64,.96],[.7,.25]);
@@ -59,18 +59,18 @@ test('recovery waits for the return before reception, with undo, cancellation, p
   expect(getFramePose(b.frames[0],1)[me.id]).toEqual(getFramePose(b.frames[1],0)[me.id]);
   expect(getFramePose(b.frames[0],.5)[me.id]).not.toEqual(early.from);expect(getFramePose(b.frames[1],.5)[me.id]).not.toEqual(late.from);
   await expect(current(page).getByRole('button',{name:/^播放战术，2 拍/})).toBeVisible();
-  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames[1].paths.filter(p=>p.kind==='move')).toEqual([]);
-  await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
+  await quick(page);await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames[1].paths.filter(p=>p.kind==='move')).toEqual([]);
+  await quick(page);await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
   await current(page).getByRole('button',{name:/^播放战术，2 拍/}).click();await expect(current(page).getByTestId('board-playback-dock')).toBeVisible();
   await page.screenshot({path:'output/two-stage-playback.png'});
   await page.reload();await page.getByRole('button',{name:`接着画${b.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();expect((await saved(page)).frames).toEqual(b.frames);
 });
 test('view rotation preserves document and makes real rotated dragging work',async({page})=>{
   await start(page);await drag(page,[.64,.96],[.7,.25]);const before=await saved(page);
-  await current(page).getByRole('button',{name:'调换视角 180 度'}).click();await expect(canvas(page)).toHaveAttribute('data-rotated','true');expect(await saved(page)).toEqual(before);
+  await quick(page);await current(page).getByRole('button',{name:'调换视角 180 度'}).click();await expect(canvas(page)).toHaveAttribute('data-rotated','true');expect(await saved(page)).toEqual(before);
   await drag(page,[.3,.07],[.7,.25]);await drag(page,[.7,.25],[.32,.75]);const after=await saved(page);
   expect(after.frames[1].paths[0].kind).toBe('shot');closePoint(after.frames[1].paths[0].from,[.7,.25]);closePoint(after.frames[1].paths[0].to,[.32,.75]);
-  await current(page).getByRole('button',{name:'调换视角 180 度'}).click();await expect(canvas(page)).toHaveAttribute('data-rotated','false');expect(await saved(page)).toEqual(after);
+  await quick(page);await current(page).getByRole('button',{name:'调换视角 180 度'}).click();await expect(canvas(page)).toHaveAttribute('data-rotated','false');expect(await saved(page)).toEqual(after);
 });
 test('template replacement warns, cancel preserves data, confirm is undoable',async({page})=>{
   await start(page);await drag(page,[.64,.96],[.7,.25]);const before=await saved(page);
@@ -78,13 +78,14 @@ test('template replacement warns, cancel preserves data, confirm is undoable',as
   await page.getByRole('button',{name:'取消',exact:true}).click();await expect(page.getByRole('button',{name:'一区发球',exact:true})).toBeVisible();
   await page.screenshot({path:'output/opening-menu.png'});
   await page.getByRole('button',{name:'二区接发',exact:true}).click();await page.getByRole('button',{name:'确认替换站位'}).click();expect((await saved(page)).frames).toHaveLength(1);
-  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(before.frames);
+  await quick(page);await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(before.frames);
 });
 test('real touch input follows the finger, commits two phases and fits a narrow toolbar',async({page,browserName})=>{
   test.skip(browserName!=='chromium','CDP touch injection is Chromium-only; other gesture tests run in WebKit.');
   await page.setViewportSize({width:320,height:740});await start(page);await enableTwoStage(page);
-  const buttons=current(page).locator('.board-immersive-toolbar button');
+  const buttons=current(page).locator('.board-edit-dock button');
   const rects=await buttons.evaluateAll(items=>items.map(e=>e.getBoundingClientRect().toJSON()));
+  expect(rects).toHaveLength(5);
   expect(rects.every(r=>r.x>=0&&r.right<=320)).toBe(true);
   for(let i=1;i<rects.length;i++)expect(rects[i].x).toBeGreaterThanOrEqual(rects[i-1].right-1);
   const cdp=await page.context().newCDPSession(page);
@@ -108,18 +109,42 @@ test('real touch input follows the finger, commits two phases and fits a narrow 
   const receiver=b.actors.find(a=>a.label==='对手')!;closePoint(b.frames[0].paths.find(p=>p.actorId===receiver.id)!.via!,[.45,.12]);
   await cdp.detach();
 });
-test('Home opens a disposable, playable two-stage example',async({page})=>{
+test('formal home has one board entry and keeps utility controls in its dock',async({page})=>{
   await page.goto('/');await page.evaluate(()=>localStorage.clear());await page.reload();
-  await page.getByRole('button',{name:/试看二段跑位/}).click();
-  await expect(canvas(page)).toBeVisible();
-  await current(page).getByRole('button',{name:/^播放战术，2 拍，共 5.6 秒/}).click();
-  await expect(current(page).getByTestId('board-playback-dock')).toBeVisible();
-  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),KEY)).toBeNull();
-  await current(page).getByRole('button',{name:'暂停',exact:true}).click();
-  const slider=current(page).getByRole('slider',{name:'画板播放进度'});
-  await slider.fill('1.4');await expect(slider).toHaveValue('1.4');
-  await slider.fill('4.2');await expect(slider).toHaveValue('4.2');
-  await page.screenshot({path:'output/demo-second-stage.png'});
+  await expect(page.locator('.home-header button')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:/试看二段|找个打法|想下一分|回顾刚才/})).toHaveCount(0);
+  await expect(page.locator('.home-plan-primary')).toHaveText('画板');
+  await expect(page.getByRole('navigation',{name:'画板入口'})).toBeInViewport();
+  await expect(page.getByRole('button',{name:'新建画板',exact:true})).toBeVisible();
+  await page.locator('.home-plan-primary').click();await expect(canvas(page)).toBeVisible();
+  await expect(current(page).locator('.board-fixed-header button')).toHaveCount(0);
+  await expect(current(page).getByTestId('movement-guide')).toHaveText('拖球发球');
+  await expect(current(page).getByTestId('movement-guide').getByRole('button')).toHaveCount(0);
+  const before=await canvas(page).boundingBox();await quick(page);
+  expect(await canvas(page).boundingBox()).toEqual(before);
+  await expect(current(page).getByRole('toolbar',{name:'常用操作'})).toBeVisible();
+  await current(page).getByRole('button',{name:'返回上一页'}).click();
+  await expect(page.locator('.home-plan-primary')).toBeVisible();
+});
+test('object hints follow the receiver and rotation; independent preference survives reload',async({page})=>{
+  await start(page);await drag(page,[.64,.96],[.7,.25]);const b=await saved(page);
+  const receiver=b.actors.find(a=>a.label==='对手')!;
+  const hint=current(page).getByTestId('movement-guide');
+  await expect(hint).toHaveAttribute('data-actor-id',receiver.id);
+  await expect(hint).toHaveText('拖动接球');
+  const before=await hint.boundingBox();await quick(page);await current(page).getByRole('button',{name:'调换视角 180 度'}).click();
+  const after=await hint.boundingBox();expect(after!.y).toBeGreaterThan(before!.y+150);
+  expect(await hint.evaluate(e=>getComputedStyle(e).pointerEvents)).toBe('none');
+  await menu(page);await page.getByRole('switch',{name:'操作提示，已开'}).click();
+  await page.getByRole('switch',{name:'二段跑位，已关'}).click();await page.keyboard.press('Escape');
+  await expect(hint).toHaveCount(0);
+  await page.reload();await page.locator('.home-plan-primary').click();await expect(canvas(page)).toBeVisible();
+  await expect(hint).toHaveCount(0);await menu(page);
+  await expect(page.getByRole('switch',{name:'操作提示，已关'})).not.toBeChecked();
+  await expect(page.getByRole('switch',{name:'二段跑位，已开'})).toBeChecked();
+  await page.getByRole('switch',{name:'操作提示，已关'}).click();await page.keyboard.press('Escape');
+  await expect(hint).toBeVisible();expect((await saved(page)).frames).toEqual(b.frames);
+  await expect(current(page).getByRole('button',{name:'展开常用操作'})).toBeFocused();
 });
 test('movement mode defaults to single, guards early recovery and preserves routes when switched off',async({page})=>{
   await start(page);await menu(page);
@@ -135,7 +160,6 @@ test('movement mode defaults to single, guards early recovery and preserves rout
   expect((await saved(page)).frames).toEqual(early.frames);await page.keyboard.press('Escape');
   await page.reload();await page.getByRole('button',{name:`接着画${early.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();
   await menu(page);await expect(page.getByRole('switch',{name:'二段跑位，已关'})).not.toBeChecked();await page.keyboard.press('Escape');
-  await page.getByRole('button',{name:'收起跑位提示'}).click();
   await drag(page,[.3,.07],[.7,.25]);await drag(page,[.7,.25],[.32,.75]);await drag(page,[.5,.78],[.32,.75]);
   const final=await saved(page);expect(final.frames).toHaveLength(3);
   expect(final.frames[0].paths.find(p=>p.id===early.frames[0].paths.find(p=>p.kind==='move')!.id)).toEqual(early.frames[0].paths.find(p=>p.kind==='move'));
@@ -162,8 +186,8 @@ test('receiving turn survives refresh, JSON, cancellation and undo without addin
   expect(b.frames).toHaveLength(2);expect(route.via).toEqual(first.frames[0].paths.find(p=>p.actorId===receiver.id)!.to);
   await expect(current(page).getByRole('button',{name:/^播放战术，1 拍/})).toBeEnabled();
   const {parseBoardJSON}=await import('../src/board/validate');expect(parseBoardJSON(JSON.stringify(b))).toEqual({ok:true,value:b});
-  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(first.frames);
-  await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
+  await quick(page);await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(first.frames);
+  await quick(page);await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
   await page.reload();await page.getByRole('button',{name:`接着画${b.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();
   expect((await saved(page)).frames).toEqual(b.frames);
   await menu(page);await page.getByRole('switch',{name:'二段跑位，已开'}).click();await page.keyboard.press('Escape');
@@ -198,15 +222,15 @@ test('receiver changes direction within the serve flight while server recovers, 
 test('receiving opening and rotated turn handles preserve each leg independently',async({page})=>{
   await start(page);await enableTwoStage(page);await openings(page);await page.getByRole('button',{name:'二区接发',exact:true}).click();
   let b=await saved(page);const me=b.actors.find(a=>a.label==='我方')!,ball=b.actors.find(a=>a.kind==='ball')!;
-  await current(page).getByRole('button',{name:'调换视角 180 度'}).click();
+  await quick(page);await current(page).getByRole('button',{name:'调换视角 180 度'}).click();
   await drag(page,b.frames[0].poses[ball.id],[.25,.75]);
-  await expect(current(page).getByTestId('movement-guide')).toContainText('我方 · ①');
+  await expect(current(page).getByTestId('movement-guide')).toContainText('① 先调整');
   await drag(page,b.frames[0].poses[me.id],[.5,.88]);await drag(page,[.5,.88],[.25,.75]);
   b=await saved(page);const route=b.frames[0].paths.find(p=>p.actorId===me.id)!;closePoint(route.via!,[.5,.88]);
   // A deliberate turn-handle drag adjusts the first leg, keeping the interception point.
   await drag(page,route.via!,[.58,.85]);const changed=await saved(page),edited=changed.frames[0].paths.find(p=>p.actorId===me.id)!;
   closePoint(edited.via!,[.58,.85]);expect(edited.to).toEqual(route.to);expect(edited.from).toEqual(route.from);
-  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
+  await quick(page);await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
   // After undo, select the route deliberately before adjusting its final endpoint.
   const at=await pixel(page,route.via!);await page.mouse.click(at.x,at.y);
   await drag(page,route.to,[.2,.7]);const final=await saved(page),last=final.frames[0].paths.find(p=>p.actorId===me.id)!;

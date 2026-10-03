@@ -44,6 +44,7 @@ async function open(page: Page, seed = board) {
 }
 
 async function menu(page: Page) {
+  await current(page).getByRole("button", {name:"展开常用操作"}).click();
   await current(page).getByRole("button", { name: /打开.*的画板菜单/ }).click();
   const sheet = page.getByRole("dialog", { name: "画板菜单", exact: true });
   await expect(sheet).toBeVisible(); return sheet;
@@ -160,7 +161,8 @@ for (const surface of ["hard", "clay", "grass"] as const) {
     const unchanged = await stored(page), sheet = await menu(page);
     await sheet.getByRole("button", { name: surface === "hard" ? "硬地" : surface === "clay" ? "红土" : "草地", exact: true }).click();
     await closeMenu(page); const before = await background(canvas(page));
-    await current(page).getByTestId("board-learning-entry").click();
+    await menu(page);
+    await page.getByRole("dialog", {name:"画板菜单",exact:true}).getByTestId("board-learning-entry").click();
     await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: "练一项", exact: true }).click();
     await page.getByRole("dialog", { name: "这次先练好一件事" }).getByRole("button", { name: /^击球后回位/ }).click();
     await settled(page);

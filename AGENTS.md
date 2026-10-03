@@ -188,3 +188,10 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 
 - User accepted movement timing. Keep that logic unchanged; focus on concise guidance and iOS-style translucent grouped menus. Show one role/action cue, a visible native-style two-stage switch, four direct opening actions and short help with optional icon reference.
 - Avoid routine success paragraphs in the main menu. Keep destructive-action consequences, save errors, explicit zone on/off labels and accessible control names. Keep guide dismissal out of player drag origins, including rotated openings. Preserve native sheet scrolling and protected runtime.
+
+## Formal board UI — 2026-10-03, v0.4.0
+
+- Supersedes the trial badge/example and dismissible top cue. Home centers on one Board action with new/library/about icons. Keep brand and version fixed on Home and the editor, and move editor controls to the bottom dock.
+- Dock expands frequent undo/redo/rotate/beats actions; Settings opens secondary grouped controls. Keep all four opening choices directly in Settings. Rotation collapses quick tools to clear the drag origin; opening quick tools must not resize the court.
+- Context hints follow the active ball/player, never intercept gestures and have no dismiss button. The independent operation-hints setting defaults on and persists across reloads; changing two-stage mode does not reset it.
+- Preserve accepted movement timing, storage, errors and confirmation safeguards. Publish to the existing isolated Site; the previous no-GitHub-upload constraint still applies.
