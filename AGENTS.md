@@ -169,3 +169,7 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 ## Direct opening choices — 2026-10-02
 
 - User accepted two-stage movement. Show all four opening choices directly at the top of the board menu; no secondary opening menu. Preserve inline confirmation when replacing authored content and undo. Continue updating only the existing trial Site, with no GitHub push.
+
+## Optional two-stage authoring — 2026-10-03
+
+- Default to single-stage movement. Put the two-stage switch directly in the board menu and remember the explicit choice on this browser. In guided authoring, adding early recovery requires the switch to be on. Switching modes must not modify or remove existing routes, playback, or undo history. Keep the four opening choices directly in the menu.

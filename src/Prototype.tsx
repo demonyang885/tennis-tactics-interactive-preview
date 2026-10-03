@@ -913,7 +913,7 @@ type BoardCanvasCompletion = {
   path?:BoardDrag["path"];
 };
 
-function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,pathKind,markPreset,curved,smartEnabled,protectPreviousEndpoints,preferredActorId,contextPaths,contextFrameIndex,previewing,elapsed,display,rotated,preview,commit,finishPreview,onComplete,onOverride,onCancel,onNudge,onDelete,onError,onTogglePathCurve,onPlaceText,onEditText}: {
+function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,pathKind,markPreset,curved,smartEnabled,twoStage,protectPreviousEndpoints,preferredActorId,contextPaths,contextFrameIndex,previewing,elapsed,display,rotated,preview,commit,finishPreview,onComplete,onOverride,onCancel,onNudge,onDelete,onError,onTogglePathCurve,onPlaceText,onEditText}: {
   board:BoardDocument;
   frameIndex:number;
   selection:BoardSelection|null;
@@ -924,6 +924,7 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
   markPreset:MarkPreset;
   curved:boolean;
   smartEnabled:boolean;
+  twoStage:boolean;
   protectPreviousEndpoints:boolean;
   preferredActorId?:string;
   contextPaths:BoardPath[];
@@ -1052,6 +1053,9 @@ function BoardCanvas({board,frameIndex,selection,setSelection,tool,actorPreset,p
         if(smartEnabled){
           if(hit?.kind!=="actor"){if(hit)setSelection(hit);onError("请从球员或网球按住并拖动");return;}
           actor=board.actors.find(item=>item.id===hit.id);if(!actor)return;
+          if(!twoStage&&frameIndex>0&&actor.kind==="player"&&board.smartRally?.hitterId!==actor.id){
+            onError("当前为一段跑位，请拖动接球方。要提前回位，请在画板菜单开启二段跑位。");return;
+          }
           kind=actor.kind==="ball"?(tool==="shot"?pathKind:"shot"):"move";
           onOverride(actor);
         }else{
@@ -1226,6 +1230,8 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
   const [alternative,setAlternative]=useState<BoardAlternative|undefined>(()=>{const result=readBoardAlternative(initialBoard.id);return result.ok?result.value:undefined;});
   const [compareMode,setCompareMode]=useState<"original"|"try">(alternativeSeed?"try":"original");
   const [confirmAlternativeDelete,setConfirmAlternativeDelete]=useState(false);
+  const [twoStage,setTwoStage]=useState(()=>{try{return localStorage.getItem("rallypath:two-stage-movement:v1")==="true";}catch{return false;}});
+  const toggleTwoStage=()=>{const next=!twoStage;setTwoStage(next);try{localStorage.setItem("rallypath:two-stage-movement:v1",String(next));}catch{/* Still available for this editing session. */}setError("");setNotice(next?"已开启二段跑位，可补提前回位。":"已切回一段跑位，已有路线保留。");};
   const [rotated,setRotated]=useState(false),[openingChoice,setOpeningChoice]=useState<OpeningId|null>(null),[showMovementHint,setShowMovementHint]=useState(true);
   const [display,setDisplay]=useState<BoardDisplayPreferences>(()=>getBoardDisplayPreferences());
   useEffect(()=>{
@@ -1955,8 +1961,8 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
           <button aria-label={`打开${board.title}的画板菜单`} aria-haspopup="dialog" aria-expanded={fileSurface==="menu"} onClick={event=>{rememberSheetOpener(event.currentTarget);setOpeningChoice(null);setFileSurface("menu");}}><DotsHorizontalIcon/></button>
         </div>
       </div>
-      <BoardCanvas board={previewing?playbackBoard:board} frameIndex={frameIndex} selection={selection} setSelection={next=>{setAutomaticRouteSelection(false);setSelection(next);}} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} smartEnabled={!!activeSmart} protectPreviousEndpoints={automaticRouteSelection&&activeSmart?.phase==="move"} preferredActorId={!selection||automaticRouteSelection&&selection.kind==="element"?activeSmart?.actorId:undefined} contextPaths={previousBeatPaths} contextFrameIndex={contextFrameIndex} previewing={previewing} elapsed={elapsed} display={display} rotated={rotated} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onOverride={overrideSmartActor} onCancel={cancelCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError} onTogglePathCurve={toggleCurve} onPlaceText={placeCourtNote} onEditText={editCourtNote}/>
-      {!previewing&&activeSmart&&showMovementHint&&<div className="board-local-hint"><span><strong>跑位试验版 · 二段跑位</strong><small>{activeSmart.phase==="move"?"拖接球方接球；也可先拖击球方提前回位。":frameIndex===0?"从网球拖出第一拍，开始试画。":"从网球画回球；随后拖原球员完成第二段跑位。"}</small></span><button aria-label="收起跑位提示" onClick={()=>setShowMovementHint(false)}><Cross2Icon/></button></div>}
+      <BoardCanvas board={previewing?playbackBoard:board} frameIndex={frameIndex} selection={selection} setSelection={next=>{setAutomaticRouteSelection(false);setSelection(next);}} tool={tool} actorPreset={actorPreset} pathKind={pathKind} markPreset={markPreset} curved={curved} smartEnabled={!!activeSmart} twoStage={twoStage} protectPreviousEndpoints={automaticRouteSelection&&activeSmart?.phase==="move"} preferredActorId={!selection||automaticRouteSelection&&selection.kind==="element"?activeSmart?.actorId:undefined} contextPaths={previousBeatPaths} contextFrameIndex={contextFrameIndex} previewing={previewing} elapsed={elapsed} display={display} rotated={rotated} preview={preview} commit={commit} finishPreview={finishPreview} onComplete={completeCanvasAction} onOverride={overrideSmartActor} onCancel={cancelCanvasAction} onNudge={nudge} onDelete={deleteSelection} onError={setError} onTogglePathCurve={toggleCurve} onPlaceText={placeCourtNote} onEditText={editCourtNote}/>
+      {!previewing&&activeSmart&&showMovementHint&&<div className="board-local-hint"><span><strong>跑位试验版 · {twoStage?"二段跑位":"一段跑位"}</strong><small>{!twoStage?(activeSmart.phase==="move"?"拖接球方到接球位置，再从网球画下一拍。":"从网球拖出球路，再拖接球方画一段跑位。"):activeSmart.phase==="move"?"拖接球方接球；也可先拖击球方提前回位。":frameIndex===0?"从网球拖出第一拍，开始试画。":"从网球画回球；随后拖原球员完成第二段跑位。"}</small></span><button aria-label="收起跑位提示" onClick={()=>setShowMovementHint(false)}><Cross2Icon/></button></div>}
       {isAlternative&&!previewing&&<div className="board-alternative-label" role="status">从第 {alternativeStartIndex+1} 拍试试 · {saveState==="saved"?"已保存":saveState==="error"?"未保存":"调整中"}</div>}
       {previewing&&(alternative||alternativeSeed&&saveState==="saved")&&<div className="board-compare-switch" role="group" aria-label="比较两条打法"><button aria-pressed={compareMode==="original"} onClick={()=>{setCompareMode("original");setElapsed(0);setIsPlaying(false);}}>原来</button><button aria-pressed={compareMode==="try"} onClick={()=>{setCompareMode("try");setElapsed(0);setIsPlaying(false);}}>试试</button>{alternativeSourceChanged&&<small>原分已改，按当时起点比较</small>}</div>}
       {previewing&&chosenSkill&&<div className="board-practice-context" aria-label={`正在观察${chosenSkill.label}`}>{chosenSkill.label}</div>}
@@ -1987,7 +1993,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
 
     <BottomSheet open={helpOpen} onOpenChange={open=>{setSheetVisibility(setHelpOpen,open);if(!open)restoreSheetFocus("opener");}} title="画板操作" description="主画板保持纯净，需要时在这里查看。" snap={.72}><div className="board-sheet board-help-sheet"><button className="guide-close" aria-label="关闭画板操作说明" onClick={()=>{setHelpOpen(false);keyboard.hide();restoreSheetFocus("opener");}}><Cross2Icon/></button><div className="board-help-list">
       <div><ArrowTopRightIcon/><span><strong>画球路</strong><small>拖动时半透明球路上会有网球移动；速度对应 Control、Drive、Put away，放开后会收起。</small></span></div>
-      <div><CornerTopRightIcon/><span><strong>二段跑位（可选）</strong><small>画完球路，拖动刚击球的球员提前回位；再拖接球方并画回球，最后拖原球员接球。不画提前回位也能继续。两段在对手击球时衔接；重复拖动可调整终点。</small></span></div>
+      <div><CornerTopRightIcon/><span><strong>一段／二段跑位</strong><small>默认一段：画完球路，只拖接球方。需要提前回位时，在画板菜单开启「二段跑位」。开启后，拖动刚击球的球员提前回位；再拖接球方并画回球，最后拖原球员接球。不画提前回位也能继续。两段在对手击球时衔接；重复拖动可调整终点。</small></span></div>
       <div><Pencil2Icon/><span><strong>直线／曲线</strong><small>点选球路旁的图标切换；白色菱形可继续调整弧度，新球路默认向右弯。</small></span></div>
       <div><TacticFinderIcon/><span><strong>找打法</strong><small>画出一分后，点画板右下角的分叉球路，查看战术示范。</small></span></div>
       <div><ComponentInstanceIcon/><span><strong>切换场地</strong><small>打开画板菜单，再选择硬地、红土或草地。</small></span></div>
@@ -2004,6 +2010,7 @@ function BoardEditor({ initialBoard, initialPersisted=false, initialStoredBoard,
     </div></div></BottomSheet>
     <BottomSheet open={fileSurface==="menu"} onOpenChange={open=>{if(!open){setOpeningChoice(null);setFileSurface(null);keyboard.hide();restoreSheetFocus("opener");}}} title="画板菜单" snap={.625}><div className="board-sheet board-menu-sheet">{sheetFeedback}
       {!isAlternative&&<section className="board-menu-section board-menu-opening-section" aria-label="开局站位"><p>开局站位</p>{openingChoice?<div className="board-opening-confirm" role="alert"><strong>改为{OPENINGS.find(item=>item.id===openingChoice)?.label}？</strong><p>会替换当前画板的所有拍次、路线和备注。需要保留两份，请先返回菜单另存一份；本次替换可以撤销。</p><button className="sheet-done" onClick={()=>chooseOpening(openingChoice,true)}>确认替换站位</button><button className="sheet-done is-secondary" onClick={()=>setOpeningChoice(null)}>取消</button></div>:<div className="board-opening-grid">{OPENINGS.map(opening=><button key={opening.id} onClick={()=>chooseOpening(opening.id)}><svg viewBox="0 0 100 140" aria-hidden="true"><rect x="16" y="14" width="68" height="112" rx="2" fill="#28684b" stroke="#dbe6dc"/><path d="M16 70H84 M24 14V126 M76 14V126 M24 44H76 M24 96H76 M50 44V96" fill="none" stroke="#dbe6dc"/>{[[opening.me,"#3e8ad6"],[opening.opponent,"#dc4151"]].map(([point,color],index)=><circle key={index} cx={16+(point as readonly number[])[0]*68} cy={14+(point as readonly number[])[1]*112} r="5" fill={color as string} stroke="white"/>)}<circle cx={16+(opening.server==="me"?opening.me[0]:opening.opponent[0])*68+7} cy={14+(opening.server==="me"?opening.me[1]:opening.opponent[1])*112} r="3" fill="#d8ef72"/></svg><strong>{opening.label}</strong></button>)}</div>}</section>}
+      <section className="board-menu-section" aria-label="跑位设置"><p>跑位</p><div className="board-menu-list board-menu-compact-list"><button role="switch" aria-checked={twoStage} aria-label={`二段跑位，${twoStage?"已开":"已关"}`} onClick={toggleTwoStage}><CornerTopRightIcon/><span><strong>二段跑位 · {twoStage?"已开":"已关"}</strong><small>{twoStage?"提前回位，再按回球跑动":"当前一段跑位 · 直接跑向接球点"}</small></span>{twoStage&&<CheckCircledIcon aria-hidden="true"/>}</button></div></section>
       {!isAlternative&&<section className="board-menu-section board-menu-edit-section"><p>编辑</p><div className="board-menu-list board-menu-compact-list"><button onClick={()=>{setTitleDraft(committedBoardRef.current.title);setError("");setFileSurface("rename");}}><Pencil2Icon/><span><strong>修改名称</strong></span></button></div></section>}
       <section className="board-menu-section board-menu-manage-section"><p>{isAlternative?"试法":"保存与管理"}</p><div className="board-menu-list board-menu-compact-list"><button onClick={()=>{clearMediaOutput();setFileSurface("save-share");}}><Share2Icon/><span><strong>保存与分享</strong></span></button>{!isAlternative&&<button onClick={()=>{const result=saveNow();if(!result.ok)return;if(immersive){resumeImmersiveOnReturnRef.current=true;afterImmersiveExitRef.current=openLibrary;exitImmersive(false);return;}keyboard.hide();setFileSurface(null);openLibrary();}}><LayersIcon/><span><strong>草稿与模板</strong></span></button>}{isAlternative&&<button onClick={leaveAlternativeWithoutSaving}><ArrowLeftIcon/><span><strong>{persistedAlternativeRef.current?"返回上一页":"放弃未保存的试法"}</strong></span></button>}{isAlternative&&persistedAlternativeRef.current&&<button onClick={()=>setConfirmAlternativeDelete(value=>!value)}><TrashIcon/><span><strong>{confirmAlternativeDelete?"取消删除":"删除试法"}</strong></span></button>}{isAlternative&&confirmAlternativeDelete&&<button className="board-menu-delete-confirm" onClick={removeAlternative}>确认删除试法，原分保留</button>}</div></section>
       <p className={`board-autosave-note is-${saveState}`}>{saveState==="clean"?"修改后自动保存":saveState==="saving"?"保存中…":saveState==="saved"?"已保存":saveState==="error"?"保存失败":"等待保存"}</p>

@@ -27,6 +27,7 @@ async function saved(page:Page):Promise<BoardDocument>{
   return page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).boards[0],KEY);
 }
 async function menu(page:Page){await current(page).getByRole('button',{name:/^打开.*的画板菜单$/}).click();}
+async function enableTwoStage(page:Page){await menu(page);const toggle=page.getByRole('switch',{name:'二段跑位，已关'});await expect(toggle).not.toBeChecked();await toggle.click();await expect(page.getByRole('switch',{name:'二段跑位，已开'})).toBeChecked();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);}
 async function openings(page:Page){await menu(page);const dialog=page.getByRole('dialog',{name:'画板菜单',exact:true});for(const opening of OPENINGS)await expect(dialog.getByRole('button',{name:opening.label,exact:true})).toBeInViewport();}
 function closePoint(actual:Point,expected:Point){expect(actual[0]).toBeCloseTo(expected[0],2);expect(actual[1]).toBeCloseTo(expected[1],2);}
 for(const opening of OPENINGS){test(`opening ${opening.id}: roles, ball, first shot and undo`,async({page})=>{
@@ -39,7 +40,7 @@ for(const opening of OPENINGS){test(`opening ${opening.id}: roles, ball, first s
   await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
 });}
 test('two phases, repeat adjustment, undo, cancellation, playback and refresh',async({page})=>{
-  await start(page);await drag(page,[.64,.96],[.7,.25]);
+  await start(page);await enableTwoStage(page);await drag(page,[.64,.96],[.7,.25]);
   const shot=(await saved(page)).frames[0].paths[0];
   await drag(page,[.64,.98],[.5,.78]); // optional early recovery
   let b=await saved(page);const me=b.actors.find(a=>a.label==='我方')!,opp=b.actors.find(a=>a.label==='对手')!;
@@ -79,7 +80,7 @@ test('template replacement warns, cancel preserves data, confirm is undoable',as
 });
 test('real touch input follows the finger, commits two phases and fits a narrow toolbar',async({page,browserName})=>{
   test.skip(browserName!=='chromium','CDP touch injection is Chromium-only; other gesture tests run in WebKit.');
-  await page.setViewportSize({width:320,height:740});await start(page);
+  await page.setViewportSize({width:320,height:740});await start(page);await enableTwoStage(page);
   const buttons=current(page).locator('.board-immersive-toolbar button');
   const rects=await buttons.evaluateAll(items=>items.map(e=>e.getBoundingClientRect().toJSON()));
   expect(rects.every(r=>r.x>=0&&r.right<=320)).toBe(true);
@@ -116,4 +117,25 @@ test('Home opens a disposable, playable two-stage example',async({page})=>{
   await slider.fill('1.4');await expect(slider).toHaveValue('1.4');
   await slider.fill('4.2');await expect(slider).toHaveValue('4.2');
   await page.screenshot({path:'output/demo-second-stage.png'});
+});
+test('movement mode defaults to single, guards early recovery and preserves routes when switched off',async({page})=>{
+  await start(page);await menu(page);
+  await expect(page.getByRole('switch',{name:'二段跑位，已关'})).not.toBeChecked();await page.keyboard.press('Escape');
+  await drag(page,[.64,.96],[.7,.25]);const initial=await saved(page);
+  await drag(page,[.64,.98],[.5,.78]);await expect(current(page).getByRole('alert')).toContainText('当前为一段跑位');
+  expect(await saved(page)).toEqual(initial);
+  await enableTwoStage(page);await drag(page,[.64,.98],[.5,.78]);const early=await saved(page);
+  expect(early.frames[0].paths.filter(p=>p.kind==='move')).toHaveLength(1);
+  await page.reload();await page.getByRole('button',{name:`接着画${early.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();
+  await menu(page);await expect(page.getByRole('switch',{name:'二段跑位，已开'})).toBeChecked();
+  await page.getByRole('switch',{name:'二段跑位，已开'}).click();await expect(page.getByRole('switch',{name:'二段跑位，已关'})).not.toBeChecked();
+  expect((await saved(page)).frames).toEqual(early.frames);await page.keyboard.press('Escape');
+  await page.reload();await page.getByRole('button',{name:`接着画${early.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();
+  await menu(page);await expect(page.getByRole('switch',{name:'二段跑位，已关'})).not.toBeChecked();await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'收起跑位提示'}).click();
+  await drag(page,[.3,.07],[.7,.25]);await drag(page,[.7,.25],[.32,.75]);await drag(page,[.5,.78],[.32,.75]);
+  const final=await saved(page);expect(final.frames).toHaveLength(3);
+  expect(final.frames[0].paths.find(p=>p.id===early.frames[0].paths.find(p=>p.kind==='move')!.id)).toEqual(early.frames[0].paths.find(p=>p.kind==='move'));
+  expect(final.frames[1].paths.map(p=>p.kind).sort()).toEqual(['move','shot']);
+  await expect(current(page).getByRole('button',{name:/^播放战术，2 拍/})).toBeEnabled();
 });
