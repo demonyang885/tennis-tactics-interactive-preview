@@ -139,6 +139,7 @@ function parsePath(
   const from = point(source.from, `${label}起點`);
   const pose = poses[actorId];
   if (!pose || !samePoint(from, pose)) invalid(`${label}起點沒有連接角色站位`);
+  if (source.via !== undefined && (kind !== "move" || source.control !== undefined)) invalid(`${label}轉向點只用於直線二段跑位`);
   const pace = source.pace;
   if (pace !== undefined) {
     if (kind === "move") invalid(`${label}跑位路線不能設定球速檔位`);
@@ -151,6 +152,7 @@ function parsePath(
     from,
     to: point(source.to, `${label}終點`),
     ...(source.control === undefined ? {} : { control: point(source.control, `${label}控制點`) }),
+    ...(source.via === undefined ? {} : { via: point(source.via, `${label}轉向點`) }),
     ...(pace === undefined ? {} : { pace: pace as BoardShotPace }),
   };
 }

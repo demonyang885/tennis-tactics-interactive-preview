@@ -1,8 +1,8 @@
 import { getBoardDisplayPreferences, type BoardSurface } from "./display";
-import { getFramePose, type BoardActor, type BoardDocument, type BoardFrame, type BoardMark, type BoardPath, type BoardShotPace, type Point } from "./model";
+import { getFramePose, getBoardPathPoint, movementTurnProgress, type BoardActor, type BoardDocument, type BoardFrame, type BoardMark, type BoardPath, type BoardShotPace, type Point } from "./model";
 
 export type BoardSelection = { kind: "actor"; id: string } | { kind: "element"; id: string; frameIndex?: number };
-export type BoardHit = BoardSelection | { kind: "handle"; id: string; handle: "from" | "to" | "control"; frameIndex?: number };
+export type BoardHit = BoardSelection | { kind: "handle"; id: string; handle: "from" | "to" | "control" | "via"; frameIndex?: number };
 export type BoardHitTestOptions = {
   rotated?: boolean;
   contextPaths?: BoardPath[];
@@ -101,11 +101,7 @@ export function getBoardGeometry(width: number, height: number, rotated = false)
 
 type Geometry = ReturnType<typeof getBoardGeometry>;
 
-export function pointOnBoardPath(path: Pick<BoardPath, "from" | "to" | "control">, progress: number): Point {
-  const t = bound(progress, 0, 1), u = 1 - t;
-  if (!path.control) return [path.from[0] * u + path.to[0] * t, path.from[1] * u + path.to[1] * t];
-  return [u * u * path.from[0] + 2 * u * t * path.control[0] + t * t * path.to[0], u * u * path.from[1] + 2 * u * t * path.control[1] + t * t * path.to[1]];
-}
+export const pointOnBoardPath = getBoardPathPoint;
 
 function line(ctx: CanvasRenderingContext2D, from: Point, to: Point, color: string, width = 1.5) {
   ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.moveTo(...from); ctx.lineTo(...to); ctx.stroke();
@@ -230,8 +226,13 @@ function drawArrow(ctx: CanvasRenderingContext2D, tip: Point, tangent: Point, co
 
 function tracePath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress = 1) {
   ctx.beginPath(); ctx.moveTo(...geometry.toCanvas(path.from));
-  const segments = Math.max(2, Math.ceil(36 * progress));
-  for (let i = 1; i <= segments; i++) ctx.lineTo(...geometry.toCanvas(pointOnBoardPath(path, progress * i / segments)));
+  if (path.via) {
+    if (progress >= movementTurnProgress(path)) ctx.lineTo(...geometry.toCanvas(path.via));
+    ctx.lineTo(...geometry.toCanvas(pointOnBoardPath(path, progress)));
+  } else {
+    const segments = Math.max(2, Math.ceil(36 * progress));
+    for (let i = 1; i <= segments; i++) ctx.lineTo(...geometry.toCanvas(pointOnBoardPath(path, progress * i / segments)));
+  }
 }
 
 function drawPath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geometry, progress: number, playing: boolean, selected: boolean, opacity = 1) {
@@ -244,6 +245,15 @@ function drawPath(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: Geom
   if (playing && progress > 0) { ctx.globalAlpha = 1; tracePath(ctx, path, geometry, progress); ctx.stroke(); }
   ctx.globalAlpha = (playing ? .4 : 1) * opacity;
   drawArrow(ctx, geometry.toCanvas(path.to), geometry.toCanvas(pointOnBoardPath(path, .94)), color);
+  if (path.via && !playing) {
+    ctx.globalAlpha = opacity;
+    const turn = movementTurnProgress(path);
+    for (const [number, fraction] of [["1", turn/2], ["2", (1+turn)/2]] as const) {
+      const at = geometry.toCanvas(pointOnBoardPath(path, fraction));
+      circle(ctx, at, 10, "#123c30", color, 1.5);
+      label(ctx, number, at, 12);
+    }
+  }
   ctx.restore();
 }
 
@@ -325,6 +335,10 @@ function drawHandles(ctx: CanvasRenderingContext2D, path: BoardPath, geometry: G
   ctx.setLineDash([]);
   circle(ctx, geometry.toCanvas(path.from), 6, palette.handle, "#fff", 2.5);
   circle(ctx, geometry.toCanvas(path.to), 7, COLORS.shot, "#fff", 2.5);
+  if (path.via) {
+    circle(ctx, geometry.toCanvas(path.via), 8, palette.handle, "#fff", 2.5);
+    ctx.restore(); return;
+  }
   const at = geometry.toCanvas(control); ctx.fillStyle = palette.handle; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(at[0], at[1] - 7); ctx.lineTo(at[0] + 7, at[1]); ctx.lineTo(at[0], at[1] + 7); ctx.lineTo(at[0] - 7, at[1]); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
@@ -442,8 +456,9 @@ export function hitTestBoard(
         : undefined);
     if (path) {
       const midpoint: Point = [(path.from[0] + path.to[0]) / 2, (path.from[1] + path.to[1]) / 2];
-      const handlePoints = { from: path.from, to: path.to, control: path.control ?? midpoint };
-      const handles = (["from", "to", "control"] as const).map(handle => ({ handle, distance: distance(pixel, geometry.toCanvas(handlePoints[handle])) })).sort((a, b) => a.distance - b.distance);
+      const handlePoints = { from: path.from, to: path.to, control: path.control ?? midpoint, via: path.via ?? midpoint };
+      const handleNames: ("from"|"to"|"via"|"control")[] = path.via ? ["from", "to", "via"] : ["from", "to", "control"];
+      const handles = handleNames.map(handle => ({ handle, distance: distance(pixel, geometry.toCanvas(handlePoints[handle])) })).sort((a, b) => a.distance - b.distance);
       if (handles[0] && handles[0].distance <= 24) return {
         kind: "handle",
         id: path.id,

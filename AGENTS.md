@@ -177,3 +177,9 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 ## Consecutive movement drags — 2026-10-03
 
 - With two-stage enabled, consecutive drags of the same hitter create early recovery followed by a queued response. Never replace the recovery with the second drag. Both can be authored before the opponent return; the return shot separates playback phases. Preserve pending responses through storage, JSON, undo and refresh; do not play a response before its shot exists. Use route handles to edit an existing first leg.
+
+## Shot-driven movement timing — 2026-10-03, v0.3.12
+
+- Supersedes the previous generic consecutive-drag rule. An opening receiver can react then intercept within ONE incoming shot: store an optional movement `via` point in that shot frame, never a new beat. The hitter recovers simultaneously during that same shot, then receives during the opponent return. Prioritize the receiver in authoring prompts.
+- New hitter recovery must not queue another move before the opponent return. Preserve existing v0.3.11 queued responses for compatibility. Preserve legacy curved routes; direct endpoint edits remain available.
+- Display a compact role/stage cue and numbered receiving legs. Keep default single-stage, four direct opening presets, view-only rotation, same isolated trial Site and no GitHub writes.

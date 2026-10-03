@@ -39,18 +39,19 @@ for(const opening of OPENINGS){test(`opening ${opening.id}: roles, ball, first s
   const shot=await saved(page);expect(shot.frames[0].paths[0].kind).toBe('shot');closePoint(shot.frames[0].paths[0].to,landing);
   await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
 });}
-test('two consecutive drags preserve both phases, with undo, cancellation, playback and refresh',async({page})=>{
+test('recovery waits for the return before reception, with undo, cancellation, playback and refresh',async({page})=>{
   await start(page);await enableTwoStage(page);await drag(page,[.64,.96],[.7,.25]);
   const shot=(await saved(page)).frames[0].paths[0];
   await drag(page,[.64,.98],[.5,.78]); // optional early recovery
   let b=await saved(page);const me=b.actors.find(a=>a.label==='我方')!,opp=b.actors.find(a=>a.label==='对手')!;
   expect(b.smartRally?.phase).toBe('move');expect(b.frames[0].paths.find(p=>p.kind==='shot')).toEqual(shot);
   closePoint(b.frames[0].paths.find(p=>p.actorId===me.id)!.to,[.5,.78]);
-  await drag(page,[.5,.78],[.56,.81]); // queue the second leg, never overwrite the first
-  b=await saved(page);expect(b.smartRally?.phase).toBe('move');expect(b.frames[0].paths.filter(p=>p.actorId===me.id)).toHaveLength(1);
-  const beforeCancel=b;await drag(page,[.5,.78],[.7,.8],true);expect((await saved(page)).frames).toEqual(beforeCancel.frames);
-  expect(b.frames[1].paths).toHaveLength(1);closePoint(b.frames[1].paths[0].from,[.5,.78]);
+  const beforeReturn=b;await drag(page,[.5,.78],[.56,.81]);
+  await expect(current(page).getByRole('alert')).toContainText('先画对方回球');expect((await saved(page)).frames).toEqual(beforeReturn.frames);
+  await page.screenshot({path:'output/timing-07-guard.png'});await current(page).getByRole('button',{name:'关闭提示'}).click();
   await drag(page,[.30,.07],[.7,.25]);await drag(page,[.7,.25],[.56,.81]);
+  const beforeCancel=await saved(page);await drag(page,[.5,.78],[.7,.8],true);expect((await saved(page)).frames).toEqual(beforeCancel.frames);
+  await drag(page,[.5,.78],[.56,.81]);
   b=await saved(page);expect(b.frames).toHaveLength(3);expect(b.smartRally?.phase).toBe('shot');
   const early=b.frames[0].paths.find(p=>p.actorId===me.id)!,late=b.frames[1].paths.find(p=>p.actorId===me.id)!;
   closePoint(early.from,[.64,.98]);closePoint(early.to,[.5,.78]);expect(late.from).toEqual(early.to);closePoint(late.to,[.56,.81]);
@@ -58,7 +59,7 @@ test('two consecutive drags preserve both phases, with undo, cancellation, playb
   expect(getFramePose(b.frames[0],1)[me.id]).toEqual(getFramePose(b.frames[1],0)[me.id]);
   expect(getFramePose(b.frames[0],.5)[me.id]).not.toEqual(early.from);expect(getFramePose(b.frames[1],.5)[me.id]).not.toEqual(late.from);
   await expect(current(page).getByRole('button',{name:/^播放战术，2 拍/})).toBeVisible();
-  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames[1].paths.filter(p=>p.kind==='shot')).toEqual([]);
+  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames[1].paths.filter(p=>p.kind==='move')).toEqual([]);
   await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
   await current(page).getByRole('button',{name:/^播放战术，2 拍/}).click();await expect(current(page).getByTestId('board-playback-dock')).toBeVisible();
   await page.screenshot({path:'output/two-stage-playback.png'});
@@ -101,9 +102,10 @@ test('real touch input follows the finger, commits two phases and fits a narrow 
     }
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   }
-  await touch([.64,.96],[.7,.25]);await touch([.64,.98],[.5,.78],true);await touch([.3,.07],[.7,.25]);await touch([.7,.25],[.32,.75]);await touch([.5,.78],[.32,.75]);
+  await touch([.64,.96],[.7,.25]);await touch([.64,.98],[.5,.78],true);await touch([.3,.07],[.45,.12]);await touch([.45,.12],[.7,.25]);await touch([.7,.25],[.32,.75]);await touch([.5,.78],[.32,.75]);
   const b=await saved(page),me=b.actors.find(a=>a.label==='我方')!;
   expect(b.frames[0].paths.find(p=>p.actorId===me.id)).toBeDefined();expect(b.frames[1].paths.find(p=>p.actorId===me.id)).toBeDefined();
+  const receiver=b.actors.find(a=>a.label==='对手')!;closePoint(b.frames[0].paths.find(p=>p.actorId===receiver.id)!.via!,[.45,.12]);
   await cdp.detach();
 });
 test('Home opens a disposable, playable two-stage example',async({page})=>{
@@ -151,19 +153,62 @@ test('enabling two-stage after leaving the drawing tool actually resumes route d
   expect(after.frames[0].paths.find(path=>path.actorId===me.id&&path.kind==='move')).toBeDefined();
   expect(after.frames[0].paths.find(path=>path.kind==='shot')).toEqual(initial.frames[0].paths[0]);
 });
-test('queued second leg survives refresh and JSON and cannot be played before the opponent shot',async({page})=>{
-  await start(page);await enableTwoStage(page);await drag(page,[.64,.96],[.7,.25]);await drag(page,[.64,.98],[.5,.78]);
-  const first=await saved(page),me=first.actors.find(a=>a.label==='我方')!;
-  await drag(page,[.5,.78],[.25,.65]);let b=await saved(page);
-  expect(b.frames[0]).toEqual(first.frames[0]);expect(b.frames[1].paths).toHaveLength(1);
-  closePoint(b.frames[1].paths[0].from,[.5,.78]);closePoint(b.frames[1].paths[0].to,[.25,.65]);
+test('receiving turn survives refresh, JSON, cancellation and undo without adding a beat',async({page})=>{
+  await start(page);await enableTwoStage(page);await drag(page,[.64,.96],[.7,.25]);await drag(page,[.3,.07],[.45,.12]);
+  const first=await saved(page),receiver=first.actors.find(a=>a.label==='对手')!;
+  await expect(current(page).getByTestId('movement-guide')).toContainText('② 变向接球');
+  await drag(page,[.45,.12],[.7,.25],true);expect((await saved(page)).frames).toEqual(first.frames);
+  await drag(page,[.45,.12],[.7,.25]);const b=await saved(page),route=b.frames[0].paths.find(p=>p.actorId===receiver.id)!;
+  expect(b.frames).toHaveLength(2);expect(route.via).toEqual(first.frames[0].paths.find(p=>p.actorId===receiver.id)!.to);
   await expect(current(page).getByRole('button',{name:/^播放战术，1 拍/})).toBeEnabled();
   const {parseBoardJSON}=await import('../src/board/validate');expect(parseBoardJSON(JSON.stringify(b))).toEqual({ok:true,value:b});
   await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(first.frames);
   await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
   await page.reload();await page.getByRole('button',{name:`接着画${b.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();
-  await page.getByRole('button',{name:'收起跑位提示'}).click();await drag(page,[.3,.07],[.7,.25]);await drag(page,[.7,.25],[.25,.65]);
-  b=await saved(page);expect(b.frames[0].paths.find(p=>p.actorId===me.id)).toEqual(first.frames[0].paths.find(p=>p.actorId===me.id));
-  expect(b.frames[1].paths.find(p=>p.actorId===me.id)?.from).toEqual(b.frames[0].paths.find(p=>p.actorId===me.id)!.to);
+  expect((await saved(page)).frames).toEqual(b.frames);
+  await menu(page);await page.getByRole('switch',{name:'二段跑位，已开'}).click();await page.keyboard.press('Escape');
+  expect((await saved(page)).frames).toEqual(b.frames);
+  await drag(page,[.7,.25],[.25,.65]);const continued=await saved(page);
+  expect(continued.frames[0].paths.find(p=>p.actorId===receiver.id)).toEqual(route);
   await expect(current(page).getByRole('button',{name:/^播放战术，2 拍/})).toBeEnabled();
+});
+
+test('receiver changes direction within the serve flight while server recovers, then follows the return',async({page})=>{
+  await start(page);await enableTwoStage(page);await menu(page);await expect(page.getByRole('switch',{name:'二段跑位，已开'})).toBeInViewport();await expect.poll(()=>page.getByRole('dialog',{name:'画板菜单',exact:true}).evaluate(e=>Math.abs(new DOMMatrixReadOnly(getComputedStyle(e).transform).m42))).toBeLessThan(1);await page.screenshot({path:'output/timing-01-menu.png'});await page.keyboard.press('Escape');
+  await drag(page,[.64,.96],[.7,.25]);await page.screenshot({path:'output/timing-02-serve.png'});
+  await drag(page,[.3,.07],[.45,.12]);const reaction=await saved(page);
+  await page.screenshot({path:'output/timing-03-reaction.png'});
+  await drag(page,[.45,.12],[.7,.25]);const interception=await saved(page);
+  await page.screenshot({path:'output/timing-04-intercept.png'});
+  const receiver=interception.actors.find(a=>a.label==='对手')!,server=interception.actors.find(a=>a.label==='我方')!;
+  const route=interception.frames[0].paths.find(p=>p.actorId===receiver.id)!;
+  expect(route.via).toEqual(reaction.frames[0].paths.find(p=>p.actorId===receiver.id)!.to);
+  closePoint(route.from,[.3,.07]);closePoint(route.to,[.7,.25]);expect(interception.frames).toHaveLength(2);
+  await drag(page,[.64,.98],[.5,.78]);const recovered=await saved(page);
+  await page.screenshot({path:'output/timing-05-simultaneous.png'});
+  expect(recovered.frames[0].paths.find(p=>p.actorId===receiver.id)).toEqual(route);
+  expect(getFramePose(recovered.frames[0],.25)[server.id]).not.toEqual(recovered.frames[0].poses[server.id]);
+  await drag(page,[.7,.25],[.24,.7]);await drag(page,[.5,.78],[.24,.7]);const returned=await saved(page);
+  expect(returned.frames[0].paths).toEqual(recovered.frames[0].paths);
+  expect(returned.frames[1].paths.find(p=>p.actorId===server.id)?.from).toEqual(recovered.frames[0].paths.find(p=>p.actorId===server.id)!.to);
+  await expect(current(page).getByRole('button',{name:/^播放战术，2 拍/})).toBeEnabled();
+  await page.screenshot({path:'output/timing-06-return.png'});
+});
+
+test('receiving opening and rotated turn handles preserve each leg independently',async({page})=>{
+  await start(page);await enableTwoStage(page);await openings(page);await page.getByRole('button',{name:'二区接发',exact:true}).click();
+  let b=await saved(page);const me=b.actors.find(a=>a.label==='我方')!,ball=b.actors.find(a=>a.kind==='ball')!;
+  await current(page).getByRole('button',{name:'调换视角 180 度'}).click();
+  await drag(page,b.frames[0].poses[ball.id],[.25,.75]);
+  await expect(current(page).getByTestId('movement-guide')).toContainText('我方 · ①');
+  await drag(page,b.frames[0].poses[me.id],[.5,.88]);await drag(page,[.5,.88],[.25,.75]);
+  b=await saved(page);const route=b.frames[0].paths.find(p=>p.actorId===me.id)!;closePoint(route.via!,[.5,.88]);
+  // A deliberate turn-handle drag adjusts the first leg, keeping the interception point.
+  await drag(page,route.via!,[.58,.85]);const changed=await saved(page),edited=changed.frames[0].paths.find(p=>p.actorId===me.id)!;
+  closePoint(edited.via!,[.58,.85]);expect(edited.to).toEqual(route.to);expect(edited.from).toEqual(route.from);
+  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
+  // After undo, select the route deliberately before adjusting its final endpoint.
+  const at=await pixel(page,route.via!);await page.mouse.click(at.x,at.y);
+  await drag(page,route.to,[.2,.7]);const final=await saved(page),last=final.frames[0].paths.find(p=>p.actorId===me.id)!;
+  expect(last.via).toEqual(route.via);closePoint(last.to,[.2,.7]);expect(final.frames).toHaveLength(2);
 });
