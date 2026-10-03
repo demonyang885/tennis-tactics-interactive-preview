@@ -195,3 +195,11 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 - Dock expands frequent undo/redo/rotate/beats actions; Settings opens secondary grouped controls. Keep all four opening choices directly in Settings. Rotation collapses quick tools to clear the drag origin; opening quick tools must not resize the court.
 - Context hints follow the active ball/player, never intercept gestures and have no dismiss button. The independent operation-hints setting defaults on and persists across reloads; changing two-stage mode does not reset it.
 - Preserve accepted movement timing, storage, errors and confirmation safeguards. Publish to the existing isolated Site; the previous no-GitHub-upload constraint still applies.
+
+## iOS-style workspace — v0.5.0 / 2026-10-03
+
+- User's final spec explicitly authorizes current-branch changes and GitHub Pages deployment, superseding the no-GitHub restriction. Retain the accepted trial functionality, and keep `src/board/model.ts`, tactical decision logic and AI signals unchanged from v0.4.0 during this UI task.
+- Root opens an editable board directly. Fixed icon-only tabs expose board, tactic picker and board library; editing tools float separately. Keep iPhone and iPad portrait/landscape the primary targets.
+- Glass belongs only to controls/sheets, with light/dark, reduced-transparency, increased-contrast, reduced-motion and safe-area support. Keep visible targets at least44px and toolbar gaps8px; use relative type sizes and linear icons.
+- Serve/receive segment choices reference separate existing board documents in a UI preference record; switching saves current edits first. Tactic picker creates a separate first-shot board, preserving existing content. Never alter the board schema to support navigation.
+- Archive superseded landing-screen visual tests, retaining and migrating data safety, native input and B/C/D regression checks. Root cannot pop itself; after deleting through the workspace library, rebuild root from valid storage rather than showing a stale retained editor.

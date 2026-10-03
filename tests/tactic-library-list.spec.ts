@@ -1,3 +1,4 @@
+import { openTacticCatalogue, waitForWorkspace } from "./workspace-navigation";
 import { expect, test } from "@playwright/test";
 import { categories, combinations, tactics } from "../src/content/library";
 import { getTacticThumbnailPlan } from "../src/content/thumbnail";
@@ -6,9 +7,9 @@ test("the tactical library offers clear categories without cluttering its route 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   const before = await page.evaluate(() => localStorage.getItem("tennis-tactics:board-drafts:v1"));
-  await expect(page.getByRole("button", { name: "找个打法", exact: true }).locator("svg")).toHaveCount(0);
+  await expect(page.getByRole("navigation", {name:"主要页面"}).getByRole("button", {name:"找打法",exact:true}).locator("svg")).toHaveCount(1);
 
-  await page.getByRole("button", { name: "找个打法", exact: true }).click();
+  await openTacticCatalogue(page);
   await expect(page.getByRole("heading", { name: "找个打法", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "跳转到打法分类" })).toHaveCount(0);
   await page.getByRole("button", { name: "跳到打法段落" }).click();
@@ -59,7 +60,7 @@ test("category shortcuts jump within one compact vertical catalogue without filt
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await page.getByRole("button", { name: "找个打法", exact: true }).click();
+  await openTacticCatalogue(page);
   const catalogue = page.getByRole("main", { name: "打法总览" });
   await page.getByRole("button", { name: "跳到打法段落" }).click();
   const shortcuts = page.getByRole("navigation", { name: "跳转到打法分类" });
@@ -79,7 +80,7 @@ test("category shortcuts jump within one compact vertical catalogue without filt
 test("tapping outside the section index only dismisses it, without opening the tactic underneath", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "找个打法", exact: true }).click();
+  await openTacticCatalogue(page);
   await page.getByRole("button", { name: "跳到打法段落" }).click();
   await expect(page.getByRole("navigation", { name: "跳转到打法分类" })).toBeVisible();
   const first = await page.locator(".tactic-card").first().boundingBox();
@@ -92,7 +93,7 @@ test("tapping outside the section index only dismisses it, without opening the t
 test("all tactic sections remain reachable and opening a tactic returns to the same scroll position", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await page.getByRole("button", { name: "找个打法", exact: true }).click();
+  await openTacticCatalogue(page);
   const indexButton=page.getByRole("button", { name: "跳到打法段落" });
   for(const category of categories.filter(item=>item!=="全部")){
     await indexButton.click();
@@ -108,13 +109,13 @@ test("all tactic sections remain reachable and opening a tactic returns to the s
   await page.getByRole("button", { name: "返回上一页", exact: true }).click();
   await expect(page.getByRole("region", { name: "先稳住" })).toBeInViewport({ ratio: .1 });
   await page.getByRole("button", { name: "关闭打法列表", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "下一分，怎么打？" })).toBeVisible();
+  await waitForWorkspace(page);
 });
 
 test("the categorized list stays tappable without horizontal overflow on a narrow phone", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 });
   await page.goto("/");
-  await page.getByRole("button", { name: "找个打法", exact: true }).click();
+  await openTacticCatalogue(page);
   await expect.poll(() => page.getByTestId("flow-current").evaluate(element => Math.abs(new DOMMatrixReadOnly(getComputedStyle(element).transform).m41))).toBeLessThan(1);
   const first = page.locator(".tactic-card").first();
   await expect(first).toBeVisible();
@@ -127,7 +128,7 @@ test("the categorized list stays tappable without horizontal overflow on a narro
   await page.getByRole("navigation", { name: "跳转到打法分类" }).getByRole("button", { name: "先稳住", exact: true }).click();
   await expect(page.getByRole("region", { name: "先稳住" })).toBeInViewport({ ratio: .1 });
   await page.getByRole("button", { name: "关闭打法列表" }).click();
-  await expect(page.getByRole("heading", { name: "下一分，怎么打？" })).toBeVisible();
+  await waitForWorkspace(page);
 });
 
 test("iPad touch keeps the list and close action reachable", async ({ browser }) => {
@@ -135,10 +136,7 @@ test("iPad touch keeps the list and close action reachable", async ({ browser })
   try {
     const page = await context.newPage();
     await page.goto("/");
-    const entry = page.getByRole("button", { name: "找个打法", exact: true });
-    await entry.scrollIntoViewIfNeeded();
-    await expect(entry).toBeInViewport();
-    await entry.tap();
+    await openTacticCatalogue(page);
     await expect(page.getByRole("heading", { name: "找个打法", exact: true })).toBeVisible();
     await expect(page.locator(".tactic-card").first()).toBeVisible();
     await page.getByRole("button", { name: "跳到打法段落" }).tap();
@@ -148,7 +146,7 @@ test("iPad touch keeps the list and close action reachable", async ({ browser })
     await expect(page.getByRole("region", { name: "改变节奏" })).toBeInViewport({ ratio: .1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
     await page.getByRole("button", { name: "关闭打法列表" }).tap();
-    await expect(page.getByRole("heading", { name: "下一分，怎么打？" })).toBeVisible();
+    await waitForWorkspace(page);
   } finally {
     await context.close();
   }
@@ -159,9 +157,7 @@ test("iPad landscape keeps one readable vertical tactic column without stretchin
   try {
     const page = await context.newPage();
     await page.goto("/");
-    const entry = page.getByRole("button", { name: "找个打法", exact: true });
-    await entry.scrollIntoViewIfNeeded();
-    await entry.tap();
+    await openTacticCatalogue(page);
     await expect(page.getByRole("main", { name: "打法总览" }).getByRole("button")).toHaveCount(tactics.length + combinations.length);
     await expect.poll(() => page.locator(".tactics-grid").evaluate(element => {
       const rect = element.getBoundingClientRect();
@@ -193,7 +189,7 @@ test("iPad landscape keeps one readable vertical tactic column without stretchin
     expect(portrait.list.width).toBeLessThanOrEqual(640);
     expect(Math.abs(portrait.list.x - (768 - portrait.list.width) / 2)).toBeLessThan(2);
     await page.getByRole("button", { name: "关闭打法列表" }).tap();
-    await expect(page.getByRole("heading", { name: "下一分，怎么打？" })).toBeVisible();
+    await waitForWorkspace(page);
   } finally {
     await context.close();
   }

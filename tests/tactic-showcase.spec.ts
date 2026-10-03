@@ -1,3 +1,4 @@
+import { openTacticCatalogue } from "./workspace-navigation";
 import { expect, test } from "@playwright/test";
 
 test("a library tactic uses the shared board court without creating a draft", async ({ page }) => {
@@ -5,7 +6,7 @@ test("a library tactic uses the shared board court without creating a draft", as
   await page.goto("/");
   const draftBefore=await page.evaluate(()=>localStorage.getItem("tennis-tactics:board-drafts:v1"));
 
-  await page.getByRole("button", { name: "找个打法" }).click();
+  await openTacticCatalogue(page);
   await page.getByRole("button", { name: /^发球\+1：先开场，8秒/ }).click();
   await expect(page.getByRole("heading", { name: "发球+1：先开场" })).toBeVisible();
   await expect(page.getByTestId("court-stage")).toHaveAttribute("data-renderer", "core-board");
@@ -24,7 +25,7 @@ test("a library tactic uses the shared board court without creating a draft", as
 test("an interactive combination also uses the shared board court", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await page.getByRole("button", { name: "找个打法" }).click();
+  await openTacticCatalogue(page);
   await page.getByRole("button", { name: /^打开接发稳住再上网互动对打/ }).click();
   await expect(page.getByTestId("court-stage")).toHaveAttribute("data-renderer", "core-board");
   await expect(page.getByRole("button", { name: "重开" })).toBeVisible();

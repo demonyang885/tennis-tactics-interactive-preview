@@ -9,7 +9,8 @@ const canvas=(page:Page)=>current(page).getByTestId('board-canvas');
 async function start(page:Page){
   await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
   await page.evaluate(()=>localStorage.clear());await page.reload();
-  await page.locator('.home-plan-primary').click();await expect(canvas(page)).toBeVisible();
+  await expect(canvas(page)).toBeVisible();
+  await expect(current(page)).toHaveCount(1);
   await expect.poll(()=>current(page).evaluate(e=>Math.abs(new DOMMatrixReadOnly(getComputedStyle(e).transform).m41))).toBeLessThan(1);
 }
 async function pixel(page:Page,p:Point){
@@ -63,7 +64,7 @@ test('recovery waits for the return before reception, with undo, cancellation, p
   await quick(page);await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
   await current(page).getByRole('button',{name:/^播放战术，2 拍/}).click();await expect(current(page).getByTestId('board-playback-dock')).toBeVisible();
   await page.screenshot({path:'output/two-stage-playback.png'});
-  await page.reload();await page.getByRole('button',{name:`接着画${b.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();expect((await saved(page)).frames).toEqual(b.frames);
+  await page.reload();await expect(canvas(page)).toBeVisible();expect((await saved(page)).frames).toEqual(b.frames);
 });
 test('view rotation preserves document and makes real rotated dragging work',async({page})=>{
   await start(page);await drag(page,[.64,.96],[.7,.25]);const before=await saved(page);
@@ -109,22 +110,24 @@ test('real touch input follows the finger, commits two phases and fits a narrow 
   const receiver=b.actors.find(a=>a.label==='对手')!;closePoint(b.frames[0].paths.find(p=>p.actorId===receiver.id)!.via!,[.45,.12]);
   await cdp.detach();
 });
-test('formal home has one board entry and keeps utility controls in its dock',async({page})=>{
-  await page.goto('/');await page.evaluate(()=>localStorage.clear());await page.reload();
-  await expect(page.locator('.home-header button')).toHaveCount(0);
-  await expect(page.getByRole('button',{name:/试看二段|找个打法|想下一分|回顾刚才/})).toHaveCount(0);
-  await expect(page.locator('.home-plan-primary')).toHaveText('画板');
-  await expect(page.getByRole('navigation',{name:'画板入口'})).toBeInViewport();
-  await expect(page.getByRole('button',{name:'新建画板',exact:true})).toBeVisible();
-  await page.locator('.home-plan-primary').click();await expect(canvas(page)).toBeVisible();
+test('workspace opens directly with icon-only glass dock and no saved blank; library returns to board',async({page})=>{
+  await start(page);
+  await expect(page.locator('.home-plan-primary')).toHaveCount(0);
   await expect(current(page).locator('.board-fixed-header button')).toHaveCount(0);
   await expect(current(page).getByTestId('movement-guide')).toHaveText('拖球发球');
   await expect(current(page).getByTestId('movement-guide').getByRole('button')).toHaveCount(0);
+  const dock=current(page).getByRole('navigation',{name:'画板编辑工具'});
+  expect((await dock.innerText()).trim()).toBe('');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),KEY)).toBeNull();
   const before=await canvas(page).boundingBox();await quick(page);
   expect(await canvas(page).boundingBox()).toEqual(before);
   await expect(current(page).getByRole('toolbar',{name:'常用操作'})).toBeVisible();
-  await current(page).getByRole('button',{name:'返回上一页'}).click();
-  await expect(page.locator('.home-plan-primary')).toBeVisible();
+  await current(page).getByRole('button',{name:'我的画板',exact:true}).click();
+  await expect(current(page).locator('.board-library')).toBeVisible();
+  await page.getByRole('button',{name:'返回上一页',exact:true}).click();
+  await expect(canvas(page)).toBeVisible();
+  await expect(current(page)).toHaveCount(1);
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),KEY)).toBeNull();
 });
 test('object hints follow the receiver and rotation; independent preference survives reload',async({page})=>{
   await start(page);await drag(page,[.64,.96],[.7,.25]);const b=await saved(page);
@@ -138,7 +141,7 @@ test('object hints follow the receiver and rotation; independent preference surv
   await menu(page);await page.getByRole('switch',{name:'操作提示，已开'}).click();
   await page.getByRole('switch',{name:'二段跑位，已关'}).click();await page.keyboard.press('Escape');
   await expect(hint).toHaveCount(0);
-  await page.reload();await page.locator('.home-plan-primary').click();await expect(canvas(page)).toBeVisible();
+  await page.reload();await expect(canvas(page)).toBeVisible();
   await expect(hint).toHaveCount(0);await menu(page);
   await expect(page.getByRole('switch',{name:'操作提示，已关'})).not.toBeChecked();
   await expect(page.getByRole('switch',{name:'二段跑位，已开'})).toBeChecked();
@@ -154,11 +157,11 @@ test('movement mode defaults to single, guards early recovery and preserves rout
   expect(await saved(page)).toEqual(initial);
   await enableTwoStage(page);await drag(page,[.64,.98],[.5,.78]);const early=await saved(page);
   expect(early.frames[0].paths.filter(p=>p.kind==='move')).toHaveLength(1);
-  await page.reload();await page.getByRole('button',{name:`接着画${early.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();
+  await page.reload();await expect(canvas(page)).toBeVisible();
   await menu(page);await expect(page.getByRole('switch',{name:'二段跑位，已开'})).toBeChecked();
   await page.getByRole('switch',{name:'二段跑位，已开'}).click();await expect(page.getByRole('switch',{name:'二段跑位，已关'})).not.toBeChecked();
   expect((await saved(page)).frames).toEqual(early.frames);await page.keyboard.press('Escape');
-  await page.reload();await page.getByRole('button',{name:`接着画${early.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();
+  await page.reload();await expect(canvas(page)).toBeVisible();
   await menu(page);await expect(page.getByRole('switch',{name:'二段跑位，已关'})).not.toBeChecked();await page.keyboard.press('Escape');
   await drag(page,[.3,.07],[.7,.25]);await drag(page,[.7,.25],[.32,.75]);await drag(page,[.5,.78],[.32,.75]);
   const final=await saved(page);expect(final.frames).toHaveLength(3);
@@ -188,7 +191,7 @@ test('receiving turn survives refresh, JSON, cancellation and undo without addin
   const {parseBoardJSON}=await import('../src/board/validate');expect(parseBoardJSON(JSON.stringify(b))).toEqual({ok:true,value:b});
   await quick(page);await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(first.frames);
   await quick(page);await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
-  await page.reload();await page.getByRole('button',{name:`接着画${b.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();
+  await page.reload();await expect(canvas(page)).toBeVisible();
   expect((await saved(page)).frames).toEqual(b.frames);
   await menu(page);await page.getByRole('switch',{name:'二段跑位，已开'}).click();await page.keyboard.press('Escape');
   expect((await saved(page)).frames).toEqual(b.frames);

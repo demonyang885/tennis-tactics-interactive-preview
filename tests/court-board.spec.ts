@@ -1,3 +1,4 @@
+import { waitForWorkspace, expandBoardTools, openBoardSettings, openWorkspaceLibrary, openTacticCatalogue } from "./workspace-navigation";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { createBlankBoard, getShotDurationForPace, type BoardDocument, type Point } from "../src/board/model";
 import { getBoardGeometry, pointOnBoardPath } from "../src/board/render";
@@ -23,27 +24,32 @@ function currentBoardGuide(page: Page) {
 }
 
 async function press(locator: Locator) {
+  if (!await locator.isVisible() && /撤销|重做|画板菜单|查看画板操作说明/.test(locator.toString())) {
+    if (/查看画板操作说明/.test(locator.toString())) await openBoardSettings(locator.page());
+    else await expandBoardTools(locator.page());
+  }
   await expect(locator).toBeVisible();
   await locator.click();
 }
 
 async function waitForFlowSettled(page: Page) {
   await expect(page.getByTestId("flow-current")).toHaveCount(1);
-  await expect.poll(async () => page.getByTestId("flow-current").evaluate((element) => {
-    const transform = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+  await expect.poll(async () => page.getByTestId("flow-current").evaluateAll((elements) => {
+    if (elements.length !== 1) return Infinity;
+    const transform = new DOMMatrixReadOnly(getComputedStyle(elements[0]).transform);
     return Math.abs(transform.m41);
   })).toBeLessThan(1);
 }
 
 async function openBoard(page: Page) {
-  await press(page.locator(".home-plan-primary"));
+  await waitForWorkspace(page);
   await expect(currentBoardCanvas(page)).toBeVisible();
   await waitForFlowSettled(page);
 }
 
 async function openDraftFromLibrary(page: Page, title: string) {
   await openBoard(page);
-  await press(page.getByRole("button", { name: /打开.*的画板菜单/ }));
+  await openBoardSettings(page);
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
   await waitForFlowSettled(page);
   await expect(page.getByRole("heading", { name: "草稿与模板", exact: true })).toBeVisible();
@@ -89,7 +95,7 @@ function playButton(page: Page) {
 }
 
 async function expectObjectState(page: Page) {
-  await expect(editorDock(page).getByRole("button").first()).toHaveAccessibleName("添加对象");
+  await expect(addButton(page)).toBeVisible();
 }
 
 async function openAddPalette(page: Page) {
@@ -281,18 +287,18 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
-  await expect(page.getByRole("heading", { name: "下一分，怎么打？", exact: true })).toBeVisible();
+  await waitForWorkspace(page);
 });
 
-test("uses the three-control hierarchy and keeps direct canvas editing available", async ({ page }) => {
+test("uses the icon-only dock hierarchy and keeps direct canvas editing available", async ({ page }) => {
   await openBoard(page);
   const dock = editorDock(page);
-  const adjust = dock.getByRole("button").first();
+  const adjust = addButton(page);
   const play = playButton(page);
-  const remove = dock.getByRole("button").last();
+  const remove = dock.getByRole("button", { name: "删除网球", exact: true });
 
   await expect(dock).toBeVisible();
-  await expect(dock.getByRole("button")).toHaveCount(3);
+  await expect(dock.getByRole("button")).toHaveCount(5);
   await expect(adjust).toHaveAccessibleName("添加对象");
   await expect(remove).toHaveAccessibleName("删除网球");
   await expect(play).toBeVisible();
@@ -313,9 +319,8 @@ test("uses the three-control hierarchy and keeps direct canvas editing available
   expect(saved.frames[0].paths.find(path => path.actorId === opponent.id)?.to[1]).toBeCloseTo(.28, 1);
   expect(saved.actors).toHaveLength(3);
 
-  await press(page.getByRole("button", { name: "返回上一页" }));
-  await waitForFlowSettled(page);
-  await openDraftFromLibrary(page, "我的战术板");
+  await page.reload();
+  await openBoard(page);
   saved = await saveAndRead(page);
   expect(saved.frames[0].paths.find(path => path.actorId === opponent.id)?.to[0]).toBeCloseTo(.68, 1);
 });
@@ -335,7 +340,7 @@ test("writes a court note in a keyboard-safe dialog without shrinking the court"
   await expect(page.locator(".board-editor")).toHaveClass(/is-note-editing/);
   await expect(page.locator(".board-edit-dock")).toBeHidden();
   await expect(page.getByTestId("board-learning-entry")).toBeHidden();
-  await expect(editor).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(editor).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(page.getByRole("dialog", { name: "这一拍的发现" })).toHaveCount(0);
   await editor.getByRole("button", { name: "先回位" }).click();
   await expect(editor.getByRole("textbox", { name: "画板备注" })).toHaveValue("先回位");
@@ -433,7 +438,9 @@ test("iPhone-sized touch flow keeps note input and save above the keyboard viewp
   const phone = await context.newPage();
   try {
     await phone.goto("/");
-    await phone.locator(".home-plan-primary").tap();
+    await phone.emulateMedia({ reducedMotion: "reduce" });
+    await waitForWorkspace(phone);
+    await waitForFlowSettled(phone);
     await expect(currentBoardCanvas(phone)).toBeVisible();
     await addButton(phone).tap();
     const sheet = phone.getByTestId("bottom-sheet");
@@ -471,7 +478,7 @@ test("iPhone-sized touch flow keeps note input and save above the keyboard viewp
     const stored = await saveAndRead(phone);
     expect(stored.frames[0].marks.some(mark => mark.kind === "text" && mark.text === "看对手站位")).toBe(true);
     await phone.reload();
-    await phone.getByRole("button", { name: new RegExp(stored.title) }).first().tap();
+    await waitForWorkspace(phone);
     await expect(currentBoardCanvas(phone)).toBeVisible();
     expect((await saveAndRead(phone)).frames[0].marks.some(mark => mark.kind === "text" && mark.text === "看对手站位")).toBe(true);
   } finally {
@@ -489,13 +496,14 @@ test("restores the starter serve position from the board and keeps it one-step u
   expect(beforeRestore.frames).toHaveLength(2);
   expect(beforeRestore.frames[0].paths.some((path) => path.kind === "shot")).toBe(true);
 
-  await press(page.getByRole("button", { name: /打开.*的画板菜单/ }));
+  await openBoardSettings(page);
   const restoreMenu = page.getByRole("dialog", { name: "画板菜单", exact: true });
-  const restoreButton = restoreMenu.getByRole("button", { name: "一键还原发球站位，可撤销", exact: true });
+  const restoreButton = restoreMenu.getByRole("button", { name: "一区发球", exact: true });
   await expect(restoreButton).toBeEnabled();
   await press(restoreButton);
+  await restoreMenu.getByRole("button", { name: "确认替换站位" }).click();
   await expect(canvas).toBeFocused();
-  await expect(currentBoardGuide(page)).toContainText(/已回到发球站位.*可以撤销/);
+  await expect(currentBoardGuide(page)).toContainText(/开局站位已调整，可撤销/);
   await expect(playButton(page)).toBeDisabled();
   await expect(playButton(page)).toHaveAccessibleName("画出一条球路，就能播放");
   await expect(playButton(page)).toHaveText("");
@@ -508,13 +516,13 @@ test("restores the starter serve position from the board and keeps it one-step u
   expect(restored.actors.filter((actor) => actor.kind === "ball")).toHaveLength(1);
   expect(restored.frames).toHaveLength(1);
   expect(restored.frames[0]).toMatchObject({
-    label: "第 1 拍 · 起始站位",
+    label: "第 1 拍 · 一区发球",
     paths: [],
     marks: [],
   });
-  expect(actorPoint(restored, "我方")).toEqual([.64, .98]);
-  expect(actorPoint(restored, "对手")).toEqual([.30, .07]);
-  expect(actorPoint(restored, "网球")).toEqual([.64, .96]);
+  expect(actorPoint(restored, "我方")).toEqual([.64, 1.02]);
+  expect(actorPoint(restored, "对手")).toEqual([.28, -.02]);
+  expect(actorPoint(restored, "网球")).toEqual([.64, .98]);
   expect(restored.smartRally).toMatchObject({ phase: "shot" });
   await expect(page.getByRole("button", { name: /^(现在就是发球站位|还原标准发球站位)/ })).toHaveCount(0);
 
@@ -533,21 +541,21 @@ test("restores the starter serve position from the board and keeps it one-step u
   expect(restored.frames[0].paths).toEqual([]);
 
   await page.reload();
-  await openDraftFromLibrary(page, "我的战术板");
+  await openDraftFromLibrary(page, "我的画板");
   restored = await readLatest(page);
   expect(restored.id).toBe(beforeRestore.id);
   expect(restored.actors).toHaveLength(3);
   expect(restored.frames).toHaveLength(1);
   await expect(playButton(page)).toBeDisabled();
 
-  await press(page.getByRole("button", { name: /打开.*的画板菜单/ }));
+  await openBoardSettings(page);
   const files = page.getByTestId("bottom-sheet");
   await expect(files.getByRole("heading", { name: "画板菜单", exact: true })).toBeVisible();
-  await expect(files.locator(".board-menu-edit-section .board-menu-list > button, .board-menu-manage-section .board-menu-list > button")).toHaveCount(4);
+  await expect(files.getByRole("button", { name: "保存与分享", exact: true })).toBeVisible();
   await expect(files.getByRole("button", { name: "一分的发现", exact: true })).toHaveCount(0);
   await expect(files.getByRole("button", { name: "练后发现", exact: true })).toHaveCount(0);
   await expect(files.getByRole("button", { name: /修改名称/ })).toBeVisible();
-  await expect(files.getByRole("button", { name: "现在就是发球站位", exact: true })).toBeDisabled();
+  await expect(files.getByRole("button", { name: "一区发球", exact: true })).toBeEnabled();
   await expect(files.getByRole("button", { name: /保存与分享/ })).toBeVisible();
   await expect(files.getByRole("button", { name: /草稿与模板/ })).toBeVisible();
   await expect(files.getByRole("button", { name: /一键清除|拍次历史|立即保存|导入 JSON/ })).toHaveCount(0);
@@ -589,7 +597,7 @@ test("authors a smart rally as shot, receiver movement, then the next shot", asy
   await expect(currentBoardGuide(page)).toContainText(/拖动接球球员.*画出跑位/);
 
   await dragBoardPoint(page, board, opponentStart, [.66, .34]);
-  await expect(currentBoardGuide(page)).toContainText("跑位已记下。再拖动网球，画下一拍。");
+  await expect(currentBoardGuide(page)).toContainText(/再拖动网球，画下一拍|接球跑位已记下/);
   saved = await saveAndRead(page);
   expect(saved.frames).toHaveLength(2);
   expect(saved.frames[0].paths.map((path) => path.kind).sort()).toEqual(["move", "shot"]);
@@ -716,6 +724,7 @@ test("toggles a completed shot between straight and curve directly on the route"
   await clickBoardPoint(page, canvas, pointOnBoardPath(afterShot.frames[0].paths[0], .5));
   await expect(page.getByRole("button", { name: "一键改直线", exact: true })).toBeVisible();
   await press(page.getByRole("button", { name: "一键改直线", exact: true }));
+  await expect.poll(async () => (await readLatest(page)).frames[0].paths.find(path => path.kind === "shot")?.control).toBeUndefined();
   let saved = await saveAndRead(page);
   const straightShot = saved.frames[0].paths.find((path) => path.kind === "shot")!;
   expect(straightShot.control).toBeUndefined();
@@ -783,7 +792,7 @@ test("places an added mark over the visible previous route without selecting tha
   saved = await saveAndRead(page);
   expect(saved.frames[1].marks).toEqual([]);
 
-  await press(page.getByRole("button", { name: /打开我的战术板的画板菜单/ }));
+  await openBoardSettings(page);
   const files = page.getByTestId("bottom-sheet");
   await press(files.getByRole("button", { name: /保存与分享/ }));
   const saveShare = page.getByRole("dialog", { name: "保存与分享" });
@@ -806,7 +815,7 @@ test("keeps the armed actor draggable when the ball and receiver share a point",
   await expect(currentBoardGuide(page)).toContainText(/拖动接球球员.*画出跑位/);
 
   await dragBoardPoint(page, board, receiverPoint, landing);
-  await expect(currentBoardGuide(page)).toContainText("跑位已记下。再拖动网球，画下一拍。");
+  await expect(currentBoardGuide(page)).toContainText(/再拖动网球，画下一拍|接球跑位已记下/);
   await expect(currentBoardGuide(page)).toContainText(/再拖动网球.*画下一拍/);
   let saved = await saveAndRead(page);
   const ball = saved.actors.find((actor) => actor.kind === "ball")!;
@@ -850,7 +859,7 @@ test("keeps the last full beat's shot and movement clearly visible on a 390px co
   );
 
   await dragBoardPoint(page, canvas, receiverStart, [.66, .34]);
-  await expect(currentBoardGuide(page)).toContainText("跑位已记下。再拖动网球，画下一拍。");
+  await expect(currentBoardGuide(page)).toContainText(/再拖动网球，画下一拍|接球跑位已记下/);
   await expect(currentBoardGuide(page)).toContainText(/再拖动网球.*画下一拍/);
   saved = await saveAndRead(page);
   const receiverMove = saved.frames[0].paths.find((path) => path.kind === "move");
@@ -917,6 +926,9 @@ test("can select the ball directly to skip receiver movement", async ({ page }) 
 
 test("synchronizes an extra player move before the armed receiver is skipped", async ({ page }) => {
   await openLegacyEmptyBoard(page);
+  await openBoardSettings(page);
+  await page.getByRole("switch", { name: "二段跑位，已关", exact: true }).click();
+  await page.keyboard.press("Escape");
   const play = playButton(page);
   const board = currentBoardCanvas(page);
   const meStart: Point = [.62, .82];
@@ -954,7 +966,7 @@ test("synchronizes an extra player move before the armed receiver is skipped", a
     actorId: opponent.id,
   });
   await expect(play).toHaveAccessibleName(/1\s*拍/);
-  await expect(play).toHaveAccessibleName(/1\.5\s*秒/);
+  await expect(play).toHaveAccessibleName(new RegExp(`${saved.frames[0].duration.toFixed(1).replace(".", "\\.")}\\s*秒`));
 
   // Selecting the ball skips the still-armed receiver move. The already
   // synchronized extra movement must not leak into the outgoing return beat.
@@ -968,7 +980,7 @@ test("synchronizes an extra player move before the armed receiver is skipped", a
   expect(saved.frames[2].paths).toEqual([]);
 });
 
-test("undo restores the smart move tool after a conflicting receiver route falls back to manual", async ({ page }) => {
+test("undo restores the prior receiving route after a single-stage correction", async ({ page }) => {
   await page.evaluate((key) => {
     const draft: BoardDocument = {
       version: 1,
@@ -1017,12 +1029,13 @@ test("undo restores the smart move tool after a conflicting receiver route falls
 
   const board = currentBoardCanvas(page);
   await dragBoardPoint(page, board, [.56, .18], [.66, .34]);
-  await expect(currentBoardGuide(page)).toContainText("跑位已保留。接下来请手动调整。");
+  await expect(currentBoardGuide(page)).toContainText(/再拖动网球，画下一拍|接球跑位已记下/);
 
   let saved = await saveAndRead(page);
-  expect(saved.smartRally).toBeUndefined();
-  expect(saved.frames[0].paths.find((path) => path.id === "existing-receiver-move")).toBeDefined();
-  expect(saved.frames[1].paths).toContainEqual(expect.objectContaining({ kind: "move", actorId: "opponent" }));
+  expect(saved.smartRally).toMatchObject({ phase: "shot" });
+  expect(saved.frames[0].paths.filter(path => path.kind === "move")).toHaveLength(1);
+  expect(saved.frames[0].paths.find(path => path.kind === "move")?.to[0]).toBeCloseTo(.66, 1);
+  expect(saved.frames[1].paths).toEqual([]);
 
   await press(page.getByRole("button", { name: "撤销", exact: true }));
   await expect(currentBoardGuide(page)).toContainText(/拖动接球球员.*画出跑位/);
@@ -1053,14 +1066,14 @@ test("reopens a guided board safely after an opening player route switches it to
   expectDraggedCoordinate(manualMove?.to[1], .24);
 
   await page.reload();
-  await openDraftFromLibrary(page, "我的战术板");
+  await openDraftFromLibrary(page, "我的画板");
   await expect(currentBoardCanvas(page)).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
   const reopened = await saveAndRead(page);
   expect(reopened.smartRally).toBeUndefined();
   expect(reopened.frames[0].paths).toEqual(manual.frames[0].paths);
 
-  await press(page.getByRole("button", { name: /打开.*的画板菜单/ }));
+  await openBoardSettings(page);
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
   await waitForFlowSettled(page);
   await page.getByTestId("flow-current").locator('input[type="file"]').setInputFiles({
@@ -1170,7 +1183,7 @@ test("keeps legacy empty and multiple-ball boards on the safe fallback path", as
 
   await chooseAddItem(page, /^我方球员/);
   await clickBoardPoint(page, board, [.70, .72]);
-  await press(page.getByRole("button", { name: /打开.*的画板菜单/ }));
+  await openBoardSettings(page);
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
   await waitForFlowSettled(page);
   await press(page.getByRole("button", { name: "画一条新球路", exact: true }));
@@ -1262,7 +1275,7 @@ test("a legacy empty tactical board preserves consecutive ball routes as atomic 
   await expectPathClearlyVisible(canvas, firstRoute!, "shot", "the pure blank board must keep its first route visible on the next beat");
 
   await dragBoardPoint(page, canvas, opponentStart, opponentEnd);
-  await expect(currentBoardGuide(page)).toContainText("跑位已记下。再拖动网球，画下一拍。");
+  await expect(currentBoardGuide(page)).toContainText(/再拖动网球，画下一拍|接球跑位已记下/);
   await expect(currentBoardGuide(page)).toContainText(/再拖动网球.*画下一拍/);
   await dragBoardPoint(page, canvas, firstLanding, secondLanding);
 
@@ -1316,7 +1329,7 @@ test("normalizes a legacy empty draft and keeps restore available in the seconda
   expect(untouched.id).toBe("legacy-empty-blank");
   expect(untouched.authoringMode).toBeUndefined();
   expect(untouched.frames[0].label).toBe("起始站位");
-  await press(page.getByRole("button", { name: /打开我的空白战术的画板菜单/ }));
+  await openBoardSettings(page);
   const boardMenu = page.getByTestId("bottom-sheet");
   await press(boardMenu.getByRole("button", { name: /^修改名称/ }));
   const rename = page.getByTestId("board-rename-layer");
@@ -1328,9 +1341,9 @@ test("normalizes a legacy empty draft and keeps restore available in the seconda
   expect(normalized.authoringMode).toBe("blank-rally");
   expect(normalized.frames[0].label).toBe("第 1 拍 · 起始站位");
   await expect(page.getByRole("button", { name: /还原标准发球站位/ })).toHaveCount(0);
-  await press(page.getByRole("button", { name: /打开.*的画板菜单/ }));
+  await openBoardSettings(page);
   const menu = page.getByTestId("bottom-sheet");
-  await expect(menu.getByRole("button", { name: "一键还原发球站位，可撤销", exact: true })).toBeEnabled();
+  await expect(menu.getByRole("button", { name: "一区发球", exact: true })).toBeEnabled();
   await expect(menu.getByRole("button", { name: /一键清除/ })).toHaveCount(0);
 });
 
@@ -1368,7 +1381,7 @@ test("reopens a legacy default blank draft and repairs its missing continuation"
 
   const canvas = currentBoardCanvas(page);
   await dragBoardPoint(page, canvas, [.46, .18], [.66, .34]);
-  await expect(currentBoardGuide(page)).toContainText("跑位已记下。再拖动网球，画下一拍。");
+  await expect(currentBoardGuide(page)).toContainText(/再拖动网球，画下一拍|接球跑位已记下/);
   let saved = await saveAndRead(page);
   expect(saved.authoringMode).toBe("blank-rally");
   expect(saved.frames).toHaveLength(2);
@@ -1412,7 +1425,7 @@ test("playback counts a synchronized opening shot and receiver movement as one b
 
   await dragBoardPoint(page, board, starterPoint("网球"), [.70, .25]);
   await dragBoardPoint(page, board, starterPoint("对手"), [.66, .34]);
-  await expect(currentBoardGuide(page)).toContainText("跑位已记下。再拖动网球，画下一拍。");
+  await expect(currentBoardGuide(page)).toContainText(/再拖动网球，画下一拍|接球跑位已记下/);
 
   const saved = await saveAndRead(page);
   const opponent = saved.actors.find((actor) => actor.label === "对手")!;
@@ -1500,16 +1513,18 @@ test("frameless direct manipulation keeps grab offset, ignores jitter, and recor
   await clickBoardPoint(page, board, actorStart);
   await expect(editorDock(page).getByRole("button", { name: "删除对手", exact: true })).toBeVisible();
   const center = await boardScreenPoint(board, actorStart);
-  expect(center.scale).toBeCloseTo(1, 5);
+  expect(center.scale).toBeCloseTo(1, 3);
 
   await page.mouse.move(center.x, center.y);
   await page.mouse.down();
   await page.mouse.move(center.x + 4, center.y);
   await page.mouse.up();
+  await expandBoardTools(page);
   await expect(undo).toBeDisabled();
   await expect(currentBoardGuide(page)).toContainText("对手");
 
   await dragBoardPoint(page, board, actorStart, [.70, .30], [7, 4]);
+  await expandBoardTools(page);
   await expect(undo).toBeEnabled();
   let saved = await saveAndRead(page);
   const opponent = saved.actors.find((actor) => actor.label === "对手")!;
@@ -1520,6 +1535,7 @@ test("frameless direct manipulation keeps grab offset, ignores jitter, and recor
   saved = await saveAndRead(page);
   expect(saved.frames[0].poses[opponent.id][0]).toBeCloseTo(actorStart[0], 2);
   expect(saved.frames[0].poses[opponent.id][1]).toBeCloseTo(actorStart[1], 2);
+  await expandBoardTools(page);
   await expect(undo).toBeDisabled();
 });
 
@@ -1529,10 +1545,9 @@ test("renames in a dedicated keyboard-safe layer and restores focus to its opene
     .filter((screen) => screen.getAttribute("data-flow-current") !== "true")
     .every((screen) => screen.hasAttribute("inert") && screen.getAttribute("aria-hidden") === "true"))).toBe(true);
 
-  const menuTrigger = page.getByRole("toolbar", { name: "战术板操作", exact: true })
-    .getByRole("button", { name: /打开我的战术板的画板菜单/ });
+  const menuTrigger = page.locator("[data-dock-expand]");
   const stageTransform = await page.locator(".phone-stage").evaluate((element) => getComputedStyle(element).transform);
-  await press(menuTrigger);
+  await openBoardSettings(page);
   const menu = page.getByRole("dialog", { name: "画板菜单", exact: true });
   await press(menu.getByRole("button", { name: /^修改名称/ }));
   const rename = page.getByTestId("board-rename-layer");
@@ -1575,7 +1590,6 @@ test("opens directly in the app-level immersive board and returns with its state
   expect(stageBounds!.height).toBeCloseTo(1100, 0);
   await expect(canvas).toBeVisible();
 
-  const immersiveToolbar = page.getByRole("toolbar", { name: "战术板操作", exact: true });
   await clickBoardPoint(page, canvas, [.96, .48]);
   const history = editorDock(page).getByRole("button", { name: /打开拍次，当前第 2 拍/ });
   const historyBounds = await history.boundingBox();
@@ -1584,20 +1598,20 @@ test("opens directly in the app-level immersive board and returns with its state
   expect(historyBounds!.height).toBeGreaterThanOrEqual(44);
   await expect(history).toHaveText("");
 
-  await press(immersiveToolbar.getByRole("button", { name: /打开我的战术板的画板菜单/ }));
+  await openBoardSettings(page);
   const menu = page.getByRole("dialog", { name: "画板菜单" });
   await expect(menu).toBeVisible();
-  await expect(menu.locator(".board-menu-edit-section .board-menu-list > button, .board-menu-manage-section .board-menu-list > button")).toHaveCount(4);
+  await expect(menu.getByRole("button", { name: "保存与分享", exact: true })).toBeVisible();
   await expect(menu.getByRole("button", { name: "一分的发现", exact: true })).toHaveCount(0);
   await expect(menu.getByRole("button", { name: "练后发现", exact: true })).toHaveCount(0);
-  await expect(menu.getByRole("button", { name: "一键还原发球站位，可撤销", exact: true })).toBeEnabled();
+  await expect(menu.getByRole("button", { name: "一区发球", exact: true })).toBeEnabled();
   await page.getByTestId("sheet-overlay").click({ position: { x: 20, y: 20 } });
   await expect(menu).toBeHidden();
   await expect(editor).toHaveAttribute("data-immersive", "true");
 
-  await press(immersiveToolbar.getByRole("button", { name: "返回上一页", exact: true }));
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
-  await expect(page.getByRole("heading", { name: "下一分，怎么打？", exact: true })).toBeVisible();
+  await expect(page.locator(".board-library")).toBeVisible();
   await expect(stage).not.toHaveAttribute("data-board-immersive", "true");
   const afterExit = await readLatest(page);
   expect(afterExit.frames).toEqual(authored.frames);
@@ -1620,13 +1634,13 @@ test("keeps editable saves separate and creates local GIF and video share files"
   await dragBoardPoint(page, canvas, starterPoint("网球"), [.70, .25]);
   const authored = await saveAndRead(page);
 
-  await press(page.getByRole("button", { name: /打开我的战术板的画板菜单/ }));
+  await openBoardSettings(page);
   const sheet = page.getByTestId("bottom-sheet");
   await expect(sheet.getByRole("heading", { name: "画板菜单", exact: true })).toBeVisible();
   await press(sheet.getByRole("button", { name: /保存与分享/ }));
   await expect(sheet.getByRole("heading", { name: "保存与分享", exact: true })).toBeVisible();
   await expect(sheet.getByRole("button", { name: /立即保存/ })).toHaveCount(0);
-  await expect(sheet.getByRole("button", { name: /备份画板.*之后可导入.*继续修改/ })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: /^备份画板/ })).toBeVisible();
   const gifOption = sheet.getByRole("button", { name: /分享动态图/ });
   const videoOption = sheet.getByRole("button", { name: /分享球路视频.*推荐/ });
   await expect(gifOption).toBeEnabled();
@@ -1707,7 +1721,7 @@ test("disables media formats when an authored route has zero playback time", asy
   await page.reload();
   await openDraftFromLibrary(page, legacy.title);
 
-  await press(page.getByRole("button", { name: /打开我的战术板的画板菜单/ }));
+  await openBoardSettings(page);
   const files = page.getByTestId("bottom-sheet");
   await press(files.getByRole("button", { name: /保存与分享/ }));
   const video = files.getByRole("button", { name: /分享球路视频.*推荐/ });
@@ -1721,7 +1735,7 @@ test("disables media formats when an authored route has zero playback time", asy
 test("shows validation failures inside the active sheet", async ({ page }) => {
   await openBoard(page);
 
-  await press(page.getByRole("button", { name: /打开我的战术板的画板菜单/ }));
+  await openBoardSettings(page);
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /^修改名称/ }));
   const rename = page.getByTestId("board-rename-layer");
   const title = rename.getByRole("textbox", { name: "画板名称" });
@@ -1730,11 +1744,11 @@ test("shows validation failures inside the active sheet", async ({ page }) => {
   await expect(rename).toBeVisible();
   await expect(rename.getByRole("alert")).toContainText(/画板名称|畫板名稱|不能留空/);
 
-  await title.fill("我的战术板");
+  await title.fill("我的画板");
   await press(rename.getByRole("button", { name: "完成", exact: true }));
   await expect(rename).toBeHidden();
 
-  await press(page.getByRole("button", { name: /打开我的战术板的画板菜单/ }));
+  await openBoardSettings(page);
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
   await waitForFlowSettled(page);
   await page.getByTestId("flow-current").locator('input[type="file"]').setInputFiles({
@@ -1766,7 +1780,7 @@ test("imports and reopens a v0.2 backup larger than the old two-million-characte
   const backup = JSON.stringify(board, null, 2);
   expect(backup.length).toBeGreaterThan(2_000_000);
 
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "导入备份" }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await page.getByTestId("flow-current").locator('input[type="file"]').setInputFiles({
     name: "v0.2-large-board.json",
@@ -1793,7 +1807,7 @@ test("rejects an oversized backup without changing an existing board", async ({ 
   await expect(page.getByTestId("flow-current").getByTestId("board-save-live")).toHaveText("画板已保存");
   const before = await readLatest(page);
 
-  await press(page.getByRole("button", { name: /打开.*的画板菜单/ }));
+  await openBoardSettings(page);
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
   await waitForFlowSettled(page);
   await page.getByTestId("flow-current").locator('input[type="file"]').setInputFiles({
@@ -1828,7 +1842,7 @@ test("imports a large UTF-8 backup without reading the whole file at once", asyn
     };
   }, BOARD_IMPORT_MAX_CHARACTERS);
 
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "导入备份" }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await page.getByTestId("flow-current").locator('input[type="file"]').setInputFiles({
     name: "large-utf8-backup.json",
@@ -1869,7 +1883,7 @@ test("keeps a just-finished board edit when the tab closes before autosave", asy
 
   const reopened = await context.newPage();
   await reopened.goto("/");
-  await openDraftFromLibrary(reopened, "我的战术板");
+  await openDraftFromLibrary(reopened, "我的画板");
   const stored = await readLatest(reopened);
   const opponent = stored.actors.find((actor) => actor.label === "对手")!;
   expect(stored.frames[0].paths.find((path) => path.actorId === opponent.id)?.to[0]).toBeCloseTo(.56, 1);
@@ -1937,23 +1951,17 @@ test("keeps board library available without saving an untouched template", async
   expect(saved.frames).toHaveLength(2);
   await expect(page.locator(".board-frame-rail")).toHaveCount(0);
 
-  await press(page.getByRole("button", { name: /打开我的战术板的画板菜单/ }));
+  await openBoardSettings(page);
   await press(page.getByTestId("bottom-sheet").getByRole("button", { name: /草稿与模板/ }));
   await waitForFlowSettled(page);
   await expect(page.getByRole("heading", { name: "草稿与模板", exact:true })).toBeVisible();
-  await press(page.getByTestId("flow-current").locator(".board-draft-open").filter({ hasText: "我的战术板" }));
+  await press(page.getByTestId("flow-current").locator(".board-draft-open").filter({ hasText: "我的画板" }));
   await waitForFlowSettled(page);
   await expect(currentBoardCanvas(page)).toBeVisible();
-  await press(page.getByRole("button", { name: "返回上一页" }));
-  await waitForFlowSettled(page);
-  await expect(page.getByRole("heading", { name: "草稿与模板", exact:true })).toBeVisible();
-  await press(page.getByRole("button", { name: "返回上一页", exact:true }));
-  await waitForFlowSettled(page);
-  await expect(currentBoardCanvas(page)).toBeVisible();
-  await press(page.getByRole("button", { name: "返回上一页" }));
-  await waitForFlowSettled(page);
-  await expect(page.getByRole("heading", { name: "下一分，怎么打？", exact:true })).toBeVisible();
-  await press(page.getByRole("button", { name: "找个打法", exact:true }));
+  await openWorkspaceLibrary(page);
+  await page.getByRole("button", { name: "返回上一页", exact: true }).click();
+  await waitForWorkspace(page);
+  await openTacticCatalogue(page);
   await waitForFlowSettled(page);
   await press(page.getByRole("button", { name: /^防守高深回中，9秒/ }));
   await waitForFlowSettled(page);

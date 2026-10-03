@@ -30,7 +30,7 @@ async function openMenu(page: Page) {
     localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: BOARD_KEY, board });
   await page.reload();
-  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).tap();
+  await expect(current(page).getByTestId("board-canvas")).toBeVisible();
   await current(page).getByRole("button", {name:"展开常用操作"}).tap();
   await current(page).getByRole("button", { name: `打开${board.title}的画板菜单`, exact: true }).tap();
   const sheet = page.getByRole("dialog", { name: "画板菜单", exact: true });

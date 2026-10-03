@@ -1,0 +1,35 @@
+import {expect,test,type Page} from '@playwright/test';
+import {getBoardGeometry} from '../src/board/render';
+const KEY='tennis-tactics:board-drafts:v1';
+const current=(page:Page)=>page.getByTestId('flow-current');
+for(const viewport of [{width:820,height:1180},{width:1180,height:820}])test(`iPad ${viewport.width}x${viewport.height}: touch dock, draw, rotate viewport, reopen`,async({page})=>{
+  await page.setViewportSize(viewport);await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
+  await expect(current(page)).toHaveCount(1);const canvas=current(page).getByTestId('board-canvas');await expect(canvas).toBeVisible();
+  const dock=current(page).getByRole('navigation',{name:'画板编辑工具'});await expect(dock).toBeVisible();
+  const rects=await dock.locator('button').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().toJSON()));
+  expect(rects).toHaveLength(5);expect(rects.every(r=>r.width>=44&&r.height>=44&&r.x>=0&&r.right<=viewport.width)).toBe(true);
+  expect((await dock.innerText()).trim()).toBe('');
+  const box=await canvas.boundingBox();const d=await dock.boundingBox();expect(box!.y+box!.height).toBeLessThan(d!.y);
+  await current(page).getByRole('button',{name:'展开常用操作'}).tap();await expect(current(page).getByRole('toolbar')).toBeVisible();
+  expect(await canvas.boundingBox()).toEqual(box);
+  await current(page).getByRole('button',{name:'收起常用操作'}).tap();
+  const m=await canvas.evaluate(e=>({w:e.clientWidth,h:e.clientHeight,r:e.getBoundingClientRect().toJSON()}));
+  const geo=getBoardGeometry(m.w,m.h),a=geo.toCanvas([.64,.96]),b=geo.toCanvas([.7,.25]);
+  await page.mouse.move(m.r.x+a[0],m.r.y+a[1]);await page.mouse.down();await page.mouse.move(m.r.x+b[0],m.r.y+b[1],{steps:8});await page.mouse.up();
+  await expect(current(page).getByTestId('board-save-live')).toHaveText('画板已保存');
+  const stored=await page.evaluate(key=>localStorage.getItem(key),KEY);
+  await page.setViewportSize({width:viewport.height,height:viewport.width});await expect(canvas).toBeVisible();
+  await expect(current(page).getByRole('button',{name:/^播放战术，1 拍/})).toBeEnabled();
+  expect(await page.evaluate(key=>localStorage.getItem(key),KEY)).toBe(stored);
+  await current(page).getByRole('button',{name:'我的画板',exact:true}).tap();await expect(current(page).locator('.board-library')).toBeVisible();
+  await current(page).locator('.board-draft-open').first().tap();await expect(canvas).toBeVisible();
+  await expect(current(page).getByRole('button',{name:/^播放战术，1 拍/})).toBeEnabled();
+  await expect(page.getByTestId('flow-current')).toHaveCount(1);
+});
+test('direct entry preserves unreadable drafts and exposes recovery instead of a blank editor',async({page})=>{
+  await page.goto('/');await page.evaluate(key=>localStorage.setItem(key,'not-json'),KEY);await page.reload();
+  await expect(page.getByRole('alert')).toContainText('暂时读不到画板');await expect(page.getByTestId('board-canvas')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'打开画板库'})).toBeVisible();await page.getByRole('button',{name:'重试',exact:true}).click();
+  expect(await page.evaluate(key=>localStorage.getItem(key),KEY)).toBe('not-json');
+});
+test.use({hasTouch:true});

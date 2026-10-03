@@ -38,9 +38,13 @@ async function open(page: Page, seed = board) {
     localStorage.clear(); localStorage.setItem(key, JSON.stringify({ version: 1, boards: [seed] }));
   }, { key: BOARD_KEY, seed });
   await page.reload();
-  if(seed.frames.some(frame=>frame.paths.length))await page.getByRole("button", { name: `接着画${seed.title}`, exact: true }).click();
-  else await page.getByTestId("home-history-board").filter({hasText:seed.title}).click();
   await expect(canvas(page)).toBeVisible(); await settled(page);
+}
+
+async function reopen(page:Page,title:string){
+  // A refresh already resumes the board; library navigation reopens the chosen document.
+  if(await current(page).locator('.board-library').isVisible())await current(page).locator('.board-draft-open').filter({hasText:title}).click();
+  await expect(canvas(page)).toBeVisible();
 }
 
 async function menu(page: Page) {
@@ -139,12 +143,12 @@ test("zone colors and names have stable setting labels and independent visible s
   // These are device display preferences, so navigation and reload retain
   // the off state without a write to the board document.
   await closeMenu(page);
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
-  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).click(); await settled(page);
+  await current(page).getByRole("button", { name: "我的画板", exact: true }).click(); await settled(page);
+  await reopen(page,board.title); await settled(page);
   await expectColorState((await menu(page)).getByRole("button", { name: /^站位分区颜色/ }), "分区已关", "false");
   expect(await zoneInteriorPixel(canvas(page))).toEqual(uncoloredPixel);
   await page.reload();
-  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).click(); await settled(page);
+  await reopen(page,board.title); await settled(page);
   const reopened = await menu(page);
   await expectColorState(reopened.getByRole("button", { name: /^站位分区颜色/ }), "分区已关", "false");
   await expect(reopened.getByRole("button", { name: "区域名称", exact: true })).toHaveAttribute("aria-pressed", "false");
@@ -203,16 +207,16 @@ test("reopening keeps the viewed frame and selected ball route without editing o
   await tapPoint(page, pointOnBoardPath(board.frames[1].paths[0], .5));
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
   const unchanged = await stored(page);
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
-  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).click(); await settled(page);
+  await current(page).getByRole("button", { name: "我的画板", exact: true }).click(); await settled(page);
+  await reopen(page,board.title); await settled(page);
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
   await expect(canvas(page).getByRole("button", { name: "一键改直线", exact: true })).toBeVisible();
-  await page.reload(); await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).click(); await settled(page);
+  await page.reload(); await reopen(page,board.title); await settled(page);
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
   await expect(page.getByTestId("board-playback-dock")).toHaveCount(0);
   await dock(page).getByRole("button", { name: /^播放战术/ }).click();
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
-  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).click(); await settled(page);
+  await current(page).getByRole("button", { name: "我的画板", exact: true }).click(); await settled(page);
+  await reopen(page,board.title); await settled(page);
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
   await expect(page.getByTestId("board-playback-dock")).toHaveCount(0);
   expect(await stored(page)).toEqual(unchanged);
@@ -228,12 +232,12 @@ test("new smart routes stay selected for deletion while the receiver and overlap
   await expect(dock(page).getByRole("button", { name: "删除跑位路线", exact: true })).toBeVisible();
   await drag(page, [.70, .25], [.32, .75]);
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
-  await page.getByRole("button", { name: "接着画桌面智慧回合", exact: true }).click(); await settled(page);
+  await current(page).getByRole("button", { name: "我的画板", exact: true }).click(); await settled(page);
+  await reopen(page,"桌面智慧回合"); await settled(page);
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
   const before = await stored(page), deletedId = before.frames[1].paths.find(path => path.kind === "shot")!.id;
   await dock(page).getByRole("button", { name: "删除击球路线", exact: true }).click();
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
+  await current(page).getByRole("button", { name: "我的画板", exact: true }).click(); await settled(page);
   const after = await stored(page);
   expect(after.actors).toEqual(before.actors); expect(after.frames.flatMap(frame => frame.paths).some(path => path.id === deletedId)).toBe(false);
   expect(after.frames[0].paths).toEqual(before.frames[0].paths);
@@ -243,15 +247,15 @@ test("new smart routes stay selected for deletion while the receiver and overlap
 test("an explicitly selected previous route keeps its overlapping endpoint handle after reopening", async ({ page }) => {
   await open(page, { ...starter, id: "issue11-explicit-route", title: "保留球路控制柄" });
   await drag(page, [.64, .96], [.70, .25]);
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
+  await current(page).getByRole("button", { name: "我的画板", exact: true }).click(); await settled(page);
   const authored = await stored(page), shot = authored.frames[0].paths.find(path => path.kind === "shot")!;
-  await page.getByRole("button", { name: "接着画保留球路控制柄", exact: true }).click(); await settled(page);
+  await reopen(page,"保留球路控制柄"); await settled(page);
   await tapPoint(page, pointOnBoardPath(shot, .5));
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
-  await page.getByRole("button", { name: "接着画保留球路控制柄", exact: true }).click(); await settled(page);
+  await current(page).getByRole("button", { name: "我的画板", exact: true }).click(); await settled(page);
+  await reopen(page,"保留球路控制柄"); await settled(page);
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
   await drag(page, shot.to, [.62, .30]);
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
+  await current(page).getByRole("button", { name: "我的画板", exact: true }).click(); await settled(page);
   const adjusted = await stored(page);
   expect(adjusted.frames).toHaveLength(authored.frames.length);
   expect(adjusted.frames[0].paths).toHaveLength(1);
@@ -278,7 +282,7 @@ test("cancelling receiver movement restores automatic route selection and the ne
   await expect(dock(page).getByRole("button", { name: "删除击球路线", exact: true })).toBeVisible();
   await drag(page, [.62, .32], [.67, .33]);
   await expect(dock(page).getByRole("button", { name: "删除跑位路线", exact: true })).toBeVisible();
-  await current(page).getByRole("button", { name: "返回上一页", exact: true }).click(); await settled(page);
+  await current(page).getByRole("button", { name: "我的画板", exact: true }).click(); await settled(page);
   const completed = await stored(page), shot = completed.frames[0].paths.find(path => path.kind === "shot")!;
   const movement = completed.frames[0].paths.find(path => path.kind === "move")!;
   expect(completed.frames).toHaveLength(2); expect(completed.frames[0].paths).toHaveLength(2);

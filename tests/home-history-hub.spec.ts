@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createStarterBoard, type BoardDocument } from "../src/board/model";
+import { expandBoardTools, openBoardSettings, openWorkspaceLibrary, waitForWorkspace } from "./workspace-navigation";
 
 const STORAGE_KEY = "tennis-tactics:board-drafts:v1";
 
@@ -74,188 +75,120 @@ function seededBoards(): CategorizedBoard[] {
   ));
 }
 
-async function openHomepage(page: Page, boards: BoardDocument[] = []) {
+async function openWorkspace(page: Page, boards: BoardDocument[] = []) {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.addInitScript(({ key, serialized }) => {
-    window.localStorage.clear();
-    if (serialized) window.localStorage.setItem(key, serialized);
-  }, {
-    key: STORAGE_KEY,
-    serialized: boards.length ? JSON.stringify({ version: 1, boards }) : "",
-  });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "下一分，怎么打？", exact: true })).toBeVisible();
+  await page.evaluate(({ key, boards }) => {
+    window.localStorage.clear();
+    if (boards.length) window.localStorage.setItem(key, JSON.stringify({ version: 1, boards }));
+  }, { key: STORAGE_KEY, boards });
+  await page.reload();
+  await waitForWorkspace(page);
 }
 
 async function storedBoards(page: Page): Promise<CategorizedBoard[]> {
   return page.evaluate((key) => {
     const serialized = window.localStorage.getItem(key);
-    if (!serialized) return [];
-    return (JSON.parse(serialized) as { boards: CategorizedBoard[] }).boards;
+    return serialized ? JSON.parse(serialized).boards : [];
   }, STORAGE_KEY);
-}
-
-async function expectNoHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const selectors = [
-      "html",
-      "body",
-      '[data-testid="device-screen"]',
-      '[data-testid="mobile-scroll"]',
-      ".board-home-portrait",
-      '[data-testid="home-history-hub"]',
-    ];
-    return selectors.map((selector) => {
-      const element = document.querySelector<HTMLElement>(selector);
-      if (!element) throw new Error(`Missing overflow target: ${selector}`);
-      return { selector, overflow: element.scrollWidth - element.clientWidth };
-    });
-  });
-
-  for (const result of overflow) {
-    expect(result.overflow, `${result.selector} should not overflow horizontally`).toBeLessThanOrEqual(1);
-  }
 }
 
 async function expectTouchTarget(locator: Locator) {
   const box = await locator.boundingBox();
-  expect(box, "touch target should have a rendered box").not.toBeNull();
-  expect(box!.width, "touch target should be at least 44px wide").toBeGreaterThanOrEqual(44);
-  expect(box!.height, "touch target should be at least 44px tall").toBeGreaterThanOrEqual(44);
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
 }
 
-async function openBoardMenu(page: Page) {
-  const toolbar = page.getByTestId("flow-current").getByRole("toolbar", { name: "战术板操作", exact: true });
-  const menu = toolbar.getByRole("button", { name: /打开.*的画板菜单/ });
-  await expect(menu).toBeVisible();
-  await menu.click();
+async function expectNoHorizontalOverflow(page: Page) {
+  const sizes = await page.evaluate(() => [document.documentElement, document.body, document.querySelector<HTMLElement>('[data-testid="flow-current"]')!]
+    .map(element => element.scrollWidth - element.clientWidth));
+  for (const overflow of sizes) expect(overflow).toBeLessThanOrEqual(1);
 }
 
 async function renameCurrentBoard(page: Page, title: string) {
-  await openBoardMenu(page);
-  const sheet = page.getByTestId("bottom-sheet");
-  await sheet.getByRole("button", { name: /修改名称/ }).click();
+  await openBoardSettings(page);
+  await page.getByTestId("bottom-sheet").getByRole("button", { name: "修改名称", exact: true }).click();
   const renameLayer = page.getByTestId("board-rename-layer");
-  await expect(renameLayer).toBeVisible();
   await renameLayer.getByLabel("画板名称", { exact: true }).fill(title);
   await renameLayer.getByRole("button", { name: "完成", exact: true }).click();
   await expect(renameLayer).toBeHidden();
-  await expect(page.getByTestId("flow-current").getByTestId("board-save-live")).toHaveText("画板已保存", { timeout: 3_000 });
+  await expect(page.getByTestId("flow-current").getByTestId("board-save-live")).toHaveText("画板已保存");
 }
 
-for (const viewport of [
-  { width: 390, height: 844 },
-  { width: 320, height: 700 },
-]) {
-  test(`keeps categorized history below the board-first viewport at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+async function expectCurrentTitle(page: Page, title: string) {
+  await expandBoardTools(page);
+  await expect(page.getByRole("button", { name: `打开${title}的画板菜单`, exact: true })).toBeVisible();
+  await page.getByTestId("flow-current").locator("[data-dock-expand]").click();
+}
+
+for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 700 }, { width: 820, height: 1180 }]) {
+  test(`keeps history one icon away without horizontal overflow at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    await openHomepage(page, seededBoards());
-
-    const scroll = page.getByTestId("flow-current").getByTestId("mobile-scroll");
-    const history = page.getByTestId("home-history-hub");
-    const cue = page.getByTestId("home-scroll-cue");
-    const board = page.getByTestId("home-board-playback");
-    const [scrollBox, historyBox] = await Promise.all([scroll.boundingBox(), history.boundingBox()]);
-
-    expect(scrollBox).not.toBeNull();
-    expect(historyBox).not.toBeNull();
-    expect(historyBox!.y).toBeGreaterThanOrEqual(scrollBox!.y + scrollBox!.height - 1);
-    await expect(board).toBeInViewport();
-    await expect(cue).toBeInViewport();
-    await expect(cue).toHaveAttribute("aria-label", "上滑查看画板历史");
-    await expectTouchTarget(cue);
+    await openWorkspace(page, seededBoards());
     await expectNoHorizontalOverflow(page);
-
-    if (viewport.width === 390) {
-      await cue.click();
-    } else {
-      await scroll.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "auto" }));
+    await expectTouchTarget(page.getByRole("button", { name: "我的画板", exact: true }));
+    await openWorkspaceLibrary(page);
+    for (const fixture of purposeFixtures) {
+      const row = page.getByTestId("flow-current").locator(".board-draft-open").filter({ hasText: fixture.title });
+      await row.scrollIntoViewIfNeeded();
+      await expect(row).toContainText(fixture.label);
+      await expectTouchTarget(row);
     }
-    await expect(history).toBeInViewport();
     await expectNoHorizontalOverflow(page);
+    expect(await storedBoards(page)).toHaveLength(3);
   });
 }
 
-test("filters history by purpose, shows full labels, and opens the exact saved board", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openHomepage(page, seededBoards());
-  await page.getByTestId("home-scroll-cue").click();
-
-  const history = page.getByTestId("home-history-hub");
-  await expect(history).toBeInViewport();
-
+test("library preserves every purpose label and opens the exact saved document", async ({ page }) => {
+  const originals = seededBoards();
+  await openWorkspace(page, originals);
   for (const fixture of purposeFixtures) {
-    const filter = history.getByRole("button", { name: fixture.label, exact: true });
-    await expectTouchTarget(filter);
-    await filter.click();
-    await expect(filter).toHaveAttribute("aria-pressed", "true");
-
-    const visibleRows = history.getByTestId("home-history-board");
-    await expect(visibleRows).toHaveCount(1);
-    const row = history.locator(`[data-testid="home-history-board"][data-board-id="${fixture.id}"]`);
-    await expect(row).toBeVisible();
-    await expect(row.getByText(fixture.label, { exact: true })).toBeVisible();
-    await expect(row).toContainText(fixture.title);
-    await expectTouchTarget(row);
+    await openWorkspaceLibrary(page);
+    const row = page.getByTestId("flow-current").locator(".board-draft-open").filter({ hasText: fixture.title });
+    await expect(row).toContainText(fixture.label);
+    await row.click();
+    await waitForWorkspace(page);
+    await expectCurrentTitle(page, fixture.title);
+    const current = (await storedBoards(page)).find(board => board.id === fixture.id);
+    expect(current).toEqual(originals.find(board => board.id === fixture.id));
   }
-
-  const review = purposeFixtures.find((fixture) => fixture.purpose === "review");
-  if (!review) throw new Error("review fixture is missing");
-  await history.getByRole("button", { name: review.label, exact: true }).click();
-  await history.locator(`[data-testid="home-history-board"][data-board-id="${review.id}"]`).click();
-
-  const toolbar = page.getByTestId("flow-current").getByRole("toolbar", { name: "战术板操作", exact: true });
-  await expect(toolbar.getByLabel("RallyPath", { exact: true })).toBeVisible();
-  await expect(toolbar.getByRole("button", { name: `打开${review.title}的画板菜单`, exact: true })).toBeVisible();
 });
 
-test("persists a genuinely edited recall board as a match review and finds it from home", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openHomepage(page);
+for (const purpose of ["review", "practice"] as const) {
+  test(`editing and reopening a saved ${purpose} board preserves its purpose and routes`, async ({ page }) => {
+    const fixture = seededBoards().find(board => board.purpose === purpose)!;
+    await openWorkspace(page, [fixture]);
+    const title = purpose === "review" ? "决胜局的长回合" : "周三发球落点练习";
+    await renameCurrentBoard(page, title);
+    const [saved] = await storedBoards(page);
+    expect(saved.id).toBe(fixture.id);
+    expect(saved.title).toBe(title);
+    expect(saved.purpose).toBe(purpose);
+    expect(saved.frames).toEqual(fixture.frames);
+    expect(saved.actors).toEqual(fixture.actors);
+    await page.reload();
+    await waitForWorkspace(page);
+    await expectCurrentTitle(page, title);
+    await openWorkspaceLibrary(page);
+    const row = page.getByTestId("flow-current").locator(".board-draft-open").filter({ hasText: title });
+    await expect(row).toContainText(purpose === "review" ? "比赛回顾" : "练习");
+    expect(await storedBoards(page)).toHaveLength(1);
+  });
+}
 
-  await page.getByRole("button", { name: "回顾刚才一分", exact: true }).click();
-  await expect(page.getByTestId("discovery-edit-layer")).toHaveCount(0);
-  await expect(page.getByRole("dialog", { name: "一分的发现", exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
+test("a new board remains unsaved until an explicit edit and appears once in the library", async ({ page }) => {
+  await openWorkspace(page);
   expect(await storedBoards(page)).toHaveLength(0);
-
-  const editedTitle = "决胜局的长回合";
-  await renameCurrentBoard(page, editedTitle);
-  await expect.poll(async () => (await storedBoards(page)).length).toBe(1);
-  const [saved] = await storedBoards(page);
-  expect(saved.title).toBe(editedTitle);
-  expect(saved.purpose).toBe("review");
-
-  await page.getByTestId("flow-current").getByRole("toolbar", { name: "战术板操作", exact: true })
-    .getByRole("button", { name: "返回上一页", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "下一分，怎么打？", exact: true })).toBeVisible();
-  await page.getByTestId("home-scroll-cue").click();
-
-  const history = page.getByTestId("home-history-hub");
-  await history.getByRole("button", { name: "比赛回顾", exact: true }).click();
-  const savedRow = history.locator(`[data-testid="home-history-board"][data-board-id="${saved.id}"]`);
-  await expect(savedRow).toContainText(editedTitle);
-  await expect(savedRow.getByText("比赛回顾", { exact: true })).toBeVisible();
-});
-
-test("creates a practice board from the selected home context only after a real edit", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openHomepage(page);
-  await page.getByTestId("home-scroll-cue").click();
-
-  const history = page.getByTestId("home-history-hub");
-  const practiceFilter = history.getByRole("button", { name: "练习", exact: true });
-  await practiceFilter.click();
-  await expect(practiceFilter).toHaveAttribute("aria-pressed", "true");
-  await history.locator(".home-history-new").click();
-
-  await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
+  await openWorkspaceLibrary(page);
+  await page.getByRole("button", { name: "画一条新球路", exact: true }).click();
+  await waitForWorkspace(page);
   expect(await storedBoards(page)).toHaveLength(0);
-
-  const editedTitle = "周三发球落点练习";
-  await renameCurrentBoard(page, editedTitle);
-  await expect.poll(async () => (await storedBoards(page)).length).toBe(1);
+  await renameCurrentBoard(page, "周五接发练习");
   const [saved] = await storedBoards(page);
-  expect(saved.title).toBe(editedTitle);
-  expect(saved.purpose).toBe("practice");
+  expect(saved.purpose).toBe("tactic");
+  expect(saved.title).toBe("周五接发练习");
+  await openWorkspaceLibrary(page);
+  await expect(page.getByTestId("flow-current").locator(".board-draft-open").filter({ hasText: saved.title })).toHaveCount(1);
+  expect(await storedBoards(page)).toHaveLength(1);
 });

@@ -1,3 +1,4 @@
+import { waitForWorkspace } from "./workspace-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { createStarterBoard } from "../src/board/model";
 
@@ -21,7 +22,7 @@ test.beforeEach(async ({ page }) => {
     localStorage.setItem(key, value);
   }, { key: BOARD_KEY, value: JSON.stringify({ version: 1, boards: [starter] }) });
   await page.reload();
-  await page.getByRole("button", { name: `接着画${starter.title}`, exact: true }).tap();
+  await waitForWorkspace(page);
   await expect(current(page).getByTestId("board-canvas")).toBeVisible();
   await expect.poll(() => current(page).evaluate(element => Math.abs(new DOMMatrixReadOnly(getComputedStyle(element).transform).m41))).toBeLessThan(.01);
 });

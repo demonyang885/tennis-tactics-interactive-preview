@@ -1,3 +1,4 @@
+import { waitForWorkspace, expandBoardTools } from "./workspace-navigation";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { BoardDocument, Point } from "../src/board/model";
 import { getBoardGeometry, pointOnBoardPath } from "../src/board/render";
@@ -21,7 +22,7 @@ async function start(page: Page) {
   await page.goto("/");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.locator(".home-plan-primary").click();
+  await waitForWorkspace(page);
   await expect(canvas(page)).toBeVisible();
   await settled(page);
 }
@@ -63,10 +64,11 @@ for (const resume of ["immediately", "after refresh"] as const) {
     const first = await saved(page);
     if (resume === "after refresh") {
       await page.reload();
-      await page.getByRole("button", { name: `接着画${first.title}`, exact: true }).click();
+      await waitForWorkspace(page);
       await settled(page);
     }
     const before = await page.evaluate(key => localStorage.getItem(key), BOARD_KEY);
+    await expandBoardTools(page);
     const undo = current(page).getByRole("button", { name: "撤销", exact: true });
     const redo = current(page).getByRole("button", { name: "重做", exact: true });
     const undoWasEnabled = await undo.isEnabled(), redoWasEnabled = await redo.isEnabled();
@@ -75,6 +77,7 @@ for (const resume of ["immediately", "after refresh"] as const) {
     expect(await saved(page)).toEqual(first);
     expect(await page.evaluate(key => localStorage.getItem(key), BOARD_KEY)).toBe(before);
     await expect(current(page).getByRole("alert")).toContainText("接球");
+    await expandBoardTools(page);
     expect(await undo.isEnabled()).toBe(undoWasEnabled);
     expect(await redo.isEnabled()).toBe(redoWasEnabled);
     // Repeat the mistaken gesture: rejection must not disarm the guard.
@@ -82,6 +85,7 @@ for (const resume of ["immediately", "after refresh"] as const) {
     expect(await saved(page)).toEqual(first);
     expect(await page.evaluate(key => localStorage.getItem(key), BOARD_KEY)).toBe(before);
     if (resume === "immediately") {
+      await expandBoardTools(page);
       await undo.click();
       const empty = await saved(page);
       expect(empty.frames).toHaveLength(1);
@@ -134,6 +138,7 @@ test("keeps explicitly selected previous shot endpoint editing and its undo/redo
   expect(edited.frames[0].paths[0]).toMatchObject({ id: shot.id, kind: "shot", from: shot.from });
   expect(edited.frames[0].paths[0].to[0]).toBeCloseTo(revised[0], 2);
   expect(edited.frames[0].paths[0].to[1]).toBeCloseTo(revised[1], 2);
+  await expandBoardTools(page);
   await current(page).getByRole("button", { name: "撤销", exact: true }).click();
   expect((await saved(page)).frames).toEqual(first.frames);
   await current(page).getByRole("button", { name: "重做", exact: true }).click();

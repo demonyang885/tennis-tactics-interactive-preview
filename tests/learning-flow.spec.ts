@@ -1,3 +1,4 @@
+import { waitForWorkspace, expandBoardTools, openBoardSettings, openWorkspaceLibrary, reopenWorkspaceBoard } from "./workspace-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { confirmBoardDeletion } from "./board-library-helpers";
@@ -146,8 +147,9 @@ const twoBeatPoint: BoardDocument = {
 
 async function waitForFlowSettled(page: Page) {
   await expect(page.getByTestId("flow-current")).toHaveCount(1);
-  await expect.poll(async () => page.getByTestId("flow-current").evaluate((element) => {
-    const transform = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+  await expect.poll(async () => page.getByTestId("flow-current").evaluateAll((elements) => {
+    if (elements.length !== 1) return Infinity;
+    const transform = new DOMMatrixReadOnly(getComputedStyle(elements[0]).transform);
     return Math.abs(transform.m41);
   })).toBeLessThan(1);
 }
@@ -160,7 +162,7 @@ async function seedAndOpenPoint(page: Page, board: BoardDocument = pointBoard) {
     window.localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: BOARD_KEY, board });
   await page.reload();
-  await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await expect(page.getByTestId("board-canvas")).toBeVisible();
   await waitForFlowSettled(page);
 }
@@ -179,7 +181,9 @@ async function seedLegacyObservation(page: Page, note: string, uncertain = false
 }
 
 async function openLearningSheet(page: Page) {
-  await page.getByTestId("flow-current").getByTestId("board-learning-entry").click();
+  await waitForFlowSettled(page);
+  await openBoardSettings(page);
+  await page.getByTestId("board-learning-entry").click();
   const sheet = page.getByRole("dialog", { name: "这分卡在哪？", exact: true });
   await expect(sheet).toBeVisible();
   return sheet;
@@ -193,7 +197,7 @@ async function openSkillChoices(page: Page) {
   return skillSheet;
 }
 
-test("navigation rows omit decorative right chevrons across the home, board and learning surfaces", async ({ page }) => {
+test("navigation rows provide accessible settings and learning actions", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
@@ -202,20 +206,20 @@ test("navigation rows omit decorative right chevrons across the home, board and 
     window.localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
   }, { key: BOARD_KEY, board: twoBeatPoint });
   await page.reload();
-  await expect(page.getByTestId("home-history-board").locator(":scope > svg:last-child")).toHaveCount(0);
-  await expect(page.getByTestId("home-history-board")).toHaveCSS("grid-template-columns", /^\S+ \S+$/);
-  await page.getByRole("button", { name: `接着画${twoBeatPoint.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await waitForFlowSettled(page);
 
-  await page.getByRole("button", { name: `打开${twoBeatPoint.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   const menu = page.getByRole("dialog", { name: "画板菜单", exact: true });
   for (const name of ["修改名称", "保存与分享", "草稿与模板"]) {
-    await expect(menu.getByRole("button", { name }).locator(":scope > svg:last-child")).toHaveCount(0);
-    await expect(menu.getByRole("button", { name })).toHaveCSS("grid-template-columns", /^\S+ \S+$/);
+    await expect(menu.getByRole("button", { name })).toBeEnabled();
+    const bounds = await menu.getByRole("button", { name }).boundingBox();
+    expect(bounds!.height).toBeGreaterThanOrEqual(44);
   }
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: /打开拍次/ }).click();
+  await expandBoardTools(page);
+  await page.locator(".board-dock-tools").getByRole("button", { name: /打开拍次/ }).click();
   const history = page.getByRole("dialog", { name: "拍次", exact: true });
   await expect(history.getByRole("button", { name: /编辑第 2 拍/ }).locator(":scope > svg:last-child")).toHaveCount(0);
   await history.getByRole("button", { name: "关闭拍次", exact: true }).click();
@@ -235,7 +239,7 @@ async function openSkillPractice(page: Page, skillName: string) {
 }
 
 async function openBoardLibrary(page: Page) {
-  await page.getByRole("button", { name: /打开.*的画板菜单/ }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /草稿与模板/ }).click();
   await waitForFlowSettled(page);
   await expect(page.getByRole("heading", { name: "草稿与模板", exact: true })).toBeVisible();
@@ -266,7 +270,7 @@ async function seedLinkedBoardAndOpenLibrary(page: Page) {
     window.localStorage.setItem(followUpKey, JSON.stringify({ version: 1, records: [{ version: 1, id: "observation-linked", boardId: learningBoardId, frameId: "opening", progress: .5, skillId: "recovery", skillLabel: "击球后回位", question: "这次先看：击球以后，能不能先回到下一拍的位置？", note: "回位更早了", uncertain: false, createdAt: "2026-09-20T10:00:00.000Z", updatedAt: "2026-09-20T10:00:00.000Z" }] }));
   }, { boardKey: BOARD_KEY, learningKey: LEARNING_KEY, followUpKey: FOLLOW_UP_KEY, boards: [pointBoard, activeBoard], learningBoardId: pointBoard.id });
   await page.reload();
-  await page.getByRole("button", { name: `接着画${activeBoard.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await waitForFlowSettled(page);
   await openBoardLibrary(page);
 }
@@ -317,18 +321,12 @@ test("pauses all discovery writing entrances while retaining review boards and l
     await expectNoDiscovery();
   };
 
-  await page.getByRole("button", { name: "返回上一页", exact: true }).click();
-  await waitForFlowSettled(page);
+  await openWorkspaceLibrary(page);
   await expectNoDiscovery();
-  await page.getByRole("button", { name: "回顾刚才一分", exact: true }).click();
-  await waitForFlowSettled(page);
-  await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
   await staleDiscoveryRequest();
   await page.getByRole("button", { name: "返回上一页", exact: true }).click();
-  await waitForFlowSettled(page);
-  await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
-  await waitForFlowSettled(page);
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await waitForWorkspace(page);
+  await openBoardSettings(page);
   await expectNoDiscovery();
   await staleDiscoveryRequest();
   await page.keyboard.press("Escape");
@@ -400,25 +398,28 @@ test("does not offer a tactic link before the child draws a point", async ({ pag
   await page.goto("/");
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
-  await page.getByRole("button", { name: "想下一分", exact: true }).click();
+  await waitForWorkspace(page);
   await expect(page.getByTestId("board-canvas")).toBeVisible();
   await expect(page.getByTestId("board-learning-entry")).toHaveCount(0);
 });
 
 test("hides the tactic shortcut during playback and restores it for editing", async ({ page }) => {
   await seedAndOpenPoint(page);
+  await openBoardSettings(page);
   await expect(page.getByTestId("board-learning-entry")).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /播放战术/ }).click();
   await expect(page.getByTestId("board-learning-entry")).toHaveCount(0);
   await page.getByRole("button", { name: "继续修改", exact: true }).click();
+  await openBoardSettings(page);
   await expect(page.getByTestId("board-learning-entry")).toBeVisible();
 });
 
-test("opens tactic choices from the court-side button, not the board menu", async ({ page }) => {
+test("opens contextual tactic choices from board settings", async ({ page }) => {
   await seedAndOpenPoint(page);
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   const menu = page.getByRole("dialog", { name: "画板菜单", exact: true });
-  await expect(menu).not.toContainText("找打法");
+  await expect(menu.getByTestId("board-learning-entry")).toBeVisible();
   await page.keyboard.press("Escape");
   const sheet = await openLearningSheet(page);
   await expect(sheet.getByRole("button", { name: "练一项", exact: true })).toBeVisible();
@@ -441,7 +442,7 @@ test("connects an existing personal point to a skill through normal UI and reope
   expect(stored).toMatchObject({ version: 1, records: [{ boardId: pointBoard.id, route: "skill", skillId: "recovery" }] });
 
   await page.reload();
-  await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await waitForFlowSettled(page);
   const skillSheet = await openSkillChoices(page);
   const savedSkill = skillSheet.locator(".learning-current");
@@ -471,7 +472,7 @@ for (const skill of FIXED_SKILLS) {
     const reopened = await context.newPage();
     await reopened.emulateMedia({ reducedMotion: "reduce" });
     await reopened.goto("/");
-    await reopened.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
+    await waitForWorkspace(reopened);
     await waitForFlowSettled(reopened);
     const choices = await openSkillChoices(reopened);
     await expect(choices.locator(".learning-current")).toContainText(skill.label);
@@ -490,10 +491,11 @@ test("iPad touch can choose a first-stage skill in portrait and recover it in la
       localStorage.setItem(key, JSON.stringify({ version: 1, boards: [board] }));
     }, { key: BOARD_KEY, board: pointBoard });
     await page.reload();
-    await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).tap();
+    await waitForWorkspace(page);
     await expect(page.getByTestId("board-canvas")).toBeVisible();
     await waitForFlowSettled(page);
     const originalBoards = await page.evaluate(key => localStorage.getItem(key), BOARD_KEY);
+    await openBoardSettings(page);
     await page.getByTestId("board-learning-entry").tap();
     await page.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: "练一项" }).tap();
     await page.getByRole("dialog", { name: "这次先练好一件事" }).getByRole("button", { name: /击球后回位/ }).last().tap();
@@ -515,8 +517,9 @@ test("iPad touch can choose a first-stage skill in portrait and recover it in la
     await page.close();
     const reopened = await context.newPage();
     await reopened.goto("/");
-    await reopened.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).tap();
+    await waitForWorkspace(reopened);
     await waitForFlowSettled(reopened);
+    await openBoardSettings(reopened);
     await reopened.getByTestId("board-learning-entry").tap();
     await reopened.getByRole("dialog", { name: "这分卡在哪？" }).getByRole("button", { name: "练一项" }).tap();
     await expect(reopened.getByRole("dialog", { name: "这次先练好一件事" }).locator(".learning-current")).toContainText("击球后回位");
@@ -535,7 +538,7 @@ test("two personal boards keep separate skill choices and do not create empty dr
     localStorage.setItem(key, JSON.stringify({ version: 1, boards }));
   }, { key: BOARD_KEY, boards: [pointBoard, otherBoard] });
   await page.reload();
-  await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await waitForFlowSettled(page);
   await openSkillPractice(page, "击球后回位");
   await chooseCurrentSkill(page, "击球后回位");
@@ -562,8 +565,9 @@ test("two personal boards keep separate skill choices and do not create empty dr
   ].sort());
 
   await page.reload();
-  await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await waitForFlowSettled(page);
+  await reopenWorkspaceBoard(page, pointBoard.title);
   const firstChoice = await openSkillChoices(page);
   await expect(firstChoice.locator(".learning-current")).toContainText("击球后回位");
   await firstChoice.getByRole("button", { name: "关闭下一步" }).click();
@@ -795,7 +799,7 @@ test("recovers linked records after deleting the board and restoring its choice 
   await expect(library.getByText(/已删除/)).toHaveCount(0);
 
   await page.reload();
-  await page.getByRole("button", { name: "接着画仍在打开的画板", exact: true }).click();
+  await waitForWorkspace(page);
   await openBoardLibrary(page);
   await page.getByTestId("flow-current").locator(".board-draft-open").filter({ hasText: pointBoard.title }).click();
   await waitForFlowSettled(page);
@@ -878,7 +882,7 @@ test("imports a linked board backup and reopens its skill from the normal UI", a
   await page.goto("/");
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
-  await page.getByRole("button", { name: "想下一分", exact: true }).click();
+  await waitForWorkspace(page);
   await waitForFlowSettled(page);
   await openBoardLibrary(page);
 
@@ -927,7 +931,7 @@ test("retired discoveries remain in editable backups, copies, and imports withou
     }] }));
   }, { key: DISCOVERY_KEY, boardId: pointBoard.id });
 
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /^保存与分享/ }).click();
   const share = page.getByRole("dialog", { name: "保存与分享", exact: true });
   const downloadPromise = page.waitForEvent("download");
@@ -1016,7 +1020,7 @@ test("board management can read a retired discovery even when an older page remo
   }] });
   await page.evaluate(({ key, value }) => localStorage.setItem(key, value), { key: DISCOVERY_KEY, value: raw });
   await page.reload();
-  await page.getByRole("button", { name: "导入备份", exact: true }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await library.getByRole("button", { name: "查看旧记录" }).click();
@@ -1032,7 +1036,7 @@ test("board management reports a damaged retired record without rewriting its ra
   await page.goto("/");
   await page.evaluate(key => localStorage.setItem(key, "{damaged"), DISCOVERY_KEY);
   await page.reload();
-  await page.getByRole("button", { name: "导入备份", exact: true }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await library.getByRole("button", { name: "查看旧记录" }).click();
@@ -1056,8 +1060,7 @@ test("an interrupted linked backup import leaves no partial board and can be ret
   };
   const file = { name: "interrupted-linked-board.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) };
 
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "导入备份" }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await page.evaluate(key => {
     const original = Storage.prototype.setItem;
@@ -1085,9 +1088,9 @@ test("an interrupted linked backup import leaves no partial board and can be ret
   }), { boardKey: BOARD_KEY, learningKey: LEARNING_KEY, followUpKey: FOLLOW_UP_KEY })).toEqual({ board: null, learning: null, followUp: null });
 
   await page.reload();
-  await expect(page.getByTestId("home-history-hub")).toContainText("0 份");
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "导入备份" }).click();
+  await waitForWorkspace(page);
+  expect(await page.evaluate(key => localStorage.getItem(key), BOARD_KEY)).toBeNull();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await chooseBackup();
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
@@ -1115,8 +1118,7 @@ test("retrying a linked import after cleanup also fails completes the same board
   };
   const file = { name: "retry-partial-board.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) };
 
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "导入备份" }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await page.evaluate(({ boardKey, followUpKey }) => {
     const setItem = Storage.prototype.setItem;
@@ -1149,13 +1151,12 @@ test("retrying a linked import after cleanup also fails completes the same board
   expect(await page.evaluate(key => localStorage.getItem(key), IMPORT_JOURNAL_KEY)).not.toBeNull();
   await page.getByRole("button", { name: "返回上一页", exact: true }).click();
   await waitForFlowSettled(page);
-  await expect(page.getByTestId("home-history-hub")).toContainText("上次导入未完成");
-  await expect(page.getByTestId("home-history-hub").getByTestId("home-history-board")).toHaveCount(0);
+  await expect(page.locator(".board-workspace-status[role=alert]")).toContainText(/未完成|恢复|读不到/);
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await expect(page.getByTestId("home-history-hub")).toContainText("0 份");
-  await expect(page.getByTestId("home-history-hub").getByTestId("home-history-board")).toHaveCount(0);
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "继续导入" }).click();
+  await expect(page.locator(".board-workspace-status[role=alert]")).toContainText(/未完成|恢复|读不到/);
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await expect(page.locator('.board-error-action[role="status"]')).toContainText("重新选择同一份备份继续");
   await expect(page.getByTestId("flow-current").locator(".board-draft-open")).toHaveCount(0);
@@ -1186,11 +1187,10 @@ test("a damaged import marker does not present a possibly partial board as compl
   }, { boardKey: BOARD_KEY, journalKey: IMPORT_JOURNAL_KEY, board: pointBoard });
   await page.reload();
 
-  await expect(page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("home-history-hub").getByTestId("home-history-board")).toHaveCount(0);
-  await page.getByTestId("home-scroll-cue").click();
-  await expect(page.getByTestId("home-history-hub")).toContainText("导入记录异常");
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
+  await expect(page.locator(".board-workspace-status[role=alert]")).toContainText(/未完成|恢复|读不到/);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await expect(page.getByRole("heading", { name: "草稿与模板", exact: true })).toBeVisible();
   const library = page.getByTestId("flow-current");
@@ -1225,10 +1225,9 @@ test("a damaged copy marker offers a complete raw recovery download from the nor
   }, { boardKey: BOARD_KEY, journalKey: COPY_JOURNAL_KEY, board: pointBoard });
   await page.reload();
 
-  await expect(page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true })).toHaveCount(0);
-  await page.getByTestId("home-scroll-cue").click();
-  await expect(page.getByTestId("home-history-hub")).toContainText("另存记录异常");
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
+  await expect(page.locator(".board-workspace-status[role=alert]")).toContainText(/未完成|恢复|读不到/);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await expect(library.locator(".board-draft-open").filter({ hasText: pointBoard.title })).toBeDisabled();
@@ -1257,10 +1256,9 @@ test("opening another tab cannot clean a copy whose board has not been published
 
   const otherTab = await page.context().newPage();
   await otherTab.goto("/");
-  await expect(otherTab.getByTestId("home-history-hub")).toContainText("另存尚未整理完");
-  await expect(otherTab.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true })).toHaveCount(0);
-  await otherTab.getByTestId("home-scroll-cue").click();
-  await otherTab.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(otherTab.locator(".board-workspace-status[role=alert]")).toContainText(/未完成|恢复|读不到/);
+  await expect(otherTab.getByTestId("board-canvas")).toHaveCount(0);
+  await openWorkspaceLibrary(otherTab);
   await waitForFlowSettled(otherTab);
   await otherTab.getByTestId("flow-current").getByRole("button", { name: "重试检查" }).click();
   const duringCopy = await otherTab.evaluate(({ learningKey, journalKey }) => ({
@@ -1297,8 +1295,7 @@ test("a discard confirmation closes when another tab replaces the pending copy",
   }, { boardKey: BOARD_KEY, learningKey: LEARNING_KEY, journalKey: COPY_JOURNAL_KEY,
     board: pointBoard, choices: [firstChoice, nextChoice], marker: first });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await library.getByRole("button", { name: "放弃未完成的副本" }).click();
@@ -1342,9 +1339,8 @@ test("a damaged import title can be repaired only with its original backup witho
     board: { ...pointBoard, id: targetId, title: `${pointBoard.title}（导入）` }, marker: damagedMarker });
   await page.reload();
 
-  await expect(page.getByRole("button", { name: `接着画${pointBoard.title}（导入）`, exact: true })).toHaveCount(0);
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await expect(library.locator(".board-draft-open").filter({ hasText: pointBoard.title })).toBeDisabled();
@@ -1375,7 +1371,7 @@ test("a damaged import title can be repaired only with its original backup witho
   expect(persisted.journal).toBeNull();
 
   await page.reload();
-  await page.getByRole("button", { name: `接着画${pointBoard.title}（导入）`, exact: true }).click();
+  await waitForWorkspace(page);
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
   const skillSheet = await openSkillChoices(page);
   await expect(skillSheet.locator(".learning-current")).toContainText("击球后回位");
@@ -1395,8 +1391,7 @@ test("a damaged import marker cannot attach a backup to a changed target board",
   }, { boardKey: BOARD_KEY, journalKey: IMPORT_JOURNAL_KEY,
     board: { ...pointBoard, id: targetId, title: "我已经改过的画板" }, markerValue: marker });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const chooserPromise = page.waitForEvent("filechooser");
   await page.getByTestId("flow-current").getByRole("button", { name: "选择原备份修复" }).click();
@@ -1425,8 +1420,7 @@ test("repairing a damaged import keeps its marker when final cleanup fails and r
     localStorage.setItem(journalKey, marker);
   }, { journalKey: IMPORT_JOURNAL_KEY, marker: damagedMarker });
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await page.evaluate(key => {
     const original = Storage.prototype.removeItem;
@@ -1450,9 +1444,8 @@ test("repairing a damaged import keeps its marker when final cleanup fails and r
   expect(await page.evaluate(key => (JSON.parse(localStorage.getItem(key) ?? "null") as { boards: BoardDocument[] }).boards[0].id, BOARD_KEY)).toBe(targetId);
 
   await page.reload();
-  await expect(page.getByRole("button", { name: `接着画${pointBoard.title}（导入）`, exact: true })).toHaveCount(0);
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await choose();
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
@@ -1478,10 +1471,9 @@ test("a damaged deletion marker keeps existing boards safe until their links can
   }, { boardKey: BOARD_KEY, journalKey: DELETE_JOURNAL_KEY, board: pointBoard });
   await page.reload();
 
-  await expect(page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true })).toHaveCount(0);
-  await page.getByTestId("home-scroll-cue").click();
-  await expect(page.getByTestId("home-history-hub")).toContainText("删除记录异常");
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
+  await expect(page.locator(".board-workspace-status[role=alert]")).toContainText(/未完成|恢复|读不到/);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await expect(library.locator(".board-draft-open").filter({ hasText: pointBoard.title })).toBeDisabled();
@@ -1506,7 +1498,7 @@ test("a deletion marker with only a damaged title restores links to its existing
   }, { boardKey: BOARD_KEY, journalKey: DELETE_JOURNAL_KEY, board: pointBoard, journal: marker });
   await page.reload();
 
-  await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
   const skillSheet = await openSkillChoices(page);
   await expect(skillSheet.locator(".learning-current")).toContainText("击球后回位");
@@ -1531,9 +1523,8 @@ test("a damaged deletion title remains isolated when the original board is missi
   }, { journalKey: DELETE_JOURNAL_KEY, journal: marker });
   await page.reload();
 
-  await expect(page.getByTestId("home-history-hub")).toContainText("删除记录异常");
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(page.locator(".board-workspace-status[role=alert]")).toContainText(/未完成|恢复|读不到/);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await expect(library.getByRole("button", { name: "导出原始资料" })).toBeVisible();
@@ -1555,9 +1546,8 @@ test("a damaged deletion title cannot restore mismatched linked records", async 
   }, { boardKey: BOARD_KEY, journalKey: DELETE_JOURNAL_KEY, board: pointBoard, journal: marker });
   await page.reload();
 
-  await expect(page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true })).toHaveCount(0);
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await expect(page.getByTestId("flow-current").locator(".board-draft-open").filter({ hasText: pointBoard.title })).toBeDisabled();
   expect(await page.evaluate(({ journalKey, learningKey }) => ({
@@ -1585,9 +1575,8 @@ test("a damaged deletion title keeps the board held when link restoration fails 
     sessionStorage.setItem(flag, "yes");
   }, { boardKey: BOARD_KEY, journalKey: DELETE_JOURNAL_KEY, board: pointBoard, journal: marker, flag: failFlag });
   await page.reload();
-  await expect(page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true })).toHaveCount(0);
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(page.getByTestId("board-canvas")).toHaveCount(0);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await expect(library.locator(".board-draft-open").filter({ hasText: pointBoard.title })).toBeDisabled();
@@ -1610,8 +1599,7 @@ test("an import never starts when its retry record cannot be saved", async ({ pa
   await page.goto("/");
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "导入备份" }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await page.evaluate(key => {
     const original = Storage.prototype.setItem;
@@ -1637,7 +1625,7 @@ test("repeated backup imports remain separate and easy to distinguish", async ({
   await page.goto("/");
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
-  await page.getByRole("button", { name: "想下一分", exact: true }).click();
+  await waitForWorkspace(page);
   await waitForFlowSettled(page);
   await openBoardLibrary(page);
 
@@ -1652,7 +1640,8 @@ test("repeated backup imports remain separate and easy to distinguish", async ({
   const libraryFile = page.getByTestId("flow-current").locator('input[type="file"]');
   await libraryFile.setInputFiles(file);
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
-  await page.getByRole("toolbar", { name: "战术板操作" }).getByRole("button", { name: "返回上一页" }).click();
+  await waitForFlowSettled(page);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   await page.getByTestId("flow-current").locator('input[type="file"]').setInputFiles(file);
   await expect(page.getByTestId("flow-current").getByTestId("board-canvas")).toBeVisible();
@@ -1696,7 +1685,7 @@ test("keeps the selected skill and observation when a personal board is saved as
   await waitForFlowSettled(page);
   await seedLegacyObservation(page, "回位更早了");
 
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   const menu = page.getByRole("dialog", { name: "画板菜单", exact: true });
   await menu.getByRole("button", { name: /^保存与分享/ }).click();
   const saveShare = page.getByRole("dialog", { name: "保存与分享", exact: true });
@@ -1730,7 +1719,7 @@ test("does not expose an incomplete copy when its practice observation cannot be
       return original.call(this, name, value);
     };
   }, FOLLOW_UP_KEY);
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /^保存与分享/ }).click();
   const saveShare = page.getByRole("dialog", { name: "保存与分享", exact: true });
   await saveShare.getByRole("button", { name: /^另存一份/ }).click();
@@ -1745,9 +1734,9 @@ test("does not expose an incomplete copy when its practice observation cannot be
   expect(afterFailure.followUp).toHaveLength(1);
 
   await page.reload();
-  await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await waitForFlowSettled(page);
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /^保存与分享/ }).click();
   await page.getByRole("dialog", { name: "保存与分享", exact: true }).getByRole("button", { name: /^另存一份/ }).click();
   const afterRetry = await page.evaluate(({ boardKey, learningKey, followUpKey }) => ({
@@ -1776,7 +1765,7 @@ test("cleans copied relationships if saving the final copy board fails", async (
       return original.call(this, name, value);
     };
   }, BOARD_KEY);
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /^保存与分享/ }).click();
   const saveShare = page.getByRole("dialog", { name: "保存与分享", exact: true });
   await saveShare.getByRole("button", { name: /^另存一份/ }).click();
@@ -1807,7 +1796,7 @@ test("recovers an orphaned copied choice after both saving and rollback fail", a
       return original.call(this, name, value);
     };
   }, { boardKey: BOARD_KEY, learningKey: LEARNING_KEY });
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /^保存与分享/ }).click();
   const saveShare = page.getByRole("dialog", { name: "保存与分享", exact: true });
   await saveShare.getByRole("button", { name: /^另存一份/ }).click();
@@ -1822,9 +1811,8 @@ test("recovers an orphaned copied choice after both saving and rollback fail", a
   expect(interrupted.pending?.targetId).toBe(interrupted.choices.find((item: { boardId: string }) => item.boardId !== pointBoard.id)?.boardId);
 
   await page.reload();
-  await expect(page.getByTestId("home-history-hub")).toContainText("另存尚未整理完");
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "查看恢复方式" }).click();
+  await expect(page.locator(".board-workspace-status[role=alert]")).toContainText(/未完成|恢复|读不到/);
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await library.getByRole("button", { name: "重试检查" }).click();
@@ -1858,7 +1846,7 @@ test("does not begin a linked copy when its recovery marker cannot be saved", as
       return original.call(this, name, value);
     };
   }, COPY_JOURNAL_KEY);
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /^保存与分享/ }).click();
   const saveShare = page.getByRole("dialog", { name: "保存与分享", exact: true });
   await saveShare.getByRole("button", { name: /^另存一份/ }).click();
@@ -1883,7 +1871,7 @@ test("does not leave the personal board for a skill when the edited point cannot
     };
   }, BOARD_KEY);
 
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /^修改名称/ }).click();
   const rename = page.getByTestId("board-rename-layer");
   await rename.getByRole("textbox", { name: /^画板名称/ }).fill("尚未保存的这一分");
@@ -1908,7 +1896,7 @@ test("recovers an unsaved point from an editable backup after browser storage re
     };
   }, BOARD_KEY);
 
-  await page.getByRole("button", { name: `打开${pointBoard.title}的画板菜单`, exact: true }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /^修改名称/ }).click();
   const rename = page.getByTestId("board-rename-layer");
   await rename.getByRole("textbox", { name: /^画板名称/ }).fill("从备份找回的这一分");
@@ -1916,7 +1904,7 @@ test("recovers an unsaved point from an editable backup after browser storage re
   await expect(page.getByTestId("flow-current").getByTestId("board-save-live")).toHaveText("画板未保存");
   expect(await page.evaluate((key) => window.localStorage.getItem(key), BOARD_KEY)).toBe(original);
 
-  await page.getByRole("button", { name: /打开.*的画板菜单/ }).click();
+  await openBoardSettings(page);
   await page.getByRole("dialog", { name: "画板菜单", exact: true }).getByRole("button", { name: /^保存与分享/ }).click();
   const saveShare = page.getByRole("dialog", { name: "保存与分享", exact: true });
   await expect(saveShare.locator(".board-export-warning")).toContainText("尚未保存");
@@ -1935,7 +1923,7 @@ test("recovers an unsaved point from an editable backup after browser storage re
   await expect(saveShare).not.toContainText("已开始下载");
 
   await page.reload();
-  await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await waitForFlowSettled(page);
   await openBoardLibrary(page);
   await page.getByTestId("flow-current").locator('input[type="file"]').setInputFiles({
@@ -2022,7 +2010,7 @@ test("another tactic starts from the selected beat, saves separately, and surviv
   await expect(compare.getByRole("button", { name: "原来" })).toHaveAttribute("aria-pressed", "true");
 
   await page.reload();
-  await page.getByRole("button", { name: `接着画${pointBoard.title}`, exact: true }).click();
+  await waitForWorkspace(page);
   await page.getByRole("button", { name: /播放战术/ }).click();
   await expect(page.getByRole("group", { name: "比较两条打法" })).toBeVisible();
 });
@@ -2032,7 +2020,8 @@ test("a two-beat point keeps its first beat unchanged when trying a new second b
   await page.setViewportSize({ width: 390, height: 844 });
   await seedAndOpenPoint(page, twoBeatPoint);
   await chooseTacticForPoint(page);
-  await page.getByRole("button", { name: /打开拍次/ }).click();
+  await expandBoardTools(page);
+  await page.locator(".board-dock-tools").getByRole("button", { name: /打开拍次/ }).click();
   const frames = page.getByRole("dialog", { name: "拍次" });
   await frames.getByRole("button", { name: /^编辑第 2 拍/ }).click();
   await page.getByRole("dialog", { name: "第 2 拍" }).getByRole("button", { name: "取消编辑拍次" }).click();
@@ -2053,7 +2042,8 @@ test("a two-beat point keeps its first beat unchanged when trying a new second b
 
   await page.getByRole("button", { name: "返回上一页", exact: true }).click();
   await waitForFlowSettled(page);
-  await page.getByRole("button", { name: /打开拍次/ }).click();
+  await expandBoardTools(page);
+  await page.locator(".board-dock-tools").getByRole("button", { name: /打开拍次/ }).click();
   await page.getByRole("dialog", { name: "拍次" }).getByRole("button", { name: /^编辑第 1 拍/ }).click();
   await page.getByRole("dialog", { name: "第 1 拍" }).getByRole("button", { name: "取消编辑拍次" }).click();
   await clickAuthoredRoute(page);
@@ -2079,10 +2069,7 @@ test("a saved alternative remains reachable after its original point is deleted"
 
   await page.getByRole("button", { name: "返回上一页", exact: true }).click();
   await waitForFlowSettled(page);
-  await page.getByRole("button", { name: "返回上一页", exact: true }).click();
-  await waitForFlowSettled(page);
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "全部画板" }).click();
+  await openWorkspaceLibrary(page);
   await waitForFlowSettled(page);
   const library = page.getByTestId("flow-current");
   await library.getByRole("button", { name: `删除${pointBoard.title}`, exact: true }).click();
@@ -2102,8 +2089,7 @@ test("a saved alternative remains reachable after its original point is deleted"
   expect(await page.evaluate(key => localStorage.getItem(key), BOARD_KEY)).toBeNull();
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? "null")?.records?.length, ALTERNATIVE_KEY)).toBe(1);
   await page.reload();
-  await page.getByTestId("home-scroll-cue").click();
-  await page.getByTestId("home-history-hub").getByRole("button", { name: "导入备份" }).click();
+  await openWorkspaceLibrary(page);
   await expect(page.getByRole("region", { name: "原分已不在本机的试法" })).toBeVisible();
 });
 
@@ -2130,7 +2116,7 @@ test("a failed alternative write stays unsaved until the user retries", async ({
   await page.getByRole("button", { name: "一键改直线", exact: true }).click();
   await expect(page.getByTestId("flow-current").getByTestId("board-save-live")).toContainText("未保存");
   expect(await page.evaluate(key => localStorage.getItem(key), ALTERNATIVE_KEY)).toBeNull();
-  await page.getByRole("button", { name: /打开.*的画板菜单/ }).click();
+  await openBoardSettings(page);
   const menu = page.getByRole("dialog", { name: "画板菜单", exact: true });
   await expect(menu.getByText("保存失败")).toBeVisible();
   await menu.getByRole("button", { name: "重试" }).click();
@@ -2206,7 +2192,7 @@ for (const scenario of representativePoints) {
     expect(after[0].frames).toEqual(original.frames);
 
     await page.reload();
-    await page.getByRole("button", { name: `接着画${board.title}`, exact: true }).click();
+    await waitForWorkspace(page);
     await waitForFlowSettled(page);
     const saved = await openSkillChoices(page);
     await expect(saved.locator(".learning-current")).toContainText(scenario.skillName);
@@ -2270,14 +2256,14 @@ for (const viewport of [{ width: 320, height: 700 }, { width: 390, height: 844 }
   test(`keeps the next-step drawer usable at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await seedAndOpenPoint(page);
+    await openBoardSettings(page);
     const entry = page.getByTestId("board-learning-entry");
-    const canvas = page.getByTestId("board-canvas");
-    const [entryBox, canvasBox] = await Promise.all([entry.boundingBox(), canvas.boundingBox()]);
+    await entry.scrollIntoViewIfNeeded();
+    const entryBox = await entry.boundingBox();
     expect(entryBox).not.toBeNull();
-    expect(canvasBox).not.toBeNull();
     expect(entryBox!.width).toBeGreaterThanOrEqual(44);
-    expect(entryBox!.x + entryBox!.width).toBeCloseTo(canvasBox!.x + canvasBox!.width - 10, 0);
-    expect(entryBox!.y + entryBox!.height).toBeCloseTo(canvasBox!.y + canvasBox!.height - 12, 0);
+    expect(entryBox!.height).toBeGreaterThanOrEqual(44);
+    await page.keyboard.press("Escape");
     const sheet = await openLearningSheet(page);
     const bounds = await sheet.boundingBox();
     expect(bounds).not.toBeNull();
@@ -2287,17 +2273,13 @@ for (const viewport of [{ width: 320, height: 700 }, { width: 390, height: 844 }
   });
 }
 
-test("shows only the complete route at the board lower-right and respects reduced motion", async ({ page }) => {
+test("keeps contextual learning in settings and respects reduced motion", async ({ page }) => {
   await seedAndOpenPoint(page);
-  const entry = page.getByTestId("board-learning-entry");
-  const route = entry.locator(".tactic-finder-route");
-  await expect(entry).toHaveAccessibleName("找打法");
-  await expect(entry).not.toContainText("打法");
-  await expect(route.locator("img")).toHaveAttribute("src", "/assets/branding/rallypath-route-button-v2.png");
-  await expect(entry).toHaveCSS("border-top-width", "0px");
-  await expect(entry).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-  await expect(entry).toHaveCSS("bottom", "12px");
-  await expect(entry).toHaveCSS("right", "10px");
+  await expect(page.getByTestId("board-learning-entry")).toHaveCount(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await openBoardSettings(page);
+  const entry = page.getByTestId("board-learning-entry");
+  await expect(entry).toHaveAccessibleName("找打法");
+  await expect(entry).toContainText("打法参考");
   await expect(entry).toHaveCSS("animation-name", "none");
 });
