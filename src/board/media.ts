@@ -122,7 +122,7 @@ function videoExtension(mimeType: string, fallback: "mp4" | "webm") {
   return fallback;
 }
 
-/** Remove only an untouched, generated v2 editing tail; authored frames stay intact. */
+/** Exclude a generated tail awaiting its shot, including queued response movement. The editable source stays intact. */
 export function prepareBoardForMedia(board: BoardDocument): BoardDocument {
   if (!isUntouchedSmartTail(board)) return board;
   const { smartRally: _smartRally, ...withoutCursor } = board;

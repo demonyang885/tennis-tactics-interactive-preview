@@ -319,6 +319,14 @@ export function getShotDurationForPace(
   return Math.round(bounded(scaled, BOARD_SHOT_MIN_DURATION, BOARD_SHOT_MAX_DURATION) * 100) / 100;
 }
 
+/** The second drag queues a response for the next shot, after an authored recovery.
+ * It stays in the next beat, never replacing or replaying the first leg. */
+export function isPendingResponsePath(path: BoardPath, previous: BoardFrame | undefined, hitterId: string, actors: BoardActor[]): boolean {
+  return path.kind === "move" && path.actorId !== hitterId
+    && actors.some(actor => actor.id === path.actorId && actor.kind === "player")
+    && !!previous?.paths.some(earlier => earlier.kind === "move" && earlier.actorId === path.actorId);
+}
+
 function assertSmartRally(board: BoardDocument, smartRally: BoardSmartRally) {
   if (smartRally.version !== 1 && smartRally.version !== 2) throw new Error("不支援的智慧回合版本");
   if (smartRally.phase !== "shot" && smartRally.phase !== "move") throw new Error("不支援的智慧回合階段");
@@ -336,7 +344,7 @@ function assertSmartRally(board: BoardDocument, smartRally: BoardSmartRally) {
     const frameIndex = board.frames.findIndex((frame) => frame.id === smartRally.frameId);
     const frame = board.frames[frameIndex];
     if (frameIndex !== board.frames.length - 1) throw new Error("同步智慧回合必須指向最後一拍");
-    if (frame.paths.length > 0) throw new Error("同步智慧回合的編輯尾拍不能含有路線");
+    if (!frame.paths.every(path => isPendingResponsePath(path, board.frames[frameIndex - 1], smartRally.hitterId, board.actors))) throw new Error("編輯尾拍只能預存第二段接球跑位");
     const hasEarlierPaths = board.frames.slice(0, frameIndex).some((candidate) => candidate.paths.length > 0);
     const previousHasShot = frameIndex > 0 && board.frames[frameIndex - 1].paths.some(
       (path) => path.actorId === balls[0].id && (path.kind === "shot" || path.kind === "feed"),
@@ -694,13 +702,13 @@ export function getFrameEnd(frame: BoardFrame): Record<string, Point> {
   return poses;
 }
 
-/** Whether the final v2 frame is still the untouched smart-authoring scaffold. */
+/** Whether the final v2 frame is waiting for a shot, possibly with a queued response. */
 export function isUntouchedSmartTail(board: BoardDocument): boolean {
   if (board.frames.length < 2 || board.smartRally?.version !== 2) return false;
   const tail = board.frames.at(-1)!;
   const previous = board.frames.at(-2)!;
   if (board.smartRally.frameId !== tail.id
-    || tail.paths.length > 0
+    || !tail.paths.every(path => isPendingResponsePath(path, previous, board.smartRally!.hitterId, board.actors))
     || tail.marks.length > 0
     || tail.label !== `第 ${board.frames.length} 拍`
     || tail.duration !== (previous.duration || BOARD_DEFAULT_FRAME_DURATION)) return false;

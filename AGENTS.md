@@ -173,3 +173,7 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 ## Optional two-stage authoring — 2026-10-03
 
 - Default to single-stage movement. Put the two-stage switch directly in the board menu and remember the explicit choice on this browser. In guided authoring, adding early recovery requires the switch to be on. Switching modes must not modify or remove existing routes, playback, or undo history. Keep the four opening choices directly in the menu.
+
+## Consecutive movement drags — 2026-10-03
+
+- With two-stage enabled, consecutive drags of the same hitter create early recovery followed by a queued response. Never replace the recovery with the second drag. Both can be authored before the opponent return; the return shot separates playback phases. Preserve pending responses through storage, JSON, undo and refresh; do not play a response before its shot exists. Use route handles to edit an existing first leg.

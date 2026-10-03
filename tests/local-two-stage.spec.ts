@@ -39,25 +39,26 @@ for(const opening of OPENINGS){test(`opening ${opening.id}: roles, ball, first s
   const shot=await saved(page);expect(shot.frames[0].paths[0].kind).toBe('shot');closePoint(shot.frames[0].paths[0].to,landing);
   await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
 });}
-test('two phases, repeat adjustment, undo, cancellation, playback and refresh',async({page})=>{
+test('two consecutive drags preserve both phases, with undo, cancellation, playback and refresh',async({page})=>{
   await start(page);await enableTwoStage(page);await drag(page,[.64,.96],[.7,.25]);
   const shot=(await saved(page)).frames[0].paths[0];
   await drag(page,[.64,.98],[.5,.78]); // optional early recovery
   let b=await saved(page);const me=b.actors.find(a=>a.label==='我方')!,opp=b.actors.find(a=>a.label==='对手')!;
   expect(b.smartRally?.phase).toBe('move');expect(b.frames[0].paths.find(p=>p.kind==='shot')).toEqual(shot);
   closePoint(b.frames[0].paths.find(p=>p.actorId===me.id)!.to,[.5,.78]);
-  await drag(page,[.5,.78],[.56,.81]); // revise, not an extra beat
+  await drag(page,[.5,.78],[.56,.81]); // queue the second leg, never overwrite the first
   b=await saved(page);expect(b.smartRally?.phase).toBe('move');expect(b.frames[0].paths.filter(p=>p.actorId===me.id)).toHaveLength(1);
-  const beforeCancel=b;await drag(page,[.56,.81],[.7,.8],true);expect((await saved(page)).frames).toEqual(beforeCancel.frames);
-  await drag(page,[.30,.07],[.7,.25]);await drag(page,[.7,.25],[.32,.75]);await drag(page,[.56,.81],[.32,.75]);
+  const beforeCancel=b;await drag(page,[.5,.78],[.7,.8],true);expect((await saved(page)).frames).toEqual(beforeCancel.frames);
+  expect(b.frames[1].paths).toHaveLength(1);closePoint(b.frames[1].paths[0].from,[.5,.78]);
+  await drag(page,[.30,.07],[.7,.25]);await drag(page,[.7,.25],[.56,.81]);
   b=await saved(page);expect(b.frames).toHaveLength(3);expect(b.smartRally?.phase).toBe('shot');
   const early=b.frames[0].paths.find(p=>p.actorId===me.id)!,late=b.frames[1].paths.find(p=>p.actorId===me.id)!;
-  closePoint(early.from,[.64,.98]);closePoint(early.to,[.56,.81]);expect(late.from).toEqual(early.to);closePoint(late.to,[.32,.75]);
+  closePoint(early.from,[.64,.98]);closePoint(early.to,[.5,.78]);expect(late.from).toEqual(early.to);closePoint(late.to,[.56,.81]);
   expect(b.frames[0].paths.find(p=>p.actorId===opp.id)).toBeDefined();expect(b.frames[0].paths.find(p=>p.kind==='shot')).toEqual(shot);
   expect(getFramePose(b.frames[0],1)[me.id]).toEqual(getFramePose(b.frames[1],0)[me.id]);
   expect(getFramePose(b.frames[0],.5)[me.id]).not.toEqual(early.from);expect(getFramePose(b.frames[1],.5)[me.id]).not.toEqual(late.from);
   await expect(current(page).getByRole('button',{name:/^播放战术，2 拍/})).toBeVisible();
-  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames[1].paths.filter(p=>p.actorId===me.id)).toEqual([]);
+  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames[1].paths.filter(p=>p.kind==='shot')).toEqual([]);
   await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
   await current(page).getByRole('button',{name:/^播放战术，2 拍/}).click();await expect(current(page).getByTestId('board-playback-dock')).toBeVisible();
   await page.screenshot({path:'output/two-stage-playback.png'});
@@ -137,5 +138,32 @@ test('movement mode defaults to single, guards early recovery and preserves rout
   const final=await saved(page);expect(final.frames).toHaveLength(3);
   expect(final.frames[0].paths.find(p=>p.id===early.frames[0].paths.find(p=>p.kind==='move')!.id)).toEqual(early.frames[0].paths.find(p=>p.kind==='move'));
   expect(final.frames[1].paths.map(p=>p.kind).sort()).toEqual(['move','shot']);
+  await expect(current(page).getByRole('button',{name:/^播放战术，2 拍/})).toBeEnabled();
+});
+test('enabling two-stage after leaving the drawing tool actually resumes route drawing',async({page})=>{
+  await start(page);await drag(page,[.64,.96],[.7,.25]);const initial=await saved(page);
+  await current(page).getByRole('button',{name:'添加对象',exact:true}).click();
+  await page.getByRole('button',{name:'关闭添加面板',exact:true}).click();
+  await enableTwoStage(page);
+  await drag(page,[.64,.98],[.5,.78]);
+  const after=await saved(page),me=after.actors.find(actor=>actor.label==='我方')!;
+  expect(after.frames[0].poses[me.id]).toEqual(initial.frames[0].poses[me.id]);
+  expect(after.frames[0].paths.find(path=>path.actorId===me.id&&path.kind==='move')).toBeDefined();
+  expect(after.frames[0].paths.find(path=>path.kind==='shot')).toEqual(initial.frames[0].paths[0]);
+});
+test('queued second leg survives refresh and JSON and cannot be played before the opponent shot',async({page})=>{
+  await start(page);await enableTwoStage(page);await drag(page,[.64,.96],[.7,.25]);await drag(page,[.64,.98],[.5,.78]);
+  const first=await saved(page),me=first.actors.find(a=>a.label==='我方')!;
+  await drag(page,[.5,.78],[.25,.65]);let b=await saved(page);
+  expect(b.frames[0]).toEqual(first.frames[0]);expect(b.frames[1].paths).toHaveLength(1);
+  closePoint(b.frames[1].paths[0].from,[.5,.78]);closePoint(b.frames[1].paths[0].to,[.25,.65]);
+  await expect(current(page).getByRole('button',{name:/^播放战术，1 拍/})).toBeEnabled();
+  const {parseBoardJSON}=await import('../src/board/validate');expect(parseBoardJSON(JSON.stringify(b))).toEqual({ok:true,value:b});
+  await current(page).getByRole('button',{name:'撤销',exact:true}).click();expect((await saved(page)).frames).toEqual(first.frames);
+  await current(page).getByRole('button',{name:'重做',exact:true}).click();expect((await saved(page)).frames).toEqual(b.frames);
+  await page.reload();await page.getByRole('button',{name:`接着画${b.title}`,exact:true}).click();await expect(canvas(page)).toBeVisible();
+  await page.getByRole('button',{name:'收起跑位提示'}).click();await drag(page,[.3,.07],[.7,.25]);await drag(page,[.7,.25],[.25,.65]);
+  b=await saved(page);expect(b.frames[0].paths.find(p=>p.actorId===me.id)).toEqual(first.frames[0].paths.find(p=>p.actorId===me.id));
+  expect(b.frames[1].paths.find(p=>p.actorId===me.id)?.from).toEqual(b.frames[0].paths.find(p=>p.actorId===me.id)!.to);
   await expect(current(page).getByRole('button',{name:/^播放战术，2 拍/})).toBeEnabled();
 });

@@ -2,6 +2,7 @@ import {
   BOARD_COORDINATE_MAX,
   BOARD_COORDINATE_MIN,
   BOARD_MAX_FRAMES,
+  isPendingResponsePath,
   type BoardActor,
   type BoardAuthoringMode,
   type BoardDocument,
@@ -267,7 +268,7 @@ function parseSmartRally(value: unknown, actors: BoardActor[], frames: BoardFram
     const frameIndex = frames.findIndex((frame) => frame.id === frameId);
     const frame = frames[frameIndex];
     if (frameIndex !== frames.length - 1) invalid("同步智慧回合必須指向最後一拍");
-    if (frame.paths.length > 0) invalid("同步智慧回合的編輯尾拍不能含有路線");
+    if (!frame.paths.every(path => isPendingResponsePath(path, frames[frameIndex - 1], hitterId, actors))) invalid("編輯尾拍只能預存第二段接球跑位");
     const hasEarlierPaths = frames.slice(0, frameIndex).some((candidate) => candidate.paths.length > 0);
     const previousHasShot = frameIndex > 0 && frames[frameIndex - 1].paths.some(
       (path) => path.actorId === balls[0].id && (path.kind === "shot" || path.kind === "feed"),
