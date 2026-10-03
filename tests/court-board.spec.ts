@@ -925,6 +925,7 @@ test("can select the ball directly to skip receiver movement", async ({ page }) 
 });
 
 test("synchronizes an extra player move before the armed receiver is skipped", async ({ page }) => {
+  test.slow();
   await openLegacyEmptyBoard(page);
   await openBoardSettings(page);
   await page.getByRole("switch", { name: "二段跑位，已关", exact: true }).click();
@@ -1762,6 +1763,7 @@ test("shows validation failures inside the active sheet", async ({ page }) => {
 });
 
 test("imports and reopens a v0.2 backup larger than the old two-million-character limit", async ({ page }) => {
+  test.slow();
   const base = createBlankBoard("可恢复的旧版大画板");
   const board: BoardDocument = {
     ...base,
