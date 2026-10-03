@@ -183,3 +183,8 @@ When a composer, search surface, or other input surface closes, call `keyboard.h
 - Supersedes the previous generic consecutive-drag rule. An opening receiver can react then intercept within ONE incoming shot: store an optional movement `via` point in that shot frame, never a new beat. The hitter recovers simultaneously during that same shot, then receives during the opponent return. Prioritize the receiver in authoring prompts.
 - New hitter recovery must not queue another move before the opponent return. Preserve existing v0.3.11 queued responses for compatibility. Preserve legacy curved routes; direct endpoint edits remain available.
 - Display a compact role/stage cue and numbered receiving legs. Keep default single-stage, four direct opening presets, view-only rotation, same isolated trial Site and no GitHub writes.
+
+## Board UI polish — 2026-10-03, v0.3.13
+
+- User accepted movement timing. Keep that logic unchanged; focus on concise guidance and iOS-style translucent grouped menus. Show one role/action cue, a visible native-style two-stage switch, four direct opening actions and short help with optional icon reference.
+- Avoid routine success paragraphs in the main menu. Keep destructive-action consequences, save errors, explicit zone on/off labels and accessible control names. Keep guide dismissal out of player drag origins, including rotated openings. Preserve native sheet scrolling and protected runtime.

@@ -90,11 +90,15 @@ for (const height of [844, 420]) {
         const x = bounds.x + (edge ? 10 : bounds.width / 2), from = bounds.y + bounds.height - 25, to = bounds.y + 20;
         // Start the center gesture on a retained actionable row. A drag must
         // never open rename, including when all menu rows already fit.
+        // Opening presets can place this row below the short viewport. Start
+        // the real gesture on a visible row, never outside the sheet.
+        if (!edge) await sheet.getByRole("button", { name: /^修改名称/ }).scrollIntoViewIfNeeded();
+        const scrollBeforeGesture = await content.evaluate(element => element.scrollTop);
         const row = await sheet.getByRole("button", { name: /^修改名称/ }).boundingBox();
         if (!row) throw new Error("Expected a visible menu row");
         await swipe(page, cdp, x, edge ? from : row.y + row.height - 6, edge ? to : bounds.y + 10);
         if (maximumScroll > 0) {
-          await expect.poll(() => content.evaluate(element => element.scrollTop)).toBeGreaterThan(Math.min(30, maximumScroll) - 1);
+          await expect.poll(() => content.evaluate(element => element.scrollTop)).toBeGreaterThan(scrollBeforeGesture + Math.min(30, maximumScroll - scrollBeforeGesture) - 1);
         } else {
           expect(await content.evaluate(element => element.scrollTop)).toBe(0);
         }
